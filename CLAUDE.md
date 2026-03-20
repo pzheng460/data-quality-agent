@@ -24,13 +24,17 @@ A Python CLI + library for detecting and filtering low-quality LLM training data
 - **`trust_remote_code=True` deprecated in newer HuggingFace datasets lib**: Remove this parameter from all `load_dataset()` calls.
 - **`gopher_repetition` direction reverses on SFT data**: Cleaned Alpaca has LOWER pass rate than original because cleaned responses are longer with more natural phrase repetition. This is expected behavior, not a bug.
 
-### Redundancy Analysis (2026-03-20)
-Identified redundant pipeline steps to be cleaned up:
-1. `length` filter is fully redundant with `gopher_quality.min_words`
-2. `char_repetition` overlaps with n-gram ratios and has algorithm issues
-3. `fineweb.max_dup_line_ratio` duplicates `gopher_repetition.max_dup_line_ratio`
-4. `gopher_quality.max_symbol_ratio` overlaps with `min_alpha_ratio`
-5. Top 2-gram check is too aggressive — 3-gram alone is sufficient
+### Redundancy Analysis (2026-03-20, revised)
+Only one truly redundant step identified:
+1. `length` filter is fully redundant with `gopher_quality.min_words` — can remove `length`
+
+The following were initially flagged but are NOT redundant — they are different methods:
+- `char_repetition` vs `n-gram ratio`: character-level vs word-level, complementary
+- `fineweb.dup_line_ratio` vs `gopher_repetition.dup_line_ratio`: same metric name but from independent papers (Gopher 2021 vs FineWeb 2024), kept for method-level independence
+- `max_symbol_ratio` vs `min_alpha_ratio`: different measurements (symbol words vs alphabetic chars)
+- Top 2/3/4-gram: multi-scale analysis at different granularities, all needed
+
+**Principle**: Each paper's filter suite (Gopher, C4, FineWeb) should remain self-contained. Users may run only one suite. Don't break method independence.
 
 ### Benchmark Reference (2026-03-20, default config, 1000 samples)
 | Filter | Alpaca Original | Alpaca Cleaned | Δ |
