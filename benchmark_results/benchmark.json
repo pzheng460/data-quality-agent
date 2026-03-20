@@ -1,16 +1,48 @@
 {
-  "config_path": null,
-  "num_samples": 1000,
+  "config_path": "configs/sft.yaml",
+  "num_samples": 0,
   "datasets": {
     "Alpaca Original": {
-      "num_docs": 1000,
-      "overall_pass_rate": 0.061,
+      "num_docs": 52002,
+      "overall_pass_rate": 0.1067,
       "per_filter": {
+        "length": {
+          "total": 52002,
+          "passed": 51328,
+          "failed": 674,
+          "pass_rate": 0.987,
+          "sample_failed": [
+            {
+              "text_preview": "Generate a random 8-digit number\n91466267",
+              "reason": {
+                "filter": "length",
+                "reason": "too_short",
+                "value": 6
+              }
+            },
+            {
+              "text_preview": "Input a source of inspiration\nNature",
+              "reason": {
+                "filter": "length",
+                "reason": "too_short",
+                "value": 6
+              }
+            },
+            {
+              "text_preview": "Convert the input into Morse code.\nSOS\n···––––···",
+              "reason": {
+                "filter": "length",
+                "reason": "too_short",
+                "value": 8
+              }
+            }
+          ]
+        },
         "gopher_quality": {
-          "total": 1000,
-          "passed": 447,
-          "failed": 553,
-          "pass_rate": 0.447,
+          "total": 51328,
+          "passed": 24506,
+          "failed": 26822,
+          "pass_rate": 0.4774,
           "sample_failed": [
             {
               "text_preview": "Classify the following phrase \"I am so cold\":\nI am so cold\nThis phrase is an expression of discomfort.",
@@ -39,10 +71,10 @@
           ]
         },
         "gopher_repetition": {
-          "total": 447,
-          "passed": 70,
-          "failed": 377,
-          "pass_rate": 0.1566,
+          "total": 24506,
+          "passed": 5564,
+          "failed": 18942,
+          "pass_rate": 0.227,
           "sample_failed": [
             {
               "text_preview": "Describe an example of a time you used influence in a positive way\nI recently had a team project at work where I had to influence my team members to complete the task in the most efficient way possibl",
@@ -70,81 +102,114 @@
             }
           ]
         },
-        "c4": {
-          "total": 70,
-          "passed": 62,
-          "failed": 8,
-          "pass_rate": 0.8857,
-          "sample_failed": [
-            {
-              "text_preview": "Add a sentence to the end of the given paragraph to bring clarity to the argument.\nHumans have a limited capacity to concentrate and focus on intellectual tasks. This hinders our ability to acquire ne",
-              "reason": {
-                "filter": "c4",
-                "reason": "too_few_sentences",
-                "value": 2
-              }
-            },
-            {
-              "text_preview": "Categorize the following article as science fiction or fantasy\nThe story follows the life of a young man called Max as he travels through space and time to strange planets, searching for a way to save",
-              "reason": {
-                "filter": "c4",
-                "reason": "too_few_sentences",
-                "value": 2
-              }
-            },
-            {
-              "text_preview": "Create a coda for this song.\nVerse 1:\nI used to be so free, my soul untethered\nBut now it's all so clear, I'm lost in this weather\nNever thought I'd be here, weighed down with fear\nVerse 2:\nLightning ",
-              "reason": {
-                "filter": "c4",
-                "reason": "too_few_sentences",
-                "value": 2
-              }
-            }
-          ]
-        },
         "fineweb": {
-          "total": 62,
-          "passed": 61,
-          "failed": 1,
-          "pass_rate": 0.9839,
+          "total": 5564,
+          "passed": 5549,
+          "failed": 15,
+          "pass_rate": 0.9973,
           "sample_failed": [
             {
-              "text_preview": "1. What are the most popular men's fashion trends right now? \n2. How can men determine which styles are most flattering? \n3. What materials are considered to be the most fashionable for menswear?\n4. H",
+              "text_preview": "Generate a list of office supplies that are necessary for a small team of 5 people.\n- 5 laptop computers\n- Network printer\n- Printer paper\n- Ergonomic chairs\n- Desks and filing cabinets\n- Telephone an",
               "reason": {
                 "filter": "fineweb",
                 "reason": "list_document",
-                "value": 1.0
+                "value": 0.9523809523809523
+              }
+            },
+            {
+              "text_preview": "Output a list of brands of pasta.\n- Barilla \n- De Cecco \n- Banza \n- Ancient Harvest \n- Bertolli \n- Ronzoni \n- Devonvale \n- DeLallo \n- La Molisana \n- Mueller’s \n- Buitoni \n- Garofalo \n- Michelina’s \n- ",
+              "reason": {
+                "filter": "fineweb",
+                "reason": "list_document",
+                "value": 0.9523809523809523
+              }
+            },
+            {
+              "text_preview": "List grocery items to buy for the week.\n- Bread \n- Milk \n- Bananas \n- Apples \n- Nuts \n- Cheese \n- Eggs \n- Carrots \n- Tomatoes \n- Lettuce \n- Carrots \n- Fresh herbs \n- Avocado \n- Yogurt \n- Rice \n- Pasta",
+              "reason": {
+                "filter": "fineweb",
+                "reason": "list_document",
+                "value": 0.9523809523809523
               }
             }
           ]
         },
         "pii": {
-          "total": 61,
-          "passed": 61,
+          "total": 5549,
+          "passed": 5549,
           "failed": 0,
           "pass_rate": 1.0,
           "sample_failed": []
         }
       },
       "per_filter_pass_rate": {
-        "gopher_quality": 0.447,
-        "gopher_repetition": 0.1566,
-        "c4": 0.8857,
-        "fineweb": 0.9839,
+        "length": 0.987,
+        "gopher_quality": 0.4774,
+        "gopher_repetition": 0.227,
+        "fineweb": 0.9973,
         "pii": 1.0
       },
       "pipeline_stats": {
-        "total_in": 1000,
-        "total_out": 61,
-        "total_dropped": 939,
-        "overall_drop_rate": 0.939,
+        "total_in": 52002,
+        "total_out": 5549,
+        "total_dropped": 46453,
+        "overall_drop_rate": 0.8933,
         "filters": [
           {
+            "name": "length",
+            "docs_in": 52002,
+            "docs_out": 51328,
+            "docs_dropped": 674,
+            "drop_rate": 0.013,
+            "sample_drops": [
+              {
+                "text_preview": "Generate a random 8-digit number\n91466267",
+                "reason": {
+                  "filter": "length",
+                  "reason": "too_short",
+                  "value": 6
+                }
+              },
+              {
+                "text_preview": "Input a source of inspiration\nNature",
+                "reason": {
+                  "filter": "length",
+                  "reason": "too_short",
+                  "value": 6
+                }
+              },
+              {
+                "text_preview": "Convert the input into Morse code.\nSOS\n···––––···",
+                "reason": {
+                  "filter": "length",
+                  "reason": "too_short",
+                  "value": 8
+                }
+              },
+              {
+                "text_preview": "Multiply 5 and 6.\n30",
+                "reason": {
+                  "filter": "length",
+                  "reason": "too_short",
+                  "value": 5
+                }
+              },
+              {
+                "text_preview": "Automatically generate a random PIN code\n5321",
+                "reason": {
+                  "filter": "length",
+                  "reason": "too_short",
+                  "value": 7
+                }
+              }
+            ]
+          },
+          {
             "name": "gopher_quality",
-            "docs_in": 1000,
-            "docs_out": 447,
-            "docs_dropped": 553,
-            "drop_rate": 0.553,
+            "docs_in": 51328,
+            "docs_out": 24506,
+            "docs_dropped": 26822,
+            "drop_rate": 0.5226,
             "sample_drops": [
               {
                 "text_preview": "Classify the following phrase \"I am so cold\":\nI am so cold\nThis phrase is an expression of discomfort.",
@@ -190,10 +255,10 @@
           },
           {
             "name": "gopher_repetition",
-            "docs_in": 447,
-            "docs_out": 70,
-            "docs_dropped": 377,
-            "drop_rate": 0.8434,
+            "docs_in": 24506,
+            "docs_out": 5564,
+            "docs_dropped": 18942,
+            "drop_rate": 0.773,
             "sample_drops": [
               {
                 "text_preview": "Describe an example of a time you used influence in a positive way\nI recently had a team project at work where I had to influence my team members to complete the task in the most efficient way possibl",
@@ -238,75 +303,58 @@
             ]
           },
           {
-            "name": "c4",
-            "docs_in": 70,
-            "docs_out": 62,
-            "docs_dropped": 8,
-            "drop_rate": 0.1143,
-            "sample_drops": [
-              {
-                "text_preview": "Add a sentence to the end of the given paragraph to bring clarity to the argument.\nHumans have a limited capacity to concentrate and focus on intellectual tasks. This hinders our ability to acquire ne",
-                "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 2
-                }
-              },
-              {
-                "text_preview": "Categorize the following article as science fiction or fantasy\nThe story follows the life of a young man called Max as he travels through space and time to strange planets, searching for a way to save",
-                "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 2
-                }
-              },
-              {
-                "text_preview": "Create a coda for this song.\nVerse 1:\nI used to be so free, my soul untethered\nBut now it's all so clear, I'm lost in this weather\nNever thought I'd be here, weighed down with fear\nVerse 2:\nLightning ",
-                "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 2
-                }
-              },
-              {
-                "text_preview": "List the usage of the given tool\nGoogle Colab\nGoogle Colab is a free cloud service for machine-learning research and development. Some of its uses include: training and deploying machine learning mode",
-                "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 2
-                }
-              },
-              {
-                "text_preview": "Provide a list of items that can be reused or recycled.\n1. Plastic bottles 2. Cardboard boxes 3. Aluminum cans 4. Newspapers 5. Glass jars 6. Clothing 7. Furniture 8. Bicycles 9. Computers 10. Printer",
-                "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 1
-                }
-              }
-            ]
-          },
-          {
             "name": "fineweb",
-            "docs_in": 62,
-            "docs_out": 61,
-            "docs_dropped": 1,
-            "drop_rate": 0.0161,
+            "docs_in": 5564,
+            "docs_out": 5549,
+            "docs_dropped": 15,
+            "drop_rate": 0.0027,
             "sample_drops": [
               {
-                "text_preview": "1. What are the most popular men's fashion trends right now? \n2. How can men determine which styles are most flattering? \n3. What materials are considered to be the most fashionable for menswear?\n4. H",
+                "text_preview": "Generate a list of office supplies that are necessary for a small team of 5 people.\n- 5 laptop computers\n- Network printer\n- Printer paper\n- Ergonomic chairs\n- Desks and filing cabinets\n- Telephone an",
                 "reason": {
                   "filter": "fineweb",
                   "reason": "list_document",
-                  "value": 1.0
+                  "value": 0.9523809523809523
+                }
+              },
+              {
+                "text_preview": "Output a list of brands of pasta.\n- Barilla \n- De Cecco \n- Banza \n- Ancient Harvest \n- Bertolli \n- Ronzoni \n- Devonvale \n- DeLallo \n- La Molisana \n- Mueller’s \n- Buitoni \n- Garofalo \n- Michelina’s \n- ",
+                "reason": {
+                  "filter": "fineweb",
+                  "reason": "list_document",
+                  "value": 0.9523809523809523
+                }
+              },
+              {
+                "text_preview": "List grocery items to buy for the week.\n- Bread \n- Milk \n- Bananas \n- Apples \n- Nuts \n- Cheese \n- Eggs \n- Carrots \n- Tomatoes \n- Lettuce \n- Carrots \n- Fresh herbs \n- Avocado \n- Yogurt \n- Rice \n- Pasta",
+                "reason": {
+                  "filter": "fineweb",
+                  "reason": "list_document",
+                  "value": 0.9523809523809523
+                }
+              },
+              {
+                "text_preview": "Generate a list of skills needed to become a successful entrepreneur.\n- Financial literacy\n- Communication skills\n- problem-solving skills\n- Business acumen\n- Marketing and sales skills\n- Strategic pl",
+                "reason": {
+                  "filter": "fineweb",
+                  "reason": "list_document",
+                  "value": 0.9545454545454546
+                }
+              },
+              {
+                "text_preview": "Generate a list of items and services needed for a summer BBQ party for 50 people.\n• Barbecue Grill \n• Charcoal\n• Matches \n• Disposable Plates \n• Disposable Utensils \n• Napkins \n• Trash Bags \n• Ice\n• ",
+                "reason": {
+                  "filter": "fineweb",
+                  "reason": "list_document",
+                  "value": 0.9782608695652174
                 }
               }
             ]
           },
           {
             "name": "pii",
-            "docs_in": 61,
-            "docs_out": 61,
+            "docs_in": 5549,
+            "docs_out": 5549,
             "docs_dropped": 0,
             "drop_rate": 0.0,
             "sample_drops": []
@@ -315,14 +363,46 @@
       }
     },
     "Alpaca Cleaned": {
-      "num_docs": 1000,
-      "overall_pass_rate": 0.035,
+      "num_docs": 51760,
+      "overall_pass_rate": 0.0879,
       "per_filter": {
+        "length": {
+          "total": 51760,
+          "passed": 51561,
+          "failed": 199,
+          "pass_rate": 0.9962,
+          "sample_failed": [
+            {
+              "text_preview": "Spell the word \"xylophone\".\nX-Y-L-O-P-H-O-N-E",
+              "reason": {
+                "filter": "length",
+                "reason": "too_short",
+                "value": 5
+              }
+            },
+            {
+              "text_preview": "Give me a synonym for the word 'love'.\nAffection.",
+              "reason": {
+                "filter": "length",
+                "reason": "too_short",
+                "value": 9
+              }
+            },
+            {
+              "text_preview": "Create a hashtag for a new marketing campaign.\n#UnleashYourPotential",
+              "reason": {
+                "filter": "length",
+                "reason": "too_short",
+                "value": 9
+              }
+            }
+          ]
+        },
         "gopher_quality": {
-          "total": 1000,
-          "passed": 596,
-          "failed": 404,
-          "pass_rate": 0.596,
+          "total": 51561,
+          "passed": 34116,
+          "failed": 17445,
+          "pass_rate": 0.6617,
           "sample_failed": [
             {
               "text_preview": "Evaluate this sentence for spelling and grammar mistakes\nHe finnished his meal and left the resturant\nThere are two spelling errors in the sentence. The corrected sentence should be: \"He finished his ",
@@ -341,29 +421,21 @@
               }
             },
             {
-              "text_preview": "Generate a list of ten items a person might need for a camping trip\nHere are ten items a person might need for a camping trip:\n\n1. Tent - to provide shelter and protection from the elements\n2. Sleepin",
+              "text_preview": "Classify the following into animals, plants, and minerals\nOak tree, copper ore, elephant\nAnimals: Elephant\nPlants: Oak tree\nMinerals: Copper ore",
               "reason": {
                 "filter": "gopher_quality",
-                "reason": "low_terminal_punct",
-                "value": 0.08333333333333333
+                "reason": "too_few_words",
+                "value": 21
               }
             }
           ]
         },
         "gopher_repetition": {
-          "total": 596,
-          "passed": 40,
-          "failed": 556,
-          "pass_rate": 0.0671,
+          "total": 34116,
+          "passed": 4606,
+          "failed": 29510,
+          "pass_rate": 0.135,
           "sample_failed": [
-            {
-              "text_preview": "Give three tips for staying healthy.\n1. Eat a balanced and nutritious diet: Make sure your meals are inclusive of a variety of fruits and vegetables, lean protein, whole grains, and healthy fats. This",
-              "reason": {
-                "filter": "gopher_repetition",
-                "reason": "high_char_repetition",
-                "value": 0.21491782553729458
-              }
-            },
             {
               "text_preview": "What are the three primary colors?\nThe three primary colors are red, blue, and yellow. These colors are called primary because they cannot be created by mixing other colors and all other colors can be",
               "reason": {
@@ -379,84 +451,125 @@
                 "reason": "high_char_repetition",
                 "value": 1.0
               }
-            }
-          ]
-        },
-        "c4": {
-          "total": 40,
-          "passed": 36,
-          "failed": 4,
-          "pass_rate": 0.9,
-          "sample_failed": [
-            {
-              "text_preview": "Generate a poem that expresses joy.\nA burst of laughter, a sprinkle of cheer\nMoments of joy that we hold so dear\nA leap of faith, a smile so wide\nA feeling of warmth that blooms inside\n\nThe sun shinin",
-              "reason": {
-                "filter": "c4",
-                "reason": "too_few_sentences",
-                "value": 2
-              }
             },
             {
-              "text_preview": "Design a post for a social media account to promote the following product\nFresh fruit smoothie\n🍓🍌🍊Say hello to our freshly blended Fruit Smoothie!🍊🍌🍓 \n\nQuench your thirst and nourish your body with ou",
+              "text_preview": "How can we reduce air pollution?\nThere are several ways to reduce air pollution, including:\n\n1. Reduce energy consumption: By conserving energy, we reduce the amount of pollution emitted from power pl",
               "reason": {
-                "filter": "c4",
-                "reason": "too_few_sentences",
-                "value": 2
-              }
-            },
-            {
-              "text_preview": "Name something you can do with paper.\nWith paper, you can write or draw on it, fold it to create origami art, use it to wrap gifts, create paper mache crafts, make paper airplanes, use it as a base fo",
-              "reason": {
-                "filter": "c4",
-                "reason": "too_few_sentences",
-                "value": 2
+                "filter": "gopher_repetition",
+                "reason": "high_char_repetition",
+                "value": 0.6708160442600276
               }
             }
           ]
         },
         "fineweb": {
-          "total": 36,
-          "passed": 35,
-          "failed": 1,
-          "pass_rate": 0.9722,
+          "total": 4606,
+          "passed": 4551,
+          "failed": 55,
+          "pass_rate": 0.9881,
           "sample_failed": [
             {
-              "text_preview": "Generate a list of fashion trends for Spring 2021.\n1. Oversized Boyfriend Jackets: Pairing this trend with tailored pieces, such as trousers or a structured skirt, would give a chic well put-together ",
+              "text_preview": "Generate a set of 100 words for a baby shower word search\n1. Baby\n2. Shower\n3. Diaper\n4. Bottle\n5. Blanket\n6. Stroller\n7. Crib\n8. Pacifier\n9. Bib\n10. Onesie\n11. Rattle\n12. Cradle\n13. Swaddle\n14. Formu",
               "reason": {
                 "filter": "fineweb",
                 "reason": "list_document",
-                "value": 0.9090909090909091
+                "value": 0.9900990099009901
+              }
+            },
+            {
+              "text_preview": "Generate a list of famous singers\n1. Beyoncé\n2. Taylor Swift\n3. Ariana Grande\n4. Justin Bieber\n5. Lady Gaga\n6. Ed Sheeran\n7. Rihanna\n8. Adele\n9. Bruno Mars\n10. Shawn Mendes\n11. Katy Perry\n12. Billie E",
+              "reason": {
+                "filter": "fineweb",
+                "reason": "list_document",
+                "value": 0.9523809523809523
+              }
+            },
+            {
+              "text_preview": "Assemble a list of adjectives to describe someone's voice\n1. Raspy \n2. Gentle\n3. Smooth \n4. Deep \n5. Silky\n6. Husky \n7. Melodic\n8. Gravelly \n9. Soft \n10. Warm \n11. Pleasant \n12. Clear \n13. Sharp \n14. ",
+              "reason": {
+                "filter": "fineweb",
+                "reason": "list_document",
+                "value": 0.9615384615384616
               }
             }
           ]
         },
         "pii": {
-          "total": 35,
-          "passed": 35,
+          "total": 4551,
+          "passed": 4551,
           "failed": 0,
           "pass_rate": 1.0,
           "sample_failed": []
         }
       },
       "per_filter_pass_rate": {
-        "gopher_quality": 0.596,
-        "gopher_repetition": 0.0671,
-        "c4": 0.9,
-        "fineweb": 0.9722,
+        "length": 0.9962,
+        "gopher_quality": 0.6617,
+        "gopher_repetition": 0.135,
+        "fineweb": 0.9881,
         "pii": 1.0
       },
       "pipeline_stats": {
-        "total_in": 1000,
-        "total_out": 35,
-        "total_dropped": 965,
-        "overall_drop_rate": 0.965,
+        "total_in": 51760,
+        "total_out": 4551,
+        "total_dropped": 47209,
+        "overall_drop_rate": 0.9121,
         "filters": [
           {
+            "name": "length",
+            "docs_in": 51760,
+            "docs_out": 51561,
+            "docs_dropped": 199,
+            "drop_rate": 0.0038,
+            "sample_drops": [
+              {
+                "text_preview": "Spell the word \"xylophone\".\nX-Y-L-O-P-H-O-N-E",
+                "reason": {
+                  "filter": "length",
+                  "reason": "too_short",
+                  "value": 5
+                }
+              },
+              {
+                "text_preview": "Give me a synonym for the word 'love'.\nAffection.",
+                "reason": {
+                  "filter": "length",
+                  "reason": "too_short",
+                  "value": 9
+                }
+              },
+              {
+                "text_preview": "Create a hashtag for a new marketing campaign.\n#UnleashYourPotential",
+                "reason": {
+                  "filter": "length",
+                  "reason": "too_short",
+                  "value": 9
+                }
+              },
+              {
+                "text_preview": "Find the synonym for the given verb.\nDiscontinue\nTerminate",
+                "reason": {
+                  "filter": "length",
+                  "reason": "too_short",
+                  "value": 9
+                }
+              },
+              {
+                "text_preview": "Edit the sentence: \"I likes reading\"\nI like reading.",
+                "reason": {
+                  "filter": "length",
+                  "reason": "too_short",
+                  "value": 9
+                }
+              }
+            ]
+          },
+          {
             "name": "gopher_quality",
-            "docs_in": 1000,
-            "docs_out": 596,
-            "docs_dropped": 404,
-            "drop_rate": 0.404,
+            "docs_in": 51561,
+            "docs_out": 34116,
+            "docs_dropped": 17445,
+            "drop_rate": 0.3383,
             "sample_drops": [
               {
                 "text_preview": "Evaluate this sentence for spelling and grammar mistakes\nHe finnished his meal and left the resturant\nThere are two spelling errors in the sentence. The corrected sentence should be: \"He finished his ",
@@ -475,14 +588,6 @@
                 }
               },
               {
-                "text_preview": "Generate a list of ten items a person might need for a camping trip\nHere are ten items a person might need for a camping trip:\n\n1. Tent - to provide shelter and protection from the elements\n2. Sleepin",
-                "reason": {
-                  "filter": "gopher_quality",
-                  "reason": "low_terminal_punct",
-                  "value": 0.08333333333333333
-                }
-              },
-              {
                 "text_preview": "Classify the following into animals, plants, and minerals\nOak tree, copper ore, elephant\nAnimals: Elephant\nPlants: Oak tree\nMinerals: Copper ore",
                 "reason": {
                   "filter": "gopher_quality",
@@ -491,30 +596,30 @@
                 }
               },
               {
-                "text_preview": "Refactor this code and add comments.\ndef factorialize(num):\n  factorial = 1\n  for i in range(1, num):\n    factorial *= i\n  \n  return factorial\n```\n# This is a function that calculates the factorial of",
+                "text_preview": "Generate three verbs that mean the same as \"to apologize\"\n1. To express regret\n2. To atone\n3. To make amends",
                 "reason": {
                   "filter": "gopher_quality",
-                  "reason": "low_terminal_punct",
-                  "value": 0.05555555555555555
+                  "reason": "too_few_words",
+                  "value": 21
+                }
+              },
+              {
+                "text_preview": "What does DNA stand for?\nDNA stands for Deoxyribonucleic Acid. It is the molecule that carries the genetic instructions used in the growth, development, functioning, and reproduction of all living org",
+                "reason": {
+                  "filter": "gopher_quality",
+                  "reason": "too_few_words",
+                  "value": 31
                 }
               }
             ]
           },
           {
             "name": "gopher_repetition",
-            "docs_in": 596,
-            "docs_out": 40,
-            "docs_dropped": 556,
-            "drop_rate": 0.9329,
+            "docs_in": 34116,
+            "docs_out": 4606,
+            "docs_dropped": 29510,
+            "drop_rate": 0.865,
             "sample_drops": [
-              {
-                "text_preview": "Give three tips for staying healthy.\n1. Eat a balanced and nutritious diet: Make sure your meals are inclusive of a variety of fruits and vegetables, lean protein, whole grains, and healthy fats. This",
-                "reason": {
-                  "filter": "gopher_repetition",
-                  "reason": "high_char_repetition",
-                  "value": 0.21491782553729458
-                }
-              },
               {
                 "text_preview": "What are the three primary colors?\nThe three primary colors are red, blue, and yellow. These colors are called primary because they cannot be created by mixing other colors and all other colors can be",
                 "reason": {
@@ -546,71 +651,70 @@
                   "reason": "high_char_repetition",
                   "value": 1.0
                 }
-              }
-            ]
-          },
-          {
-            "name": "c4",
-            "docs_in": 40,
-            "docs_out": 36,
-            "docs_dropped": 4,
-            "drop_rate": 0.1,
-            "sample_drops": [
-              {
-                "text_preview": "Generate a poem that expresses joy.\nA burst of laughter, a sprinkle of cheer\nMoments of joy that we hold so dear\nA leap of faith, a smile so wide\nA feeling of warmth that blooms inside\n\nThe sun shinin",
-                "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 2
-                }
               },
               {
-                "text_preview": "Design a post for a social media account to promote the following product\nFresh fruit smoothie\n🍓🍌🍊Say hello to our freshly blended Fruit Smoothie!🍊🍌🍓 \n\nQuench your thirst and nourish your body with ou",
+                "text_preview": "Write a concise summary of the following:\n\"Commodore 64 (commonly known as the C64 or CBM 64) was manufactured by Commodore Business Machine (CBM) in August 1982 with a starting price of $595. It was ",
                 "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 2
-                }
-              },
-              {
-                "text_preview": "Name something you can do with paper.\nWith paper, you can write or draw on it, fold it to create origami art, use it to wrap gifts, create paper mache crafts, make paper airplanes, use it as a base fo",
-                "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 2
-                }
-              },
-              {
-                "text_preview": "Generate a list of items related to the topic given.\nScuba diving\n- Wetsuit\n- Dive mask\n- Snorkel\n- Fins\n- Buoyancy control device (BCD)\n- Regulator\n- Scuba tank\n- Dive computer\n- Dive weights\n- Dive ",
-                "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 2
+                  "filter": "gopher_repetition",
+                  "reason": "high_char_repetition",
+                  "value": 1.0
                 }
               }
             ]
           },
           {
             "name": "fineweb",
-            "docs_in": 36,
-            "docs_out": 35,
-            "docs_dropped": 1,
-            "drop_rate": 0.0278,
+            "docs_in": 4606,
+            "docs_out": 4551,
+            "docs_dropped": 55,
+            "drop_rate": 0.0119,
             "sample_drops": [
               {
-                "text_preview": "Generate a list of fashion trends for Spring 2021.\n1. Oversized Boyfriend Jackets: Pairing this trend with tailored pieces, such as trousers or a structured skirt, would give a chic well put-together ",
+                "text_preview": "Generate a set of 100 words for a baby shower word search\n1. Baby\n2. Shower\n3. Diaper\n4. Bottle\n5. Blanket\n6. Stroller\n7. Crib\n8. Pacifier\n9. Bib\n10. Onesie\n11. Rattle\n12. Cradle\n13. Swaddle\n14. Formu",
                 "reason": {
                   "filter": "fineweb",
                   "reason": "list_document",
-                  "value": 0.9090909090909091
+                  "value": 0.9900990099009901
+                }
+              },
+              {
+                "text_preview": "Generate a list of famous singers\n1. Beyoncé\n2. Taylor Swift\n3. Ariana Grande\n4. Justin Bieber\n5. Lady Gaga\n6. Ed Sheeran\n7. Rihanna\n8. Adele\n9. Bruno Mars\n10. Shawn Mendes\n11. Katy Perry\n12. Billie E",
+                "reason": {
+                  "filter": "fineweb",
+                  "reason": "list_document",
+                  "value": 0.9523809523809523
+                }
+              },
+              {
+                "text_preview": "Assemble a list of adjectives to describe someone's voice\n1. Raspy \n2. Gentle\n3. Smooth \n4. Deep \n5. Silky\n6. Husky \n7. Melodic\n8. Gravelly \n9. Soft \n10. Warm \n11. Pleasant \n12. Clear \n13. Sharp \n14. ",
+                "reason": {
+                  "filter": "fineweb",
+                  "reason": "list_document",
+                  "value": 0.9615384615384616
+                }
+              },
+              {
+                "text_preview": "Come up with a list of vocabulary words related to web development.\n1. HTML\n2. CSS\n3. JavaScript\n4. Website\n5. SEO\n6. Browser\n7. Backend\n8. Frontend\n9. HTTP\n10. Domain name\n11. Hosting\n12. User Interf",
+                "reason": {
+                  "filter": "fineweb",
+                  "reason": "list_document",
+                  "value": 0.9523809523809523
+                }
+              },
+              {
+                "text_preview": "Give examples of items that can be recycled.\n1. Paper\n2. Cardboard\n3. Plastic bottles\n4. Aluminum cans\n5. Glass bottles and jars\n6. Steel cans\n7. Newspaper\n8. Magazines\n9. Office paper\n10. Junk mail\n1",
+                "reason": {
+                  "filter": "fineweb",
+                  "reason": "list_document",
+                  "value": 0.9523809523809523
                 }
               }
             ]
           },
           {
             "name": "pii",
-            "docs_in": 35,
-            "docs_out": 35,
+            "docs_in": 4551,
+            "docs_out": 4551,
             "docs_dropped": 0,
             "drop_rate": 0.0,
             "sample_drops": []
@@ -620,21 +724,21 @@
     }
   },
   "discrimination": {
-    "c4": {
-      "delta": 0.0143,
-      "verdict": "— No signal"
-    },
     "fineweb": {
-      "delta": 0.0116,
+      "delta": 0.0092,
       "verdict": "— No signal"
     },
     "gopher_quality": {
-      "delta": 0.149,
+      "delta": 0.1842,
       "verdict": "✅ Discriminates"
     },
     "gopher_repetition": {
-      "delta": 0.0895,
+      "delta": 0.092,
       "verdict": "✅ Discriminates"
+    },
+    "length": {
+      "delta": 0.0091,
+      "verdict": "— No signal"
     },
     "pii": {
       "delta": 0.0,
