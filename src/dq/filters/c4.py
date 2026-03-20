@@ -102,7 +102,9 @@ class C4Filter(BaseFilter):
         if self.remove_curly_brace and "{" in text:
             failures.append({"filter": self.name, "rule": "curly_brace", "value": True, "threshold": False})
 
-        # Line-level filtering
+        # Line-level filtering (C4 removes lines, doesn't reject docs)
+        # These are cleaning operations, not reject reasons.
+        # Only report as failure if they CAUSE empty_after_line_filter or min_sentences.
         lines = text.split("\n")
         kept_lines = []
         js_removed = 0
@@ -124,19 +126,33 @@ class C4Filter(BaseFilter):
                 continue
             kept_lines.append(line)
 
-        if js_removed > 0:
-            failures.append({"filter": self.name, "rule": "javascript_lines", "value": js_removed, "threshold": 0})
-        if policy_removed > 0:
-            failures.append({"filter": self.name, "rule": "policy_lines", "value": policy_removed, "threshold": 0})
-        if no_punct_removed > 0:
-            failures.append({"filter": self.name, "rule": "no_terminal_punct_lines", "value": no_punct_removed, "threshold": 0})
-
         cleaned = "\n".join(kept_lines).strip()
         if not cleaned:
-            failures.append({"filter": self.name, "rule": "empty_after_line_filter", "value": 0, "threshold": 1})
+            # Doc is empty after line removal — THIS is the reject reason
+            # Include which line-cleaning rules contributed
+            reason = "empty_after_line_filter"
+            contributors = []
+            if js_removed > 0:
+                contributors.append(f"javascript({js_removed})")
+            if policy_removed > 0:
+                contributors.append(f"policy({policy_removed})")
+            if no_punct_removed > 0:
+                contributors.append(f"no_terminal_punct({no_punct_removed})")
+            detail = ", ".join(contributors) if contributors else "all lines empty"
+            failures.append({"filter": self.name, "rule": reason, "value": detail, "threshold": "non-empty"})
 
         sentences = _SENTENCE_RE.findall(cleaned) if cleaned else []
-        if len(sentences) < self.min_sentences:
-            failures.append({"filter": self.name, "rule": "min_sentences", "value": len(sentences), "threshold": self.min_sentences})
+        if cleaned and len(sentences) < self.min_sentences:
+            # Not enough sentences after cleaning — include contributing factors
+            reason = "min_sentences"
+            contributors = []
+            if no_punct_removed > 0:
+                contributors.append(f"no_terminal_punct_removed({no_punct_removed})")
+            if js_removed > 0:
+                contributors.append(f"javascript_removed({js_removed})")
+            if policy_removed > 0:
+                contributors.append(f"policy_removed({policy_removed})")
+            detail = f"sentences={len(sentences)}" + (f" after removing {', '.join(contributors)}" if contributors else "")
+            failures.append({"filter": self.name, "rule": reason, "value": detail, "threshold": self.min_sentences})
 
         return len(failures) == 0, failures
