@@ -23,7 +23,7 @@ pipeline:
         max_top_4gram: 0.16
         max_dup_line_ratio: 0.30
         max_dup_para_ratio: 0.30
-        max_char_repetition: 0.20
+        max_char_repetition: 0.40
 
     - name: c4
       params:

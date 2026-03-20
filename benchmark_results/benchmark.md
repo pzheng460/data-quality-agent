@@ -1,16 +1,15 @@
 # Data Quality Benchmark: Alpaca Original vs Alpaca Cleaned
 
-**Samples per dataset**: all
-**Config**: `configs/sft.yaml`
+**Samples per dataset**: 1000
 
 | Filter | Alpaca Original | Alpaca Cleaned | Δ | Verdict |
 |--------|--------|--------|--------|--------|
-| length | 98.7% | 99.6% | +0.9% | — No signal |
-| gopher_quality | 47.7% | 66.2% | +18.4% | ✅ Discriminates |
-| gopher_repetition | 22.7% | 13.5% | +9.2% | ✅ Discriminates |
-| fineweb | 99.7% | 98.8% | +0.9% | — No signal |
+| gopher_quality | 44.7% | 59.6% | +14.9% | ✅ Discriminates |
+| gopher_repetition | 32.2% | 19.3% | +12.9% | ✅ Discriminates |
+| c4 | 93.1% | 94.8% | +1.7% | — No signal |
+| fineweb | 97.0% | 96.3% | +0.7% | — No signal |
 | pii | 100.0% | 100.0% | +0.0% | — No signal |
-| **Overall pipeline** | **10.7%** | **8.8%** | **+1.9%** | **— No signal** |
+| **Overall pipeline** | **13.0%** | **10.5%** | **+2.5%** | **⚠️ Weak signal** |
 
 ### Legend
 
@@ -22,7 +21,7 @@
 
 Documents that **fail** in the original dataset (issues the cleaning addressed):
 
-#### gopher_quality — failed 26822/51328
+#### gopher_quality — failed 553/1000
 
 1. `Classify the following phrase "I am so cold": I am so cold This phrase is an expression of discomfort....`
    - Reason: `filter=gopher_quality`, `reason=too_few_words`, `value=19`
@@ -31,11 +30,11 @@ Documents that **fail** in the original dataset (issues the cleaning addressed):
 3. `Transform the sentence so that it uses direct quotations. The speaker said that education was important. The speaker said, “Education is important.”...`
    - Reason: `filter=gopher_quality`, `reason=too_few_words`, `value=22`
 
-#### gopher_repetition — failed 18942/24506
+#### gopher_repetition — failed 303/447
 
-1. `Describe an example of a time you used influence in a positive way I recently had a team project at work where I had to influence my team members to c...`
-   - Reason: `filter=gopher_repetition`, `reason=high_char_repetition`, `value=0.32934131736526945`
-2. `Examine the differences between an LLC and a C-corporation. An LLC and a C-corporation are two different legal structures used for businesses.   LLCs ...`
+1. `Examine the differences between an LLC and a C-corporation. An LLC and a C-corporation are two different legal structures used for businesses.   LLCs ...`
    - Reason: `filter=gopher_repetition`, `reason=high_char_repetition`, `value=1.0`
-3. `Generate a single sentence that summarizes the effects of the given policy. Policy: Tax credits for businesses investing in renewable energy Tax credi...`
+2. `Generate a single sentence that summarizes the effects of the given policy. Policy: Tax credits for businesses investing in renewable energy Tax credi...`
    - Reason: `filter=gopher_repetition`, `reason=high_char_repetition`, `value=1.0`
+3. `How can cities become more eco-friendly? Cities can become more eco-friendly by encouraging public transportation, promoting green building standards ...`
+   - Reason: `filter=gopher_repetition`, `reason=high_char_repetition`, `value=0.6451612903225806`

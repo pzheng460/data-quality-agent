@@ -16,6 +16,8 @@ pipeline:
 
     - name: gopher_quality
       params:
+        min_words: 10             # SFT data is short — lower threshold
+        max_words: 50000
         min_avg_word_len: 2
         max_avg_word_len: 15
         max_symbol_ratio: 0.3     # Code has more symbols
@@ -30,7 +32,7 @@ pipeline:
         max_top_4gram: 0.20
         max_dup_line_ratio: 0.40
         max_dup_para_ratio: 0.40
-        max_char_repetition: 0.30
+        max_char_repetition: 1.0  # Disabled for SFT — char n-gram repetition is designed for long pre-training docs
 
     - name: fineweb
       params:

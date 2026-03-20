@@ -103,7 +103,7 @@ class GopherRepetitionFilter(BaseFilter):
         max_top_4gram: float = 0.16,
         max_dup_line_ratio: float = 0.30,
         max_dup_para_ratio: float = 0.30,
-        max_char_repetition: float = 0.20,
+        max_char_repetition: float = 0.40,
         **kwargs: Any,
     ) -> None:
         super().__init__(text_field=text_field, **kwargs)
