@@ -2,6 +2,7 @@
 
 import csv
 import json
+import random
 from pathlib import Path
 from typing import Iterator
 
@@ -82,6 +83,48 @@ def read_docs(path: str | Path) -> Iterator[dict]:
     else:
         # Default to jsonl
         yield from read_jsonl(path)
+
+
+def count_lines(path: str | Path) -> int:
+    """Fast line count for JSONL files (without parsing JSON)."""
+    count = 0
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                count += 1
+    return count
+
+
+def sample_docs(
+    path: str | Path,
+    n: int,
+    seed: int = 42,
+) -> list[dict]:
+    """Reservoir sampling: randomly sample n docs from a file without loading all into memory.
+
+    Uses reservoir sampling (Vitter's Algorithm R) — O(n) memory regardless of file size.
+    Works with jsonl, parquet, csv.
+
+    Args:
+        path: Path to data file.
+        n: Number of samples to draw.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        List of n randomly sampled documents (or all docs if file has fewer than n).
+    """
+    rng = random.Random(seed)
+    reservoir: list[dict] = []
+
+    for i, doc in enumerate(read_docs(path)):
+        if i < n:
+            reservoir.append(doc)
+        else:
+            j = rng.randint(0, i)
+            if j < n:
+                reservoir[j] = doc
+
+    return reservoir
 
 
 def write_docs(docs: Iterator[dict], path: str | Path) -> int:

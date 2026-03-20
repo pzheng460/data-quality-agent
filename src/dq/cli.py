@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.table import Table
 
 from dq.config import PipelineConfig
-from dq.utils.io import read_docs, write_docs
+from dq.utils.io import count_lines, read_docs, sample_docs, write_docs
 from dq.utils.stats import avg_word_length, word_count
 
 console = Console()
@@ -34,8 +34,10 @@ def main():
 @click.option("--report-dir", type=click.Path(), help="Directory for report files")
 @click.option("--progress/--no-progress", default=True, help="Show progress bar")
 @click.option("--with-model-filters", is_flag=True, default=False, help="Enable model-based filters")
+@click.option("-s", "--sample", "sample_size", type=int, default=0, help="Random sample N docs (0 = all)")
+@click.option("--seed", default=42, type=int, help="Random seed for sampling")
 def run(input_path: str, config_path: str | None, output_path: str, report_dir: str | None,
-        progress: bool, with_model_filters: bool):
+        progress: bool, with_model_filters: bool, sample_size: int, seed: int):
     """Run full quality pipeline on input data."""
     # Import here to trigger filter registration
     import dq.filters  # noqa: F401
@@ -52,7 +54,12 @@ def run(input_path: str, config_path: str | None, output_path: str, report_dir: 
     console.print(f"[dim]Filters: {[f.name for f in pipeline.filters]}[/dim]")
 
     # Phase 1: filter
-    docs = list(read_docs(input_path))
+    if sample_size > 0:
+        console.print(f"[dim]Sampling {sample_size} docs (seed={seed})...[/dim]")
+        docs = sample_docs(input_path, n=sample_size, seed=seed)
+        console.print(f"[dim]Sampled {len(docs)} docs[/dim]")
+    else:
+        docs = list(read_docs(input_path))
     filtered = list(pipeline.run(iter(docs), progress=progress))
 
     # Phase 2: dedup
@@ -92,9 +99,15 @@ def run(input_path: str, config_path: str | None, output_path: str, report_dir: 
 @main.command()
 @click.argument("input_path", type=click.Path(exists=True))
 @click.option("--text-field", default="text", help="Field name containing text")
-def stats(input_path: str, text_field: str):
+@click.option("-s", "--sample", "sample_size", type=int, default=0, help="Random sample N docs (0 = all)")
+@click.option("--seed", default=42, type=int, help="Random seed for sampling")
+def stats(input_path: str, text_field: str, sample_size: int, seed: int):
     """Show dataset statistics without filtering."""
-    docs = list(read_docs(input_path))
+    if sample_size > 0:
+        docs = sample_docs(input_path, n=sample_size, seed=seed)
+        console.print(f"[dim]Sampled {len(docs)} / ? docs (seed={seed})[/dim]")
+    else:
+        docs = list(read_docs(input_path))
 
     total = len(docs)
     if total == 0:
@@ -123,7 +136,10 @@ def stats(input_path: str, text_field: str):
 @click.option("-c", "--config", "config_path", type=click.Path(exists=True), help="Pipeline config YAML")
 @click.option("--report-dir", type=click.Path(), help="Directory for report files")
 @click.option("--progress/--no-progress", default=True, help="Show progress bar")
-def report(input_path: str, config_path: str | None, report_dir: str | None, progress: bool):
+@click.option("-s", "--sample", "sample_size", type=int, default=0, help="Random sample N docs (0 = all)")
+@click.option("--seed", default=42, type=int, help="Random seed for sampling")
+def report(input_path: str, config_path: str | None, report_dir: str | None, progress: bool,
+           sample_size: int, seed: int):
     """Dry-run: generate quality report without writing output."""
     import dq.filters  # noqa: F401
     from dq.pipeline import Pipeline  # noqa: F811
@@ -134,7 +150,11 @@ def report(input_path: str, config_path: str | None, report_dir: str | None, pro
 
     console.print(f"[bold]Dry-run report on[/bold] {input_path}")
 
-    docs = read_docs(input_path)
+    if sample_size > 0:
+        console.print(f"[dim]Sampling {sample_size} docs (seed={seed})...[/dim]")
+        docs = iter(sample_docs(input_path, n=sample_size, seed=seed))
+    else:
+        docs = read_docs(input_path)
     pipeline_stats = pipeline.dry_run(docs, progress=progress)
 
     _print_stats_table(pipeline_stats)
@@ -204,6 +224,19 @@ def score(input_path: str, output_path: str, config_path: str | None, text_field
 
     count = write_docs(iter(scored), output_path)
     console.print(f"[green]Wrote {count} scored documents to {output_path}[/green]")
+
+
+@main.command()
+@click.argument("input_path", type=click.Path(exists=True))
+@click.option("-n", "--num-samples", required=True, type=int, help="Number of samples to draw")
+@click.option("-o", "--output", "output_path", required=True, type=click.Path(), help="Output file path")
+@click.option("--seed", default=42, type=int, help="Random seed")
+def sample(input_path: str, num_samples: int, output_path: str, seed: int):
+    """Randomly sample N documents from a large dataset (reservoir sampling, memory-efficient)."""
+    console.print(f"[bold]Sampling {num_samples} docs from[/bold] {input_path} [dim](seed={seed})[/dim]")
+    docs = sample_docs(input_path, n=num_samples, seed=seed)
+    count = write_docs(iter(docs), output_path)
+    console.print(f"[green]Wrote {count} sampled documents to {output_path}[/green]")
 
 
 @main.command()
