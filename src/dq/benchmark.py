@@ -41,6 +41,16 @@ def _merge_alpaca_fields(item: dict) -> str:
 
 
 @dataclass
+class RuleStats:
+    """Per-rule statistics within a filter."""
+
+    total: int = 0
+    passed: int = 0
+    failed: int = 0
+    pass_rate: float = 0.0
+
+
+@dataclass
 class FilterResult:
     """Per-filter results for a single dataset."""
 
@@ -70,6 +80,8 @@ class BenchmarkReport:
     datasets: dict[str, DatasetResult] = field(default_factory=dict)
     config_path: str | None = None
     num_samples: int = 0
+    # Per-rule breakdown: {dataset_name: {filter_name: {rule_name: RuleStats}}}
+    rule_stats: dict[str, dict[str, dict[str, RuleStats]]] = field(default_factory=dict)
 
     def discrimination_scores(self) -> dict[str, float]:
         """Compute per-filter discrimination: max pass rate - min pass rate."""
@@ -282,5 +294,38 @@ def run_benchmark(
             overall_pass_rate=overall,
         )
         report.datasets[ds_name] = result
+
+        # Collect per-rule stats via filter_detailed() (independent evaluation)
+        ds_rule_stats: dict[str, dict[str, RuleStats]] = {}
+        for f in pipeline.filters:
+            ds_rule_stats[f.name] = {}
+
+        for doc in docs:
+            for f in pipeline.filters:
+                _keep, failures = f.filter_detailed(doc)
+                failed_rules = {fail["rule"] for fail in failures}
+                # Collect all rule names we've seen for this filter
+                for fail in failures:
+                    rule = fail["rule"]
+                    if rule not in ds_rule_stats[f.name]:
+                        ds_rule_stats[f.name][rule] = RuleStats()
+                    ds_rule_stats[f.name][rule].total += 1
+                    ds_rule_stats[f.name][rule].failed += 1
+
+                # Count passes for rules we've seen before but didn't fail this time
+                for rule, rs in ds_rule_stats[f.name].items():
+                    if rule not in failed_rules:
+                        rs.total += 1
+                        rs.passed += 1
+
+        # Fix totals: rules discovered mid-way need total = len(docs)
+        for filter_name, rules in ds_rule_stats.items():
+            for rule_name, rs in rules.items():
+                # Every doc was checked against every rule
+                rs.total = len(docs)
+                rs.passed = rs.total - rs.failed
+                rs.pass_rate = rs.passed / rs.total if rs.total > 0 else 1.0
+
+        report.rule_stats[ds_name] = ds_rule_stats
 
     return report

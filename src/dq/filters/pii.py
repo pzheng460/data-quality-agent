@@ -86,3 +86,15 @@ class PIIFilter(BaseFilter):
         # In redact mode, we keep the doc with redacted text
         info = {"filter": self.name, "pii_found": found} if found else {}
         return True, info
+
+    def filter_detailed(self, doc: dict) -> tuple[bool, list[dict]]:
+        text = self.get_text(doc)
+        failures: list[dict] = []
+
+        for pii_type, pattern, _replacement in _PII_PATTERNS:
+            matches = pattern.findall(text)
+            if matches:
+                failures.append({"filter": self.name, "rule": pii_type, "value": len(matches), "threshold": 0})
+
+        # PII filter always keeps docs (redact mode), so pass=True unless detect mode
+        return len(failures) == 0, failures

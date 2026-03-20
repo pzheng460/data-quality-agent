@@ -86,6 +86,40 @@ class GopherQualityFilter(BaseFilter):
 
         return True, {}
 
+    def filter_detailed(self, doc: dict) -> tuple[bool, list[dict]]:
+        text = self.get_text(doc)
+        failures: list[dict] = []
+
+        wc = word_count(text)
+        if wc < self.min_words:
+            failures.append({"filter": self.name, "rule": "min_words", "value": wc, "threshold": self.min_words})
+        if wc > self.max_words:
+            failures.append({"filter": self.name, "rule": "max_words", "value": wc, "threshold": self.max_words})
+
+        awl = avg_word_length(text)
+        if awl < self.min_avg_word_len:
+            failures.append({"filter": self.name, "rule": "min_avg_word_len", "value": awl, "threshold": self.min_avg_word_len})
+        if awl > self.max_avg_word_len:
+            failures.append({"filter": self.name, "rule": "max_avg_word_len", "value": awl, "threshold": self.max_avg_word_len})
+
+        sr = symbol_word_ratio(text)
+        if sr > self.max_symbol_ratio:
+            failures.append({"filter": self.name, "rule": "symbol_ratio", "value": sr, "threshold": self.max_symbol_ratio})
+
+        lep = lines_ending_with_punct(text)
+        if lep < self.min_lines_end_punct:
+            failures.append({"filter": self.name, "rule": "lines_end_punct", "value": lep, "threshold": self.min_lines_end_punct})
+
+        sw = count_stopwords(text)
+        if sw < self.min_stopwords:
+            failures.append({"filter": self.name, "rule": "stopwords", "value": sw, "threshold": self.min_stopwords})
+
+        ar = alpha_ratio(text)
+        if ar < self.min_alpha_ratio:
+            failures.append({"filter": self.name, "rule": "alpha_ratio", "value": ar, "threshold": self.min_alpha_ratio})
+
+        return len(failures) == 0, failures
+
 
 @register_filter("gopher_repetition")
 class GopherRepetitionFilter(BaseFilter):
@@ -144,3 +178,31 @@ class GopherRepetitionFilter(BaseFilter):
             return False, {"filter": self.name, "reason": "high_char_repetition", "value": cr}
 
         return True, {}
+
+    def filter_detailed(self, doc: dict) -> tuple[bool, list[dict]]:
+        text = self.get_text(doc)
+        words = get_words(text)
+        failures: list[dict] = []
+
+        for n, threshold, label in [
+            (2, self.max_top_2gram, "top_2gram"),
+            (3, self.max_top_3gram, "top_3gram"),
+            (4, self.max_top_4gram, "top_4gram"),
+        ]:
+            ratio = top_ngram_ratio(words, n)
+            if ratio > threshold:
+                failures.append({"filter": self.name, "rule": label, "value": ratio, "threshold": threshold})
+
+        dlr = duplicate_line_ratio(text)
+        if dlr > self.max_dup_line_ratio:
+            failures.append({"filter": self.name, "rule": "dup_line_ratio", "value": dlr, "threshold": self.max_dup_line_ratio})
+
+        dpr = duplicate_paragraph_ratio(text)
+        if dpr > self.max_dup_para_ratio:
+            failures.append({"filter": self.name, "rule": "dup_para_ratio", "value": dpr, "threshold": self.max_dup_para_ratio})
+
+        cr = char_repetition_ratio(text)
+        if cr > self.max_char_repetition:
+            failures.append({"filter": self.name, "rule": "char_repetition", "value": cr, "threshold": self.max_char_repetition})
+
+        return len(failures) == 0, failures

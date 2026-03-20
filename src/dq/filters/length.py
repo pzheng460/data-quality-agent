@@ -32,3 +32,15 @@ class LengthFilter(BaseFilter):
             return False, {"filter": self.name, "reason": "too_long", "value": wc}
 
         return True, {}
+
+    def filter_detailed(self, doc: dict) -> tuple[bool, list[dict]]:
+        text = self.get_text(doc)
+        wc = word_count(text)
+        failures: list[dict] = []
+
+        if wc < self.min_words:
+            failures.append({"filter": self.name, "rule": "min_words", "value": wc, "threshold": self.min_words})
+        if wc > self.max_words:
+            failures.append({"filter": self.name, "rule": "max_words", "value": wc, "threshold": self.max_words})
+
+        return len(failures) == 0, failures

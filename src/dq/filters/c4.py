@@ -91,3 +91,52 @@ class C4Filter(BaseFilter):
         # Update the doc text with cleaned version
         doc[self.text_field] = cleaned
         return True, {}
+
+    def filter_detailed(self, doc: dict) -> tuple[bool, list[dict]]:
+        text = self.get_text(doc)
+        failures: list[dict] = []
+
+        if self.remove_lorem_ipsum and _LOREM_RE.search(text):
+            failures.append({"filter": self.name, "rule": "lorem_ipsum", "value": True, "threshold": False})
+
+        if self.remove_curly_brace and "{" in text:
+            failures.append({"filter": self.name, "rule": "curly_brace", "value": True, "threshold": False})
+
+        # Line-level filtering
+        lines = text.split("\n")
+        kept_lines = []
+        js_removed = 0
+        policy_removed = 0
+        no_punct_removed = 0
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                kept_lines.append(line)
+                continue
+            if self.remove_javascript_lines and _JAVASCRIPT_RE.search(stripped):
+                js_removed += 1
+                continue
+            if self.remove_policy_lines and _POLICY_RE.search(stripped):
+                policy_removed += 1
+                continue
+            if self.remove_no_terminal_punct and not _TERMINAL_PUNCT.search(stripped):
+                no_punct_removed += 1
+                continue
+            kept_lines.append(line)
+
+        if js_removed > 0:
+            failures.append({"filter": self.name, "rule": "javascript_lines", "value": js_removed, "threshold": 0})
+        if policy_removed > 0:
+            failures.append({"filter": self.name, "rule": "policy_lines", "value": policy_removed, "threshold": 0})
+        if no_punct_removed > 0:
+            failures.append({"filter": self.name, "rule": "no_terminal_punct_lines", "value": no_punct_removed, "threshold": 0})
+
+        cleaned = "\n".join(kept_lines).strip()
+        if not cleaned:
+            failures.append({"filter": self.name, "rule": "empty_after_line_filter", "value": 0, "threshold": 1})
+
+        sentences = _SENTENCE_RE.findall(cleaned) if cleaned else []
+        if len(sentences) < self.min_sentences:
+            failures.append({"filter": self.name, "rule": "min_sentences", "value": len(sentences), "threshold": self.min_sentences})
+
+        return len(failures) == 0, failures

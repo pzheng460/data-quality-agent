@@ -63,3 +63,29 @@ class FineWebFilter(BaseFilter):
             return False, {"filter": self.name, "reason": "bad_line_breaks", "value": avg_len}
 
         return True, {}
+
+    def filter_detailed(self, doc: dict) -> tuple[bool, list[dict]]:
+        text = self.get_text(doc)
+        lines = [l for l in text.split("\n") if l.strip()]
+        failures: list[dict] = []
+
+        if not lines:
+            failures.append({"filter": self.name, "rule": "empty_doc", "value": 0, "threshold": 1})
+            return False, failures
+
+        bullet_count = sum(1 for l in lines if _BULLET_RE.match(l))
+        list_ratio = bullet_count / len(lines)
+        if list_ratio > self.max_list_line_ratio:
+            failures.append({"filter": self.name, "rule": "list_line_ratio", "value": list_ratio, "threshold": self.max_list_line_ratio})
+
+        counts = Counter(l.strip() for l in lines)
+        dup_count = sum(c for c in counts.values() if c > 1)
+        dup_ratio = dup_count / len(lines)
+        if dup_ratio > self.max_dup_line_ratio:
+            failures.append({"filter": self.name, "rule": "dup_line_ratio", "value": dup_ratio, "threshold": self.max_dup_line_ratio})
+
+        avg_len = sum(len(l) for l in lines) / len(lines)
+        if avg_len < self.min_avg_line_len and len(lines) > self.max_short_line_count:
+            failures.append({"filter": self.name, "rule": "bad_line_breaks", "value": avg_len, "threshold": self.min_avg_line_len})
+
+        return len(failures) == 0, failures

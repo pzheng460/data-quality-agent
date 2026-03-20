@@ -11,7 +11,7 @@ from rich.table import Table
 from rich.text import Text
 
 if TYPE_CHECKING:
-    from dq.benchmark import BenchmarkReport
+    from dq.benchmark import BenchmarkReport, RuleStats
 
 # Thresholds for verdict classification
 STRONG_THRESHOLD = 0.05   # >5% = discriminates
@@ -27,6 +27,18 @@ def _verdict(delta: float) -> tuple[str, str]:
         return "⚠️ Weak signal", "yellow"
     else:
         return "— No signal", "dim"
+
+
+def _collect_rule_names(report: BenchmarkReport, filter_name: str, ds_names: list[str]) -> list[str]:
+    """Collect all rule names for a filter across all datasets, preserving order."""
+    seen: set[str] = set()
+    rules: list[str] = []
+    for name in ds_names:
+        for rule in report.rule_stats.get(name, {}).get(filter_name, {}):
+            if rule not in seen:
+                rules.append(rule)
+                seen.add(rule)
+    return rules
 
 
 def _verdict_md(delta: float) -> str:
@@ -77,9 +89,9 @@ def print_benchmark_report(report: BenchmarkReport, console: Console | None = No
     table.add_column("Δ", justify="right", min_width=10)
     table.add_column("Verdict", min_width=18)
 
-    # Per-filter rows
+    # Per-filter rows with rule breakdown
     for f in all_filters:
-        row: list[str | Text] = [f]
+        row: list[str | Text] = [Text(f, style="bold")]
         rates = []
         for name in ds_names:
             rate = report.datasets[name].per_filter_pass_rate.get(f, 0.0)
@@ -92,6 +104,27 @@ def print_benchmark_report(report: BenchmarkReport, console: Console | None = No
         row.append(Text(label, style=style))
 
         table.add_row(*row)
+
+        # Add per-rule sub-rows if rule_stats available
+        if report.rule_stats:
+            rule_names = _collect_rule_names(report, f, ds_names)
+            for i, rule in enumerate(rule_names):
+                is_last = i == len(rule_names) - 1
+                prefix = "└─" if is_last else "├─"
+                rule_row: list[str | Text] = [Text(f"  {prefix} {rule}", style="dim")]
+                rule_rates = []
+                for name in ds_names:
+                    rs = report.rule_stats.get(name, {}).get(f, {}).get(rule)
+                    rate = rs.pass_rate if rs else 1.0
+                    rule_rates.append(rate)
+                    rule_row.append(f"{rate:.1%}")
+
+                rule_delta = max(rule_rates) - min(rule_rates) if len(rule_rates) >= 2 else 0.0
+                rule_row.append(f"+{rule_delta:.1%}")
+                rl, rs_style = _verdict(rule_delta)
+                rule_row.append(Text(rl, style=rs_style))
+
+                table.add_row(*rule_row)
 
     # Overall pass rate row
     table.add_section()
@@ -183,13 +216,25 @@ def benchmark_to_json(report: BenchmarkReport, path: str | Path | None = None) -
             "per_filter": {},
         }
         for fname, fr in dr.per_filter.items():
-            ds_data["per_filter"][fname] = {
+            filter_data: dict = {
                 "total": fr.total,
                 "passed": fr.passed,
                 "failed": fr.failed,
                 "pass_rate": round(fr.pass_rate, 4),
                 "sample_failed": fr.sample_failed[:3],
             }
+            # Add per-rule breakdown if available
+            if name in report.rule_stats and fname in report.rule_stats[name]:
+                rules_data: dict = {}
+                for rule_name, rs in report.rule_stats[name][fname].items():
+                    rules_data[rule_name] = {
+                        "total": rs.total,
+                        "passed": rs.passed,
+                        "failed": rs.failed,
+                        "pass_rate": round(rs.pass_rate, 4),
+                    }
+                filter_data["rules"] = rules_data
+            ds_data["per_filter"][fname] = filter_data
         # Also include flat pass rate dict for backward compat
         ds_data["per_filter_pass_rate"] = {
             k: round(v, 4) for k, v in dr.per_filter_pass_rate.items()
@@ -237,15 +282,32 @@ def benchmark_to_markdown(report: BenchmarkReport, path: str | Path | None = Non
     lines.append(header)
     lines.append(separator)
 
-    # Per-filter rows
+    # Per-filter rows with rule breakdown
     for f in all_filters:
-        row = f"| {f} |"
+        row = f"| **{f}** |"
         for name in ds_names:
             rate = report.datasets[name].per_filter_pass_rate.get(f, 0.0)
             row += f" {rate:.1%} |"
         delta = discrimination.get(f, 0.0)
         row += f" +{delta:.1%} | {_verdict_md(delta)} |"
         lines.append(row)
+
+        # Add per-rule sub-rows
+        if report.rule_stats:
+            rule_names = _collect_rule_names(report, f, ds_names)
+            for i, rule in enumerate(rule_names):
+                is_last = i == len(rule_names) - 1
+                prefix = "└─" if is_last else "├─"
+                rule_row = f"|   {prefix} {rule} |"
+                rule_rates = []
+                for name in ds_names:
+                    rs = report.rule_stats.get(name, {}).get(f, {}).get(rule)
+                    rate = rs.pass_rate if rs else 1.0
+                    rule_rates.append(rate)
+                    rule_row += f" {rate:.1%} |"
+                rule_delta = max(rule_rates) - min(rule_rates) if len(rule_rates) >= 2 else 0.0
+                rule_row += f" +{rule_delta:.1%} | {_verdict_md(rule_delta)} |"
+                lines.append(rule_row)
 
     # Overall row
     row = "| **Overall pipeline** |"

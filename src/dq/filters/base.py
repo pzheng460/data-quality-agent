@@ -35,5 +35,18 @@ class BaseFilter(ABC):
         """
         ...
 
+    def filter_detailed(self, doc: dict) -> tuple[bool, list[dict]]:
+        """Check all rules and return all failures, not just the first.
+
+        Used by benchmark mode to collect per-rule statistics.
+        Default implementation wraps filter() for backward compat.
+
+        Returns:
+            Tuple of (all_passed, [list of failure dicts]).
+            Each failure dict has: filter, rule, value, threshold.
+        """
+        keep, info = self.filter(doc)
+        return keep, [info] if info else []
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name!r})"
