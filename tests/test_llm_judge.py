@@ -18,7 +18,7 @@ class TestSFTQualityJudge:
 
     def _make_judge(self, mock_client=None):
         """Create a judge with optional mock client."""
-        from dq.sft.llm_judge import SFTQualityJudge
+        from dq.judge import SFTQualityJudge
         judge = SFTQualityJudge(api_key="test-key", model="test-model")
         judge.max_retries = 1
         judge.retry_delay = 0.01
@@ -39,7 +39,7 @@ class TestSFTQualityJudge:
 
     def test_skip_when_no_client(self):
         """Judge should return low quality when no API client available."""
-        from dq.sft.llm_judge import SFTQualityJudge
+        from dq.judge import SFTQualityJudge
         judge = SFTQualityJudge()
         judge._get_client = lambda: None
 
@@ -53,6 +53,7 @@ class TestSFTQualityJudge:
         all_pass = {
             "instruction_following": {"pass": True, "reason": ""},
             "factuality": {"pass": True, "reason": ""},
+            "coherence": {"pass": True, "reason": ""},
             "completeness": {"pass": True, "reason": ""},
             "format_compliance": {"pass": True, "reason": ""},
             "harmlessness": {"pass": True, "reason": ""}
@@ -74,6 +75,7 @@ class TestSFTQualityJudge:
         one_fail = {
             "instruction_following": {"pass": True, "reason": ""},
             "factuality": {"pass": False, "reason": "Claims Python was invented in 2005"},
+            "coherence": {"pass": True, "reason": ""},
             "completeness": {"pass": True, "reason": ""},
             "format_compliance": {"pass": True, "reason": ""},
             "harmlessness": {"pass": True, "reason": ""}
@@ -95,6 +97,7 @@ class TestSFTQualityJudge:
         multi_fail = {
             "instruction_following": {"pass": False, "reason": "Off topic"},
             "factuality": {"pass": False, "reason": "Wrong facts"},
+            "coherence": {"pass": True, "reason": ""},
             "completeness": {"pass": True, "reason": ""},
             "format_compliance": {"pass": True, "reason": ""},
             "harmlessness": {"pass": True, "reason": ""}
@@ -142,7 +145,7 @@ class TestSFTQualityJudge:
 
         result = judge.judge_one("Test instruction", "Test output")
         assert result["quality"] == "low"
-        assert len(result["failed_rules"]) == 5  # All rules should fail
+        assert len(result["failed_rules"]) == 6  # All 6 SFT rules should fail
 
     def test_api_error_returns_low_quality(self):
         """When API call fails, should return low quality with error info."""
@@ -161,6 +164,7 @@ class TestSFTQualityJudge:
         all_pass = {
             "instruction_following": {"pass": True, "reason": ""},
             "factuality": {"pass": True, "reason": ""},
+            "coherence": {"pass": True, "reason": ""},
             "completeness": {"pass": True, "reason": ""},
             "format_compliance": {"pass": True, "reason": ""},
             "harmlessness": {"pass": True, "reason": ""}
@@ -212,7 +216,7 @@ class TestPretrainingQualityJudge:
 
     def _make_judge(self, mock_client=None):
         """Create a judge with optional mock client."""
-        from dq.model_filters.llm_quality_judge import PretrainingQualityJudge
+        from dq.judge import PretrainingQualityJudge
         judge = PretrainingQualityJudge(api_key="test-key", model="test-model")
         judge.max_retries = 1
         judge.retry_delay = 0.01
@@ -233,7 +237,7 @@ class TestPretrainingQualityJudge:
 
     def test_skip_when_no_client(self):
         """Judge should return low quality when no API client available."""
-        from dq.model_filters.llm_quality_judge import PretrainingQualityJudge
+        from dq.judge import PretrainingQualityJudge
         judge = PretrainingQualityJudge()
         judge._get_client = lambda: None
 
@@ -245,8 +249,10 @@ class TestPretrainingQualityJudge:
     def test_all_rules_pass_high_quality(self):
         """When all rules pass, should return HIGH quality."""
         all_pass = {
-            "information_density": {"pass": True, "reason": ""},
+            "factuality": {"pass": True, "reason": ""},
             "coherence": {"pass": True, "reason": ""},
+            "harmlessness": {"pass": True, "reason": ""},
+            "information_density": {"pass": True, "reason": ""},
             "originality": {"pass": True, "reason": ""}
         }
 
@@ -264,8 +270,10 @@ class TestPretrainingQualityJudge:
     def test_information_density_fails_low_quality(self):
         """When information_density fails (ads/boilerplate), should return LOW quality."""
         density_fail = {
-            "information_density": {"pass": False, "reason": "Contains cookie notice and ads"},
+            "factuality": {"pass": True, "reason": ""},
             "coherence": {"pass": True, "reason": ""},
+            "harmlessness": {"pass": True, "reason": ""},
+            "information_density": {"pass": False, "reason": "Contains cookie notice and ads"},
             "originality": {"pass": True, "reason": ""}
         }
 
@@ -283,8 +291,10 @@ class TestPretrainingQualityJudge:
     def test_coherence_fails_low_quality(self):
         """When coherence fails (fragmented text), should return LOW quality."""
         coherence_fail = {
-            "information_density": {"pass": True, "reason": ""},
+            "factuality": {"pass": True, "reason": ""},
             "coherence": {"pass": False, "reason": "Text appears truncated and fragmented"},
+            "harmlessness": {"pass": True, "reason": ""},
+            "information_density": {"pass": True, "reason": ""},
             "originality": {"pass": True, "reason": ""}
         }
 
@@ -336,8 +346,10 @@ class TestPretrainingQualityJudge:
     def test_batch_processing(self):
         """Test judge_batch processes multiple documents correctly."""
         all_pass = {
-            "information_density": {"pass": True, "reason": ""},
+            "factuality": {"pass": True, "reason": ""},
             "coherence": {"pass": True, "reason": ""},
+            "harmlessness": {"pass": True, "reason": ""},
+            "information_density": {"pass": True, "reason": ""},
             "originality": {"pass": True, "reason": ""}
         }
 

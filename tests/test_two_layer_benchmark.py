@@ -248,6 +248,7 @@ class TestScoreSFTDocs:
         judge_response_high = json.dumps({
             "instruction_following": {"pass": True, "reason": "ok"},
             "factuality": {"pass": True, "reason": "ok"},
+            "coherence": {"pass": True, "reason": "ok"},
             "completeness": {"pass": True, "reason": "ok"},
             "format_compliance": {"pass": True, "reason": "ok"},
             "harmlessness": {"pass": True, "reason": "ok"},
@@ -255,6 +256,7 @@ class TestScoreSFTDocs:
         judge_response_low = json.dumps({
             "instruction_following": {"pass": False, "reason": "off-topic"},
             "factuality": {"pass": True, "reason": "ok"},
+            "coherence": {"pass": True, "reason": "ok"},
             "completeness": {"pass": False, "reason": "incomplete"},
             "format_compliance": {"pass": True, "reason": "ok"},
             "harmlessness": {"pass": True, "reason": "ok"},
@@ -271,7 +273,7 @@ class TestScoreSFTDocs:
             {"instruction": "Q2", "output": "A2", "text": "Q2\nA2"},
         ]
 
-        with patch("dq.sft.llm_judge.get_client", return_value=mock_client):
+        with patch("dq.judge.get_client", return_value=mock_client):
             result = _score_sft_docs(docs, api_key="test", progress=False)
 
         assert result["type"] == "sft"
@@ -285,7 +287,7 @@ class TestScoreSFTDocs:
 
         docs = [{"instruction": "Q1", "output": "A1", "text": "Q1\nA1"}]
 
-        with patch("dq.sft.llm_judge.get_client", return_value=mock_client):
+        with patch("dq.judge.get_client", return_value=mock_client):
             result = _score_sft_docs(docs, api_key="test", progress=False)
 
         assert result["scoring_errors"] > 0
@@ -306,13 +308,17 @@ class TestScorePretrainDocs:
         """Test pretrain scoring with mocked LLM Binary Judge."""
         import json
         judge_response_high = json.dumps({
-            "information_density": {"pass": True, "reason": "ok"},
+            "factuality": {"pass": True, "reason": "ok"},
             "coherence": {"pass": True, "reason": "ok"},
+            "harmlessness": {"pass": True, "reason": "ok"},
+            "information_density": {"pass": True, "reason": "ok"},
             "originality": {"pass": True, "reason": "ok"},
         })
         judge_response_low = json.dumps({
-            "information_density": {"pass": False, "reason": "shallow"},
+            "factuality": {"pass": True, "reason": "ok"},
             "coherence": {"pass": True, "reason": "ok"},
+            "harmlessness": {"pass": True, "reason": "ok"},
+            "information_density": {"pass": False, "reason": "shallow"},
             "originality": {"pass": False, "reason": "generic"},
         })
 
@@ -327,7 +333,7 @@ class TestScorePretrainDocs:
             {"text": "Another educational article about chemistry."},
         ]
 
-        with patch("dq.model_filters.llm_quality_judge.get_client", return_value=mock_client):
+        with patch("dq.judge.get_client", return_value=mock_client):
             result = _score_pretrain_docs(docs, api_key="test", progress=False)
 
         assert result["type"] == "pretrain"
@@ -341,7 +347,7 @@ class TestScorePretrainDocs:
 
         docs = [{"text": "Some text."}]
 
-        with patch("dq.model_filters.llm_quality_judge.get_client", return_value=mock_client):
+        with patch("dq.judge.get_client", return_value=mock_client):
             result = _score_pretrain_docs(docs, api_key="test", progress=False)
 
         assert result["scoring_errors"] > 0
@@ -366,7 +372,7 @@ class TestRunLLMScoring:
             no_dedup=True,
         )
 
-        with patch("dq.sft.llm_judge.SFTQualityJudge.judge_one", side_effect=self._mock_judge_high):
+        with patch("dq.judge.SFTQualityJudge.judge_one", side_effect=self._mock_judge_high):
             run_llm_scoring(
                 report=report,
                 datasets={"SFT": sft_docs, "SFT2": _make_sft_docs(5)},
@@ -389,7 +395,7 @@ class TestRunLLMScoring:
             no_dedup=True,
         )
 
-        with patch("dq.model_filters.llm_quality_judge.PretrainingQualityJudge.judge_one", side_effect=self._mock_judge_high):
+        with patch("dq.judge.PretrainingQualityJudge.judge_one", side_effect=self._mock_judge_high):
             run_llm_scoring(
                 report=report,
                 datasets={"PT": pt_docs, "PT2": _make_pretrain_docs(5)},
@@ -409,7 +415,7 @@ class TestRunLLMScoring:
             no_dedup=True,
         )
 
-        with patch("dq.sft.llm_judge.SFTQualityJudge.judge_one", side_effect=self._mock_judge_high):
+        with patch("dq.judge.SFTQualityJudge.judge_one", side_effect=self._mock_judge_high):
             run_llm_scoring(
                 report=report,
                 datasets={"A": sft_docs, "B": _make_sft_docs(5)},
@@ -423,7 +429,7 @@ class TestRunLLMScoring:
         report = BenchmarkReport()
         report.datasets["Known"] = DatasetResult(name="Known", num_docs=5)
 
-        with patch("dq.model_filters.llm_quality_judge.PretrainingQualityJudge.judge_one", side_effect=self._mock_judge_high):
+        with patch("dq.judge.PretrainingQualityJudge.judge_one", side_effect=self._mock_judge_high):
             run_llm_scoring(
                 report=report,
                 datasets={"Unknown": _make_pretrain_docs(3)},

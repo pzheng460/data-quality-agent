@@ -585,7 +585,7 @@ def _score_sft_docs(
         def tqdm(iterable, **kwargs):  # type: ignore[misc]
             return iterable
 
-    from dq.sft.llm_judge import SFTQualityJudge
+    from dq.judge import SFTQualityJudge
 
     judge = SFTQualityJudge(api_url=api_url, api_key=api_key, model=model)
 
@@ -626,7 +626,7 @@ def _score_pretrain_docs(
         def tqdm(iterable, **kwargs):  # type: ignore[misc]
             return iterable
 
-    from dq.model_filters.llm_quality_judge import PretrainingQualityJudge
+    from dq.judge import PretrainingQualityJudge
 
     judge = PretrainingQualityJudge(api_url=api_url, api_key=api_key, model=model)
 
