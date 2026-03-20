@@ -352,26 +352,21 @@ class TestScorePretrainDocs:
 # ---------------------------------------------------------------------------
 
 class TestRunLLMScoring:
-    def _mock_response(self, content: str):
-        mock_resp = MagicMock()
-        mock_resp.choices = [MagicMock()]
-        mock_resp.choices[0].message.content = content
-        return mock_resp
+    def _mock_judge_high(self, *args, **kwargs):
+        return {"quality": "high", "rules": {}, "failed_rules": []}
+
+    def _mock_judge_low(self, *args, **kwargs):
+        return {"quality": "low", "rules": {}, "failed_rules": ["completeness"]}
 
     def test_run_llm_scoring_sft(self):
-        mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = self._mock_response("4")
-
         sft_docs = _make_sft_docs(5)
 
-        # Create a minimal report
         report = run_benchmark(
             datasets={"SFT": sft_docs, "SFT2": _make_sft_docs(5)},
             no_dedup=True,
         )
 
-        with patch("dq.sft.complexity.get_client", return_value=mock_client), \
-             patch("dq.sft.quality.get_client", return_value=mock_client):
+        with patch("dq.sft.llm_judge.SFTQualityJudge.judge_one", side_effect=self._mock_judge_high):
             run_llm_scoring(
                 report=report,
                 datasets={"SFT": sft_docs, "SFT2": _make_sft_docs(5)},
@@ -387,9 +382,6 @@ class TestRunLLMScoring:
         assert report.datasets["SFT"].data_type == "sft"
 
     def test_run_llm_scoring_pretrain(self):
-        mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = self._mock_response("4")
-
         pt_docs = _make_pretrain_docs(5)
 
         report = run_benchmark(
@@ -397,8 +389,7 @@ class TestRunLLMScoring:
             no_dedup=True,
         )
 
-        with patch("dq.sft.educational.get_client", return_value=mock_client), \
-             patch("dq.sft.writing_quality.get_client", return_value=mock_client):
+        with patch("dq.model_filters.llm_quality_judge.PretrainingQualityJudge.judge_one", side_effect=self._mock_judge_high):
             run_llm_scoring(
                 report=report,
                 datasets={"PT": pt_docs, "PT2": _make_pretrain_docs(5)},
@@ -411,9 +402,6 @@ class TestRunLLMScoring:
         assert report.datasets["PT"].llm_scores["type"] == "pretrain"
 
     def test_run_llm_scoring_auto_detect(self):
-        mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = self._mock_response("3")
-
         sft_docs = _make_sft_docs(5)
 
         report = run_benchmark(
@@ -421,8 +409,7 @@ class TestRunLLMScoring:
             no_dedup=True,
         )
 
-        with patch("dq.sft.complexity.get_client", return_value=mock_client), \
-             patch("dq.sft.quality.get_client", return_value=mock_client):
+        with patch("dq.sft.llm_judge.SFTQualityJudge.judge_one", side_effect=self._mock_judge_high):
             run_llm_scoring(
                 report=report,
                 datasets={"A": sft_docs, "B": _make_sft_docs(5)},
@@ -430,18 +417,13 @@ class TestRunLLMScoring:
                 progress=False,
             )
 
-        # SFT docs have 'instruction' field, so auto-detect should pick 'sft'
         assert report.datasets["A"].data_type == "sft"
 
     def test_run_llm_scoring_skips_unknown_dataset(self):
         report = BenchmarkReport()
         report.datasets["Known"] = DatasetResult(name="Known", num_docs=5)
 
-        mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = self._mock_response("3")
-
-        with patch("dq.sft.educational.get_client", return_value=mock_client), \
-             patch("dq.sft.writing_quality.get_client", return_value=mock_client):
+        with patch("dq.model_filters.llm_quality_judge.PretrainingQualityJudge.judge_one", side_effect=self._mock_judge_high):
             run_llm_scoring(
                 report=report,
                 datasets={"Unknown": _make_pretrain_docs(3)},
@@ -449,136 +431,7 @@ class TestRunLLMScoring:
                 progress=False,
             )
 
-        # "Unknown" not in report.datasets, so nothing should be scored
         assert report.datasets["Known"].llm_scores is None
-
-
-# ---------------------------------------------------------------------------
-# EducationalValueScorer
-# ---------------------------------------------------------------------------
-
-class TestEducationalValueScorer:
-    def _mock_response(self, content: str):
-        mock_resp = MagicMock()
-        mock_resp.choices = [MagicMock()]
-        mock_resp.choices[0].message.content = content
-        return mock_resp
-
-    def test_score_with_mock(self):
-        from dq.sft.educational import EducationalValueScorer
-        mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = self._mock_response("5")
-
-        scorer = EducationalValueScorer(api_key="test")
-        scorer._get_client = lambda: mock_client
-        scorer.max_retries = 1
-
-        doc = {"text": "A detailed explanation of quantum mechanics."}
-        result = scorer.score(doc)
-        assert result["educational_value_score"] == 5.0
-
-    def test_score_empty_text(self):
-        from dq.sft.educational import EducationalValueScorer
-        scorer = EducationalValueScorer(api_key="test")
-        scorer._get_client = lambda: MagicMock()
-
-        doc = {"text": ""}
-        result = scorer.score(doc)
-        assert result["educational_value_score"] == -1.0
-
-    def test_score_no_client(self):
-        from dq.sft.educational import EducationalValueScorer
-        scorer = EducationalValueScorer()
-        scorer._get_client = lambda: None
-
-        doc = {"text": "Some text."}
-        result = scorer.score(doc)
-        assert result["educational_value_score"] == -1.0
-
-    def test_score_clamps_to_range(self):
-        from dq.sft.educational import EducationalValueScorer
-        mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = self._mock_response("9")
-
-        scorer = EducationalValueScorer(api_key="test")
-        scorer._get_client = lambda: mock_client
-        scorer.max_retries = 1
-
-        doc = {"text": "Something."}
-        result = scorer.score(doc)
-        assert result["educational_value_score"] == 6.0
-
-    def test_score_batch(self):
-        from dq.sft.educational import EducationalValueScorer
-        mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = self._mock_response("4")
-
-        scorer = EducationalValueScorer(api_key="test")
-        scorer._get_client = lambda: mock_client
-        scorer.max_retries = 1
-
-        docs = [{"text": "A"}, {"text": "B"}]
-        results = scorer.score_batch(docs)
-        assert len(results) == 2
-        assert all("educational_value_score" in d for d in results)
-
-
-# ---------------------------------------------------------------------------
-# WritingQualityScorer
-# ---------------------------------------------------------------------------
-
-class TestWritingQualityScorer:
-    def _mock_response(self, content: str):
-        mock_resp = MagicMock()
-        mock_resp.choices = [MagicMock()]
-        mock_resp.choices[0].message.content = content
-        return mock_resp
-
-    def test_score_with_mock(self):
-        from dq.sft.writing_quality import WritingQualityScorer
-        mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = self._mock_response("4")
-
-        scorer = WritingQualityScorer(api_key="test")
-        scorer._get_client = lambda: mock_client
-        scorer.max_retries = 1
-
-        doc = {"text": "A well-written paragraph."}
-        result = scorer.score(doc)
-        assert result["writing_quality_score"] == 4.0
-
-    def test_score_empty_text(self):
-        from dq.sft.writing_quality import WritingQualityScorer
-        scorer = WritingQualityScorer(api_key="test")
-        scorer._get_client = lambda: MagicMock()
-
-        doc = {"text": ""}
-        result = scorer.score(doc)
-        assert result["writing_quality_score"] == -1.0
-
-    def test_score_no_client(self):
-        from dq.sft.writing_quality import WritingQualityScorer
-        scorer = WritingQualityScorer()
-        scorer._get_client = lambda: None
-
-        doc = {"text": "Some text."}
-        result = scorer.score(doc)
-        assert result["writing_quality_score"] == -1.0
-
-    def test_score_batch(self):
-        from dq.sft.writing_quality import WritingQualityScorer
-        mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = self._mock_response("3")
-
-        scorer = WritingQualityScorer(api_key="test")
-        scorer._get_client = lambda: mock_client
-        scorer.max_retries = 1
-
-        docs = [{"text": "A"}, {"text": "B"}]
-        results = scorer.score_batch(docs)
-        assert len(results) == 2
-        assert all("writing_quality_score" in d for d in results)
-
 
 # ---------------------------------------------------------------------------
 # Report output with LLM scores

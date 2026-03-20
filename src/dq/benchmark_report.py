@@ -366,46 +366,6 @@ def _add_pretrain_score_rows(
         table.add_row(*row, style="dim")
 
 
-def _print_score_distributions(
-    report: BenchmarkReport,
-    ds_names: list[str],
-    data_type: str,
-    console: Console,
-) -> None:
-    """Print score distribution tables."""
-    if data_type == "sft":
-        dist_keys = [
-            ("complexity_distribution", "Complexity Score Distribution"),
-            ("quality_distribution", "Quality Score Distribution"),
-        ]
-    else:
-        dist_keys = [
-            ("educational_distribution", "Educational Value Distribution"),
-            ("writing_distribution", "Writing Quality Distribution"),
-        ]
-
-    for dist_key, title in dist_keys:
-        table = Table(title=title, padding=(0, 1), show_edge=True)
-        table.add_column("Score", style="bold", justify="center")
-        for name in ds_names:
-            table.add_column(name, justify="right", min_width=12)
-
-        for score_val in range(1, 7):
-            row: list[str] = [str(score_val)]
-            for name in ds_names:
-                scores = report.datasets[name].llm_scores
-                if scores:
-                    dist = scores.get(dist_key, {})
-                    count = dist.get(score_val, dist.get(str(score_val), 0))
-                    row.append(str(count))
-                else:
-                    row.append("—")
-            table.add_row(*row)
-
-        console.print(table)
-        console.print()
-
-
 def benchmark_to_json(report: BenchmarkReport, path: str | Path | None = None) -> str:
     """Serialize benchmark report to JSON."""
     discrimination = report.discrimination_scores()
