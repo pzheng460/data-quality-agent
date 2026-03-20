@@ -18,7 +18,13 @@ A Python CLI + library for detecting and filtering low-quality LLM training data
 - **Chinese support is first-class**: All text processing must handle CJK. Use `stats.py` utilities (CJK-aware word count, Chinese punctuation).
 
 ### Known Issues & Lessons Learned
-- **`char_repetition_ratio` is unreliable**: Normal English text scores ~0.39. Threshold was raised from 0.20→0.40 but algorithm itself is flawed for short text. Consider removing entirely for SFT data.
+- **`char_repetition_ratio` is a length proxy, not a quality signal**: Investigation (2026-03-20) revealed the root cause:
+  - Longer text → more char 10-gram collisions (birthday paradox) → higher score
+  - Cleaned Alpaca (avg 727 chars, mean score 0.625) scores HIGHER than Original (avg 353 chars, mean 0.510)
+  - It penalizes detailed, high-quality responses and passes short/empty ones
+  - Algorithm: `sum((count-1)*n for repeated n-grams) / len(text)` — not properly normalized for text length
+  - **For SFT data**: disable entirely (sft.yaml sets threshold=1.0)
+  - **For pre-training data**: still marginally useful for catching true copy-paste boilerplate in long docs, but threshold 0.40 is barely above normal English text (~0.39)
 - **Heuristic filters don't work for SFT quality**: Gopher/C4/FineWeb are designed for pre-training web data. Alpaca Original vs Cleaned benchmark showed no meaningful discrimination on SFT data. SFT quality differences (hallucinations, errors) require Phase 2 model-based evaluation.
 - **`tatsu-lab/stanford_alpaca` removed from HuggingFace**: Must download from GitHub raw URL. Cached at `~/.cache/dq/alpaca_original.json`.
 - **`trust_remote_code=True` deprecated in newer HuggingFace datasets lib**: Remove this parameter from all `load_dataset()` calls.
