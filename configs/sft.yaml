@@ -1,46 +1,17 @@
 # SFT (Supervised Fine-Tuning) data pipeline config
-# Lighter filtering for instruction-following data:
-# - Lower word count minimum (short Q&A pairs are valid)
-# - No C4 terminal punct filter (code responses lack punctuation)
-# - PII detection only (don't redact — might corrupt code)
-# - No MinHash dedup (intentional rephrasing is fine)
+#
+# SFT data is fundamentally different from pre-training web data:
+# - Short answers can be perfect ("2+2=4")
+# - Code output has no punctuation, stopwords, or high alpha ratio
+# - Structured/list responses have natural repetition
+#
+# Therefore: NO Gopher/C4/FineWeb heuristic filters here.
+# Quality is measured by SFT-specific rules + LLM scoring (Layer 2).
 
 pipeline:
   text_field: "text"
 
   filters:
-    - name: length
-      params:
-        min_words: 10
-        max_words: 50000
-
-    - name: gopher_quality
-      params:
-        min_words: 10             # SFT data is short — lower threshold
-        max_words: 50000
-        min_avg_word_len: 2
-        max_avg_word_len: 15
-        max_symbol_ratio: 0.3     # Code has more symbols
-        min_lines_end_punct: 0.0  # Code doesn't end with punct
-        min_stopwords: 0          # Code/short answers may lack stopwords
-        min_alpha_ratio: 0.5      # Code has more non-alpha chars
-
-    - name: gopher_repetition
-      params:
-        max_top_2gram: 0.30       # Relaxed for structured data
-        max_top_3gram: 0.25
-        max_top_4gram: 0.20
-        max_dup_line_ratio: 0.40
-        max_dup_para_ratio: 0.40
-        # char_repetition removed — was buggy (char-level instead of word-level)
-
-    - name: fineweb
-      params:
-        max_list_line_ratio: 0.95  # Lists are common in SFT
-        max_dup_line_ratio: 0.50
-        min_avg_line_len: 10
-        max_short_line_count: 50   # Code has many short lines
-
     - name: sft_rules
       params:
         instruction_field: instruction

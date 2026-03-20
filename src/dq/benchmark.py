@@ -386,15 +386,25 @@ def run_benchmark(
             "Alpaca Cleaned": load_alpaca_cleaned(n=n, keep_fields=keep_fields),
         }
 
-    # Load config
+    # Load configs: separate for pretrain vs SFT
+    from pathlib import Path
+
+    sft_config_path = Path(__file__).parent.parent.parent / "configs" / "sft.yaml"
+
     if config_path:
-        config = PipelineConfig.from_yaml(config_path)
+        pretrain_config = PipelineConfig.from_yaml(config_path)
+        sft_config = PipelineConfig.from_yaml(config_path)  # user override applies to both
     else:
-        config = PipelineConfig.default()
+        pretrain_config = PipelineConfig.default()
+        if sft_config_path.exists():
+            sft_config = PipelineConfig.from_yaml(str(sft_config_path))
+        else:
+            sft_config = PipelineConfig.default()
 
     # Disable dedup for benchmarks if requested
     if no_dedup:
-        config.dedup = DedupConfig(exact=False, minhash={"enabled": False})
+        pretrain_config.dedup = DedupConfig(exact=False, minhash={"enabled": False})
+        sft_config.dedup = DedupConfig(exact=False, minhash={"enabled": False})
 
     report = BenchmarkReport(
         config_path=config_path,
@@ -402,7 +412,16 @@ def run_benchmark(
     )
 
     for ds_name, docs in datasets.items():
-        logger.info("Running pipeline on '%s' (%d docs)...", ds_name, len(docs))
+        # Auto-detect data type per dataset
+        if data_type == "auto":
+            ds_type = detect_data_type(docs)
+        else:
+            ds_type = data_type
+
+        # Use appropriate config
+        config = sft_config if ds_type == "sft" else pretrain_config
+
+        logger.info("Running pipeline on '%s' (%d docs, type=%s)...", ds_name, len(docs), ds_type)
         pipeline = Pipeline(config)
         list(pipeline.run(iter(docs)))
 
@@ -431,6 +450,7 @@ def run_benchmark(
             per_filter=per_filter,
             per_filter_pass_rate=per_filter_pass_rate,
             overall_pass_rate=overall,
+            data_type=ds_type,
         )
         report.datasets[ds_name] = result
 
