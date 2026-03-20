@@ -1,8 +1,14 @@
-"""Benchmark module: validate quality filters against real-world datasets."""
+"""Benchmark module: validate quality filters against real-world datasets.
+
+Two-layer benchmark:
+- Layer 1: Heuristic filters (Gopher/C4/FineWeb) — fast, no API cost
+- Layer 2: LLM scoring (opt-in) — data-type-aware quality assessment
+"""
 
 from __future__ import annotations
 
 import logging
+import random
 from dataclasses import dataclass, field
 from typing import Any, TYPE_CHECKING
 
@@ -16,6 +22,9 @@ FINEWEB_CONFIG = "sample-10BT"
 ALPACA_DATASET = "tatsu-lab/alpaca"
 ALPACA_ORIGINAL = "tatsu-lab/alpaca"
 ALPACA_CLEANED = "yahma/alpaca-cleaned"
+
+# SFT field detection heuristics
+SFT_FIELDS = {"instruction", "conversations", "prompt", "question"}
 
 
 def _ensure_datasets():
@@ -38,6 +47,98 @@ def _merge_alpaca_fields(item: dict) -> str:
         item.get("output", "") or "",
     ]
     return "\n".join(p for p in parts if p.strip())
+
+
+def detect_data_type(docs: list[dict]) -> str:
+    """Detect whether docs are SFT (instruction) or pre-training data.
+
+    Returns 'sft' if docs have instruction/conversations fields, 'pretrain' otherwise.
+    """
+    if not docs:
+        return "pretrain"
+
+    # Check first few docs for SFT-specific fields
+    sample = docs[:min(10, len(docs))]
+    sft_count = 0
+    for doc in sample:
+        doc_fields = set(doc.keys())
+        if doc_fields & SFT_FIELDS:
+            sft_count += 1
+
+    # If majority of sampled docs have SFT fields, classify as SFT
+    if sft_count > len(sample) / 2:
+        return "sft"
+    return "pretrain"
+
+
+def _extract_sft_fields(doc: dict) -> tuple[str, str]:
+    """Extract instruction and output from a doc.
+
+    Handles both structured SFT docs (with 'instruction'/'output' fields)
+    and merged text docs (split on first newline).
+    """
+    instruction = doc.get("instruction", "") or ""
+    output = doc.get("output", "") or ""
+
+    if instruction and output:
+        return instruction, output
+
+    # For merged text, try splitting on newlines
+    text = doc.get("text", "") or ""
+    if text:
+        parts = text.split("\n", 1)
+        instruction = parts[0].strip()
+        output = parts[1].strip() if len(parts) > 1 else ""
+
+    return instruction, output
+
+
+@dataclass
+class SFTScores:
+    """SFT quality scores from DEITA-style evaluation."""
+
+    avg_complexity: float = 0.0
+    avg_quality: float = 0.0
+    complexity_distribution: dict[int, int] = field(default_factory=dict)
+    quality_distribution: dict[int, int] = field(default_factory=dict)
+    empty_output_ratio: float = 0.0
+    num_scored: int = 0
+    scoring_errors: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "type": "sft",
+            "avg_complexity": round(self.avg_complexity, 2),
+            "avg_quality": round(self.avg_quality, 2),
+            "complexity_distribution": self.complexity_distribution,
+            "quality_distribution": self.quality_distribution,
+            "empty_output_ratio": round(self.empty_output_ratio, 3),
+            "num_scored": self.num_scored,
+            "scoring_errors": self.scoring_errors,
+        }
+
+
+@dataclass
+class PretrainScores:
+    """Pre-training text quality scores from LLM evaluation."""
+
+    avg_educational_value: float = 0.0
+    avg_writing_quality: float = 0.0
+    educational_distribution: dict[int, int] = field(default_factory=dict)
+    writing_distribution: dict[int, int] = field(default_factory=dict)
+    num_scored: int = 0
+    scoring_errors: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "type": "pretrain",
+            "avg_educational_value": round(self.avg_educational_value, 2),
+            "avg_writing_quality": round(self.avg_writing_quality, 2),
+            "educational_distribution": self.educational_distribution,
+            "writing_distribution": self.writing_distribution,
+            "num_scored": self.num_scored,
+            "scoring_errors": self.scoring_errors,
+        }
 
 
 @dataclass
@@ -67,10 +168,12 @@ class DatasetResult:
 
     name: str
     num_docs: int
-    stats: PipelineStats
+    stats: PipelineStats | None = None
     per_filter: dict[str, FilterResult] = field(default_factory=dict)
     per_filter_pass_rate: dict[str, float] = field(default_factory=dict)
     overall_pass_rate: float = 0.0
+    data_type: str = "pretrain"  # 'sft' or 'pretrain'
+    llm_scores: dict[str, Any] | None = None  # SFTScores.to_dict() or PretrainScores.to_dict()
 
 
 @dataclass
@@ -82,6 +185,8 @@ class BenchmarkReport:
     num_samples: int = 0
     # Per-rule breakdown: {dataset_name: {filter_name: {rule_name: RuleStats}}}
     rule_stats: dict[str, dict[str, dict[str, RuleStats]]] = field(default_factory=dict)
+    llm_scoring_enabled: bool = False
+    llm_samples: int = 0
 
     def discrimination_scores(self) -> dict[str, float]:
         """Compute per-filter discrimination: max pass rate - min pass rate."""
@@ -153,13 +258,14 @@ def load_alpaca_sample(n: int = 1000, seed: int = 42) -> list[dict]:
     return samples
 
 
-def load_alpaca_original(n: int | None = None) -> list[dict]:
+def load_alpaca_original(n: int | None = None, keep_fields: bool = False) -> list[dict]:
     """Load samples from tatsu-lab/stanford_alpaca (original, known quality issues).
 
     Downloads directly from GitHub since HuggingFace Hub removed the dataset.
 
     Args:
         n: Number of samples. None or 0 means all samples.
+        keep_fields: If True, preserve instruction/input/output fields alongside text.
     """
     import json
     import random
@@ -185,16 +291,24 @@ def load_alpaca_original(n: int | None = None) -> list[dict]:
     rng.shuffle(raw)
 
     limit = n if n and n > 0 else len(raw)
-    samples = [{"text": _merge_alpaca_fields(item)} for item in raw[:limit]]
+    samples = []
+    for item in raw[:limit]:
+        doc: dict[str, Any] = {"text": _merge_alpaca_fields(item)}
+        if keep_fields:
+            doc["instruction"] = item.get("instruction", "") or ""
+            doc["input"] = item.get("input", "") or ""
+            doc["output"] = item.get("output", "") or ""
+        samples.append(doc)
     logger.info("Loaded %d Alpaca original samples.", len(samples))
     return samples
 
 
-def load_alpaca_cleaned(n: int | None = None) -> list[dict]:
+def load_alpaca_cleaned(n: int | None = None, keep_fields: bool = False) -> list[dict]:
     """Load samples from yahma/alpaca-cleaned (community-cleaned version).
 
     Args:
         n: Number of samples. None or 0 means all samples.
+        keep_fields: If True, preserve instruction/input/output fields alongside text.
     """
     load_dataset = _ensure_datasets()
     logger.info("Loading Alpaca cleaned (yahma/alpaca-cleaned)...")
@@ -208,7 +322,12 @@ def load_alpaca_cleaned(n: int | None = None) -> list[dict]:
     for i, item in enumerate(ds):
         if i >= limit:
             break
-        samples.append({"text": _merge_alpaca_fields(item)})
+        doc: dict[str, Any] = {"text": _merge_alpaca_fields(item)}
+        if keep_fields:
+            doc["instruction"] = item.get("instruction", "") or ""
+            doc["input"] = item.get("input", "") or ""
+            doc["output"] = item.get("output", "") or ""
+        samples.append(doc)
     logger.info("Loaded %d Alpaca cleaned samples.", len(samples))
     return samples
 
@@ -220,8 +339,21 @@ def run_benchmark(
     no_dedup: bool = True,
     seed: int = 42,
     skip_dedup: bool | None = None,
+    data_type: str = "auto",
+    sft_samples: int = 0,
+    api_url: str | None = None,
+    api_key: str | None = None,
+    model: str | None = None,
 ) -> BenchmarkReport:
     """Run the quality pipeline on each dataset and collect comparison stats.
+
+    Two-layer approach:
+    - Layer 1: Heuristic filters (always runs)
+    - Layer 2: LLM scoring (opt-in, data-type-aware)
+
+    For SFT data (auto-detected or specified), Layer 2 uses DEITA complexity
+    and quality scoring. For pre-training data, it uses educational value and
+    writing quality scoring.
 
     Args:
         config_path: Path to pipeline config YAML. None uses default config.
@@ -230,9 +362,14 @@ def run_benchmark(
         no_dedup: If True, skip dedup filters (faster for benchmarks).
         seed: Random seed for reproducibility.
         skip_dedup: Alias for no_dedup (for API compatibility).
+        data_type: 'sft', 'pretrain', or 'auto' (detect from data).
+        sft_samples: Number of docs to score with LLM (0 = skip LLM scoring).
+        api_url: LLM API base URL for scoring.
+        api_key: LLM API key for scoring.
+        model: LLM model name for scoring.
 
     Returns:
-        BenchmarkReport with per-dataset, per-filter pass rates.
+        BenchmarkReport with per-dataset, per-filter pass rates and optional LLM scores.
     """
     import dq.filters  # noqa: F401 — trigger filter registration
     from dq.config import DedupConfig, PipelineConfig
@@ -241,10 +378,12 @@ def run_benchmark(
     if skip_dedup is not None:
         no_dedup = skip_dedup
 
+    keep_fields = data_type in ("sft", "auto")
+
     if datasets is None:
         datasets = {
-            "Alpaca Original": load_alpaca_original(n=n),
-            "Alpaca Cleaned": load_alpaca_cleaned(n=n),
+            "Alpaca Original": load_alpaca_original(n=n, keep_fields=keep_fields),
+            "Alpaca Cleaned": load_alpaca_cleaned(n=n, keep_fields=keep_fields),
         }
 
     # Load config
@@ -328,4 +467,204 @@ def run_benchmark(
 
         report.rule_stats[ds_name] = ds_rule_stats
 
+    # Layer 2: LLM scoring (opt-in)
+    if sft_samples > 0:
+        # Auto-detect data type from first dataset
+        detected_type = data_type
+        if data_type == "auto":
+            first_docs = next(iter(datasets.values()))
+            detected_type = detect_data_type(first_docs)
+            logger.info("Auto-detected data type: %s", detected_type)
+
+        report = run_llm_scoring(
+            report=report,
+            datasets=datasets,
+            llm_samples=sft_samples,
+            data_type_override=detected_type if detected_type != "auto" else None,
+            seed=seed,
+            api_url=api_url,
+            api_key=api_key,
+            model=model,
+        )
+
     return report
+
+
+def run_llm_scoring(
+    report: BenchmarkReport,
+    datasets: dict[str, list[dict]],
+    llm_samples: int = 50,
+    data_type_override: str | None = None,
+    seed: int = 42,
+    api_url: str | None = None,
+    api_key: str | None = None,
+    model: str | None = None,
+    progress: bool = True,
+) -> BenchmarkReport:
+    """Run Layer 2 LLM scoring on datasets and attach results to the report.
+
+    Args:
+        report: Existing BenchmarkReport from Layer 1.
+        datasets: Dict of {name: docs} — same datasets used for Layer 1.
+        llm_samples: Number of docs to score per dataset (randomly sampled).
+        data_type_override: Force 'sft' or 'pretrain'. Auto-detects if None.
+        seed: Random seed for sampling.
+        api_url: Override LLM API URL.
+        api_key: Override LLM API key.
+        model: Override LLM model name.
+        progress: Show tqdm progress bar.
+
+    Returns:
+        The same BenchmarkReport with llm_scores attached to each DatasetResult.
+    """
+    try:
+        from tqdm import tqdm
+    except ImportError:
+        def tqdm(iterable, **kwargs):  # type: ignore[misc]
+            return iterable
+
+    report.llm_scoring_enabled = True
+    report.llm_samples = llm_samples
+
+    for ds_name, docs in datasets.items():
+        if ds_name not in report.datasets:
+            continue
+
+        # Detect data type
+        if data_type_override:
+            data_type = data_type_override
+        else:
+            data_type = detect_data_type(docs)
+        report.datasets[ds_name].data_type = data_type
+
+        # Sample docs for scoring
+        rng = random.Random(seed)
+        sample_docs = docs[:] if len(docs) <= llm_samples else rng.sample(docs, llm_samples)
+
+        logger.info("LLM scoring '%s' (%d samples, type=%s)...", ds_name, len(sample_docs), data_type)
+
+        if data_type == "sft":
+            scores = _score_sft_docs(sample_docs, api_url, api_key, model, progress)
+        else:
+            scores = _score_pretrain_docs(sample_docs, api_url, api_key, model, progress)
+
+        report.datasets[ds_name].llm_scores = scores
+
+    return report
+
+
+def _score_sft_docs(
+    docs: list[dict],
+    api_url: str | None = None,
+    api_key: str | None = None,
+    model: str | None = None,
+    progress: bool = True,
+) -> dict[str, Any]:
+    """Score SFT docs using ComplexityScorer + QualityScorer."""
+    try:
+        from tqdm import tqdm
+    except ImportError:
+        def tqdm(iterable, **kwargs):  # type: ignore[misc]
+            return iterable
+
+    from dq.sft.complexity import ComplexityScorer
+    from dq.sft.quality import QualityScorer
+
+    complexity_scorer = ComplexityScorer(api_url=api_url, api_key=api_key, model=model)
+    quality_scorer = QualityScorer(api_url=api_url, api_key=api_key, model=model)
+
+    scores = SFTScores()
+    complexity_vals: list[float] = []
+    quality_vals: list[float] = []
+    empty_outputs = 0
+
+    for doc in tqdm(docs, desc="  SFT scoring", disable=not progress):
+        instruction, output = _extract_sft_fields(doc)
+
+        if not output.strip():
+            empty_outputs += 1
+
+        # Score complexity
+        c_doc = {"instruction": instruction}
+        complexity_scorer.score(c_doc)
+        c_score = c_doc.get("complexity_score", -1.0)
+
+        # Score quality
+        q_doc = {"instruction": instruction, "output": output}
+        quality_scorer.score(q_doc)
+        q_score = q_doc.get("quality_score", -1.0)
+
+        if c_score > 0:
+            complexity_vals.append(c_score)
+            bucket = int(c_score)
+            scores.complexity_distribution[bucket] = scores.complexity_distribution.get(bucket, 0) + 1
+        else:
+            scores.scoring_errors += 1
+
+        if q_score > 0:
+            quality_vals.append(q_score)
+            bucket = int(q_score)
+            scores.quality_distribution[bucket] = scores.quality_distribution.get(bucket, 0) + 1
+        else:
+            scores.scoring_errors += 1
+
+    scores.num_scored = len(docs)
+    scores.avg_complexity = sum(complexity_vals) / len(complexity_vals) if complexity_vals else 0.0
+    scores.avg_quality = sum(quality_vals) / len(quality_vals) if quality_vals else 0.0
+    scores.empty_output_ratio = empty_outputs / len(docs) if docs else 0.0
+
+    return scores.to_dict()
+
+
+def _score_pretrain_docs(
+    docs: list[dict],
+    api_url: str | None = None,
+    api_key: str | None = None,
+    model: str | None = None,
+    progress: bool = True,
+) -> dict[str, Any]:
+    """Score pre-training docs using EducationalValueScorer + WritingQualityScorer."""
+    try:
+        from tqdm import tqdm
+    except ImportError:
+        def tqdm(iterable, **kwargs):  # type: ignore[misc]
+            return iterable
+
+    from dq.sft.educational import EducationalValueScorer
+    from dq.sft.writing_quality import WritingQualityScorer
+
+    edu_scorer = EducationalValueScorer(api_url=api_url, api_key=api_key, model=model)
+    writing_scorer = WritingQualityScorer(api_url=api_url, api_key=api_key, model=model)
+
+    scores = PretrainScores()
+    edu_vals: list[float] = []
+    writing_vals: list[float] = []
+
+    for doc in tqdm(docs, desc="  Pretrain scoring", disable=not progress):
+        # Score educational value
+        edu_scorer.score(doc)
+        e_score = doc.get("educational_value_score", -1.0)
+
+        # Score writing quality
+        writing_scorer.score(doc)
+        w_score = doc.get("writing_quality_score", -1.0)
+
+        if e_score > 0:
+            edu_vals.append(e_score)
+            bucket = int(e_score)
+            scores.educational_distribution[bucket] = scores.educational_distribution.get(bucket, 0) + 1
+        else:
+            scores.scoring_errors += 1
+
+        if w_score > 0:
+            writing_vals.append(w_score)
+            bucket = int(w_score)
+            scores.writing_distribution[bucket] = scores.writing_distribution.get(bucket, 0) + 1
+        else:
+            scores.scoring_errors += 1
+
+    scores.num_scored = len(docs)
+    scores.avg_educational_value = sum(edu_vals) / len(edu_vals) if edu_vals else 0.0
+    scores.avg_writing_quality = sum(writing_vals) / len(writing_vals) if writing_vals else 0.0
+
+    return scores.to_dict()

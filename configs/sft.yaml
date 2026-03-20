@@ -41,6 +41,14 @@ pipeline:
         min_avg_line_len: 10
         max_short_line_count: 50   # Code has many short lines
 
+    - name: sft_rules
+      params:
+        instruction_field: instruction
+        output_field: output
+        min_output_words: 5
+        min_instruction_words_for_short_check: 20
+        max_copy_similarity: 0.80
+
     - name: pii
       mode: detect  # Detect only — don't redact SFT data
 

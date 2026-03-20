@@ -51,6 +51,50 @@ def _verdict_md(delta: float) -> str:
         return "— No signal"
 
 
+def _add_filter_row(
+    table: Table,
+    report: BenchmarkReport,
+    f: str,
+    ds_names: list[str],
+    discrimination: dict[str, float],
+) -> None:
+    """Add a filter row with per-rule sub-rows to a table."""
+    row: list[str | Text] = [Text(f, style="bold")]
+    rates = []
+    for name in ds_names:
+        rate = report.datasets[name].per_filter_pass_rate.get(f, 0.0)
+        rates.append(rate)
+        row.append(f"{rate:.1%}")
+
+    delta = discrimination.get(f, 0.0)
+    row.append(f"+{delta:.1%}")
+    label, style = _verdict(delta)
+    row.append(Text(label, style=style))
+
+    table.add_row(*row)
+
+    # Add per-rule sub-rows if rule_stats available
+    if report.rule_stats:
+        rule_names = _collect_rule_names(report, f, ds_names)
+        for i, rule in enumerate(rule_names):
+            is_last = i == len(rule_names) - 1
+            prefix = "└─" if is_last else "├─"
+            rule_row: list[str | Text] = [Text(f"  {prefix} {rule}", style="dim")]
+            rule_rates = []
+            for name in ds_names:
+                rs = report.rule_stats.get(name, {}).get(f, {}).get(rule)
+                rate = rs.pass_rate if rs else 1.0
+                rule_rates.append(rate)
+                rule_row.append(f"{rate:.1%}")
+
+            rule_delta = max(rule_rates) - min(rule_rates) if len(rule_rates) >= 2 else 0.0
+            rule_row.append(f"+{rule_delta:.1%}")
+            rl, rs_style = _verdict(rule_delta)
+            rule_row.append(Text(rl, style=rs_style))
+
+            table.add_row(*rule_row)
+
+
 def print_benchmark_report(report: BenchmarkReport, console: Console | None = None) -> None:
     """Print a rich comparison table to the console."""
     console = console or Console()
@@ -81,6 +125,10 @@ def print_benchmark_report(report: BenchmarkReport, console: Console | None = No
                   f"Samples: {report.num_samples or 'all'}[/dim]")
     console.print()
 
+    # Separate filters into layers
+    heuristic_filters = [f for f in all_filters if f != "sft_rules"]
+    sft_rule_filters = [f for f in all_filters if f == "sft_rules"]
+
     # Build the table
     table = Table(padding=(0, 1), show_edge=True)
     table.add_column("Filter", style="bold", min_width=20)
@@ -89,42 +137,22 @@ def print_benchmark_report(report: BenchmarkReport, console: Console | None = No
     table.add_column("Δ", justify="right", min_width=10)
     table.add_column("Verdict", min_width=18)
 
-    # Per-filter rows with rule breakdown
-    for f in all_filters:
-        row: list[str | Text] = [Text(f, style="bold")]
-        rates = []
-        for name in ds_names:
-            rate = report.datasets[name].per_filter_pass_rate.get(f, 0.0)
-            rates.append(rate)
-            row.append(f"{rate:.1%}")
+    # Layer 1: Heuristic filters
+    if heuristic_filters:
+        num_cols = len(ds_names) + 3  # Filter + datasets + Δ + Verdict
+        table.add_row(*([Text("Layer 1: Heuristic Filters", style="bold cyan")] + [""] * (num_cols - 1)))
 
-        delta = discrimination.get(f, 0.0)
-        row.append(f"+{delta:.1%}")
-        label, style = _verdict(delta)
-        row.append(Text(label, style=style))
+    for f in heuristic_filters:
+        _add_filter_row(table, report, f, ds_names, discrimination)
 
-        table.add_row(*row)
+    # Layer 1.5: SFT Rules
+    if sft_rule_filters:
+        table.add_section()
+        num_cols = len(ds_names) + 3
+        table.add_row(*([Text("Layer 1.5: SFT Rules", style="bold cyan")] + [""] * (num_cols - 1)))
 
-        # Add per-rule sub-rows if rule_stats available
-        if report.rule_stats:
-            rule_names = _collect_rule_names(report, f, ds_names)
-            for i, rule in enumerate(rule_names):
-                is_last = i == len(rule_names) - 1
-                prefix = "└─" if is_last else "├─"
-                rule_row: list[str | Text] = [Text(f"  {prefix} {rule}", style="dim")]
-                rule_rates = []
-                for name in ds_names:
-                    rs = report.rule_stats.get(name, {}).get(f, {}).get(rule)
-                    rate = rs.pass_rate if rs else 1.0
-                    rule_rates.append(rate)
-                    rule_row.append(f"{rate:.1%}")
-
-                rule_delta = max(rule_rates) - min(rule_rates) if len(rule_rates) >= 2 else 0.0
-                rule_row.append(f"+{rule_delta:.1%}")
-                rl, rs_style = _verdict(rule_delta)
-                rule_row.append(Text(rl, style=rs_style))
-
-                table.add_row(*rule_row)
+        for f in sft_rule_filters:
+            _add_filter_row(table, report, f, ds_names, discrimination)
 
     # Overall pass rate row
     table.add_section()
@@ -153,6 +181,10 @@ def print_benchmark_report(report: BenchmarkReport, console: Console | None = No
 
     # Show per-filter examples of docs that FAIL in original but PASS in cleaned
     _print_sample_failures(report, ds_names, all_filters, discrimination, console)
+
+    # Layer 2: LLM Quality Scoring
+    if report.llm_scoring_enabled:
+        _print_llm_scores(report, ds_names, console)
 
 
 def _print_sample_failures(
@@ -192,13 +224,190 @@ def _print_sample_failures(
         console.print()
 
 
+def _print_llm_scores(
+    report: BenchmarkReport,
+    ds_names: list[str],
+    console: Console,
+) -> None:
+    """Print Layer 2 LLM quality scoring results."""
+    # Check if any dataset has LLM scores
+    has_scores = any(
+        report.datasets[name].llm_scores is not None
+        for name in ds_names
+    )
+    if not has_scores:
+        return
+
+    console.print()
+    console.print(
+        f"[bold]🤖 Layer 2: LLM Quality Scoring ({report.llm_samples} samples)[/bold]",
+        highlight=False,
+    )
+    console.print()
+
+    # Determine data type from first dataset with scores
+    first_scores = None
+    for name in ds_names:
+        if report.datasets[name].llm_scores:
+            first_scores = report.datasets[name].llm_scores
+            break
+
+    if first_scores is None:
+        return
+
+    data_type = first_scores.get("type", "pretrain")
+
+    # Build table
+    table = Table(padding=(0, 1), show_edge=True)
+    table.add_column("Metric", style="bold", min_width=25)
+    for name in ds_names:
+        table.add_column(name, justify="right", min_width=12)
+
+    if data_type == "sft":
+        _add_sft_score_rows(table, report, ds_names)
+    else:
+        _add_pretrain_score_rows(table, report, ds_names)
+
+    # Scoring stats row
+    table.add_section()
+    stats_row: list[str] = ["Samples scored"]
+    for name in ds_names:
+        scores = report.datasets[name].llm_scores
+        if scores:
+            stats_row.append(str(scores.get("num_scored", 0)))
+        else:
+            stats_row.append("—")
+    table.add_row(*stats_row, style="dim")
+
+    errors_row: list[str] = ["Scoring errors"]
+    for name in ds_names:
+        scores = report.datasets[name].llm_scores
+        if scores:
+            errors_row.append(str(scores.get("scoring_errors", 0)))
+        else:
+            errors_row.append("—")
+    table.add_row(*errors_row, style="dim")
+
+    console.print(table)
+    console.print()
+
+    # Print score distributions
+    _print_score_distributions(report, ds_names, data_type, console)
+
+
+def _add_sft_score_rows(
+    table: Table,
+    report: BenchmarkReport,
+    ds_names: list[str],
+) -> None:
+    """Add SFT scoring rows (complexity + quality)."""
+    # Avg Complexity
+    row: list[str] = ["Avg Complexity (1-6)"]
+    for name in ds_names:
+        scores = report.datasets[name].llm_scores
+        if scores and scores.get("avg_complexity", 0) > 0:
+            row.append(f"{scores['avg_complexity']:.1f}")
+        else:
+            row.append("—")
+    table.add_row(*row)
+
+    # Avg Quality
+    row = ["Avg Quality (1-6)"]
+    for name in ds_names:
+        scores = report.datasets[name].llm_scores
+        if scores and scores.get("avg_quality", 0) > 0:
+            row.append(f"{scores['avg_quality']:.1f}")
+        else:
+            row.append("—")
+    table.add_row(*row)
+
+    # Empty output ratio
+    row = ["Empty output ratio"]
+    for name in ds_names:
+        scores = report.datasets[name].llm_scores
+        if scores:
+            row.append(f"{scores.get('empty_output_ratio', 0):.1%}")
+        else:
+            row.append("—")
+    table.add_row(*row)
+
+
+def _add_pretrain_score_rows(
+    table: Table,
+    report: BenchmarkReport,
+    ds_names: list[str],
+) -> None:
+    """Add pre-training scoring rows (educational value + writing quality)."""
+    # Avg Educational Value
+    row: list[str] = ["Avg Educational Value (1-6)"]
+    for name in ds_names:
+        scores = report.datasets[name].llm_scores
+        if scores and scores.get("avg_educational_value", 0) > 0:
+            row.append(f"{scores['avg_educational_value']:.1f}")
+        else:
+            row.append("—")
+    table.add_row(*row)
+
+    # Avg Writing Quality
+    row = ["Avg Writing Quality (1-6)"]
+    for name in ds_names:
+        scores = report.datasets[name].llm_scores
+        if scores and scores.get("avg_writing_quality", 0) > 0:
+            row.append(f"{scores['avg_writing_quality']:.1f}")
+        else:
+            row.append("—")
+    table.add_row(*row)
+
+
+def _print_score_distributions(
+    report: BenchmarkReport,
+    ds_names: list[str],
+    data_type: str,
+    console: Console,
+) -> None:
+    """Print score distribution tables."""
+    if data_type == "sft":
+        dist_keys = [
+            ("complexity_distribution", "Complexity Score Distribution"),
+            ("quality_distribution", "Quality Score Distribution"),
+        ]
+    else:
+        dist_keys = [
+            ("educational_distribution", "Educational Value Distribution"),
+            ("writing_distribution", "Writing Quality Distribution"),
+        ]
+
+    for dist_key, title in dist_keys:
+        table = Table(title=title, padding=(0, 1), show_edge=True)
+        table.add_column("Score", style="bold", justify="center")
+        for name in ds_names:
+            table.add_column(name, justify="right", min_width=12)
+
+        for score_val in range(1, 7):
+            row: list[str] = [str(score_val)]
+            for name in ds_names:
+                scores = report.datasets[name].llm_scores
+                if scores:
+                    dist = scores.get(dist_key, {})
+                    count = dist.get(score_val, dist.get(str(score_val), 0))
+                    row.append(str(count))
+                else:
+                    row.append("—")
+            table.add_row(*row)
+
+        console.print(table)
+        console.print()
+
+
 def benchmark_to_json(report: BenchmarkReport, path: str | Path | None = None) -> str:
     """Serialize benchmark report to JSON."""
     discrimination = report.discrimination_scores()
 
-    data = {
+    data: dict = {
         "config_path": report.config_path,
         "num_samples": report.num_samples,
+        "llm_scoring_enabled": report.llm_scoring_enabled,
+        "llm_samples": report.llm_samples,
         "datasets": {},
         "discrimination": {},
     }
@@ -239,7 +448,11 @@ def benchmark_to_json(report: BenchmarkReport, path: str | Path | None = None) -
         ds_data["per_filter_pass_rate"] = {
             k: round(v, 4) for k, v in dr.per_filter_pass_rate.items()
         }
-        ds_data["pipeline_stats"] = dr.stats.to_dict()
+        if dr.stats is not None:
+            ds_data["pipeline_stats"] = dr.stats.to_dict()
+        ds_data["data_type"] = dr.data_type
+        if dr.llm_scores is not None:
+            ds_data["llm_scores"] = dr.llm_scores
         data["datasets"][name] = ds_data
 
     json_str = json.dumps(data, indent=2, ensure_ascii=False)
@@ -358,8 +571,122 @@ def benchmark_to_markdown(report: BenchmarkReport, path: str | Path | None = Non
                     lines.append(f"   - Reason: {reason_str}")
                 lines.append("")
 
+    # Layer 2: LLM Scoring section
+    if report.llm_scoring_enabled:
+        _append_llm_scores_markdown(lines, report, ds_names)
+
     md = "\n".join(lines)
     if path:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         Path(path).write_text(md, encoding="utf-8")
     return md
+
+
+def _append_llm_scores_markdown(
+    lines: list[str],
+    report: BenchmarkReport,
+    ds_names: list[str],
+) -> None:
+    """Append Layer 2 LLM scoring section to markdown lines."""
+    has_scores = any(
+        report.datasets[name].llm_scores is not None
+        for name in ds_names
+    )
+    if not has_scores:
+        return
+
+    lines.append(f"## Layer 2: LLM Quality Scoring ({report.llm_samples} samples)")
+    lines.append("")
+
+    # Determine data type
+    first_scores = None
+    for name in ds_names:
+        if report.datasets[name].llm_scores:
+            first_scores = report.datasets[name].llm_scores
+            break
+
+    if first_scores is None:
+        return
+
+    data_type = first_scores.get("type", "pretrain")
+
+    # Build header
+    header = "| Metric |"
+    separator = "|--------|"
+    for name in ds_names:
+        header += f" {name} |"
+        separator += "--------|"
+    lines.append(header)
+    lines.append(separator)
+
+    if data_type == "sft":
+        # Complexity row
+        row = "| Avg Complexity (1-6) |"
+        for name in ds_names:
+            scores = report.datasets[name].llm_scores
+            if scores and scores.get("avg_complexity", 0) > 0:
+                row += f" {scores['avg_complexity']:.1f} |"
+            else:
+                row += " — |"
+        lines.append(row)
+
+        # Quality row
+        row = "| Avg Quality (1-6) |"
+        for name in ds_names:
+            scores = report.datasets[name].llm_scores
+            if scores and scores.get("avg_quality", 0) > 0:
+                row += f" {scores['avg_quality']:.1f} |"
+            else:
+                row += " — |"
+        lines.append(row)
+
+        # Empty output ratio
+        row = "| Empty output ratio |"
+        for name in ds_names:
+            scores = report.datasets[name].llm_scores
+            if scores:
+                row += f" {scores.get('empty_output_ratio', 0):.1%} |"
+            else:
+                row += " — |"
+        lines.append(row)
+    else:
+        # Educational Value row
+        row = "| Avg Educational Value (1-6) |"
+        for name in ds_names:
+            scores = report.datasets[name].llm_scores
+            if scores and scores.get("avg_educational_value", 0) > 0:
+                row += f" {scores['avg_educational_value']:.1f} |"
+            else:
+                row += " — |"
+        lines.append(row)
+
+        # Writing Quality row
+        row = "| Avg Writing Quality (1-6) |"
+        for name in ds_names:
+            scores = report.datasets[name].llm_scores
+            if scores and scores.get("avg_writing_quality", 0) > 0:
+                row += f" {scores['avg_writing_quality']:.1f} |"
+            else:
+                row += " — |"
+        lines.append(row)
+
+    # Stats rows
+    row = "| Samples scored |"
+    for name in ds_names:
+        scores = report.datasets[name].llm_scores
+        if scores:
+            row += f" {scores.get('num_scored', 0)} |"
+        else:
+            row += " — |"
+    lines.append(row)
+
+    row = "| Scoring errors |"
+    for name in ds_names:
+        scores = report.datasets[name].llm_scores
+        if scores:
+            row += f" {scores.get('scoring_errors', 0)} |"
+        else:
+            row += " — |"
+    lines.append(row)
+
+    lines.append("")

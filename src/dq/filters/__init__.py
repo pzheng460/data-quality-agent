@@ -6,6 +6,7 @@ from dq.filters.fineweb import FineWebFilter
 from dq.filters.gopher import GopherQualityFilter, GopherRepetitionFilter
 from dq.filters.length import LengthFilter
 from dq.filters.pii import PIIFilter
+from dq.filters.sft_rules import SFTRulesFilter
 
 __all__ = [
     "C4Filter",
@@ -14,4 +15,5 @@ __all__ = [
     "GopherRepetitionFilter",
     "LengthFilter",
     "PIIFilter",
+    "SFTRulesFilter",
 ]

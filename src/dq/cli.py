@@ -324,10 +324,22 @@ def contamination(input_path: str, benchmarks: str, benchmark_file: str | None,
 @click.option("--report-dir", type=click.Path(), help="Alias for -o (deprecated)")
 @click.option("--with-model-filters", is_flag=True, default=False, help="Enable model-based filters")
 @click.option("--check-contamination", is_flag=True, default=False, help="Run n-gram contamination check")
+@click.option("--with-llm-scoring", is_flag=True, default=False, help="Enable Layer 2 LLM quality scoring")
+@click.option("--llm-samples", default=50, type=int, help="Docs to score per dataset for LLM scoring (default 50)")
+@click.option("--data-type", type=click.Choice(["sft", "pretrain", "auto"]), default="auto",
+              help="Data type for LLM scoring (auto-detect by default)")
+@click.option("--api-url", envvar="DQ_API_BASE_URL", default=None, help="LLM API base URL")
+@click.option("--api-key", envvar="DQ_API_KEY", default=None, help="LLM API key")
+@click.option("--model", "llm_model", envvar="DQ_MODEL", default=None, help="LLM model name for scoring")
 def bench(config_path: str | None, num_samples: int, no_dedup: bool, seed: int,
           output_dir: str | None, report_dir: str | None, with_model_filters: bool,
-          check_contamination: bool):
-    """Run benchmark: compare Alpaca original vs cleaned filter pass rates."""
+          check_contamination: bool, with_llm_scoring: bool, llm_samples: int,
+          data_type: str, api_url: str | None, api_key: str | None, llm_model: str | None):
+    """Run benchmark: compare Alpaca original vs cleaned filter pass rates.
+
+    Layer 1 (default): Heuristic filters — fast, no API cost.
+    Layer 2 (--with-llm-scoring): LLM quality scoring — requires API key.
+    """
     if with_model_filters:
         import dq.model_filters  # noqa: F401
     from dq.benchmark import run_benchmark
@@ -344,20 +356,62 @@ def bench(config_path: str | None, num_samples: int, no_dedup: bool, seed: int,
     samples_label = str(num_samples) if num_samples > 0 else "all"
     console.print(f"[bold]Running benchmark with {samples_label} samples per dataset...[/bold]")
     console.print(f"[dim]Config: {config_path or 'default'} | Dedup: {'off' if no_dedup else 'on'} | Seed: {seed}[/dim]")
+    if with_llm_scoring:
+        console.print(f"[dim]LLM scoring: enabled ({llm_samples} samples/dataset, type={data_type})[/dim]")
+
+    # Keep raw datasets for Layer 2 scoring
+    datasets_for_scoring: dict[str, list[dict]] | None = None
 
     try:
-        report = run_benchmark(
-            config_path=config_path,
-            n=n,
-            no_dedup=no_dedup,
-            seed=seed,
-        )
+        if with_llm_scoring:
+            from dq.benchmark import load_alpaca_original, load_alpaca_cleaned
+            datasets_raw = {
+                "Alpaca Original": load_alpaca_original(n=n, keep_fields=True),
+                "Alpaca Cleaned": load_alpaca_cleaned(n=n, keep_fields=True),
+            }
+            # For Layer 1 pipeline, use the same docs (text field is always present)
+            report = run_benchmark(
+                config_path=config_path,
+                datasets=datasets_raw,
+                n=n,
+                no_dedup=no_dedup,
+                seed=seed,
+            )
+            datasets_for_scoring = datasets_raw
+        else:
+            report = run_benchmark(
+                config_path=config_path,
+                n=n,
+                no_dedup=no_dedup,
+                seed=seed,
+            )
     except ImportError as e:
         console.print(f"[red]Error: {e}[/red]")
         raise SystemExit(1)
     except Exception as e:
         console.print(f"[red]Benchmark failed: {e}[/red]")
         raise SystemExit(1)
+
+    # Layer 2: LLM scoring
+    if with_llm_scoring and datasets_for_scoring:
+        from dq.benchmark import run_llm_scoring
+
+        console.print()
+        console.print("[bold]Running Layer 2: LLM Quality Scoring...[/bold]")
+        data_type_override = data_type if data_type != "auto" else None
+        try:
+            run_llm_scoring(
+                report=report,
+                datasets=datasets_for_scoring,
+                llm_samples=llm_samples,
+                data_type_override=data_type_override,
+                seed=seed,
+                api_url=api_url,
+                api_key=api_key,
+                model=llm_model,
+            )
+        except Exception as e:
+            console.print(f"[yellow]LLM scoring failed: {e}[/yellow]")
 
     print_benchmark_report(report, console=console)
 

@@ -1,6 +1,7 @@
 """Tests for the benchmark module using mock datasets (no network downloads)."""
 
 import json
+from unittest.mock import MagicMock, patch
 
 import dq.filters  # noqa: F401 — trigger filter registration
 from dq.benchmark import (
@@ -8,8 +9,12 @@ from dq.benchmark import (
     BenchmarkResult,
     DatasetResult,
     FilterResult,
+    SFTScores,
+    _extract_sft_fields,
     _merge_alpaca_fields,
+    detect_data_type,
     run_benchmark,
+    run_llm_scoring,
 )
 from dq.benchmark_report import (
     STRONG_THRESHOLD,
@@ -339,3 +344,289 @@ class TestSkipDedupAlias:
             skip_dedup=True,
         )
         assert len(report.datasets) == 2
+
+
+def _make_sft_docs(n: int = 20) -> list[dict]:
+    """Create mock SFT documents with instruction/output fields."""
+    docs = []
+    for i in range(n):
+        docs.append({
+            "instruction": f"Explain the concept of topic {i} in detail.",
+            "input": "",
+            "output": (
+                f"Topic {i} is an important concept in science. "
+                "It involves multiple interconnected processes that work together. "
+                "The key aspects include theoretical foundations and practical applications."
+            ),
+            "text": f"Explain the concept of topic {i} in detail.\n"
+                    f"Topic {i} is an important concept in science. "
+                    "It involves multiple interconnected processes that work together. "
+                    "The key aspects include theoretical foundations and practical applications.",
+        })
+    return docs
+
+
+class TestDetectDataType:
+    def test_sft_with_instruction_field(self):
+        docs = [{"instruction": "Do X", "output": "Y"} for _ in range(5)]
+        assert detect_data_type(docs) == "sft"
+
+    def test_sft_with_conversations_field(self):
+        docs = [{"conversations": [{"role": "user", "content": "hi"}]} for _ in range(5)]
+        assert detect_data_type(docs) == "sft"
+
+    def test_pretrain_with_text_only(self):
+        docs = [{"text": "Some long text here"} for _ in range(5)]
+        assert detect_data_type(docs) == "pretrain"
+
+    def test_empty_list(self):
+        assert detect_data_type([]) == "pretrain"
+
+    def test_mixed_fields_majority_sft(self):
+        docs = [
+            {"instruction": "Do X", "output": "Y"},
+            {"instruction": "Do Z", "output": "W"},
+            {"instruction": "Do A", "output": "B"},
+            {"text": "plain text"},
+        ]
+        assert detect_data_type(docs) == "sft"
+
+    def test_mixed_fields_majority_pretrain(self):
+        docs = [
+            {"text": "plain text 1"},
+            {"text": "plain text 2"},
+            {"text": "plain text 3"},
+            {"instruction": "Do X", "output": "Y"},
+        ]
+        assert detect_data_type(docs) == "pretrain"
+
+
+class TestExtractSFTFields:
+    def test_with_instruction_output(self):
+        doc = {"instruction": "Do X", "output": "Result Y"}
+        instr, out = _extract_sft_fields(doc)
+        assert instr == "Do X"
+        assert out == "Result Y"
+
+    def test_with_text_only(self):
+        doc = {"text": "Question here\nAnswer is this"}
+        instr, out = _extract_sft_fields(doc)
+        assert instr == "Question here"
+        assert out == "Answer is this"
+
+    def test_with_text_no_newline(self):
+        doc = {"text": "Just a single line"}
+        instr, out = _extract_sft_fields(doc)
+        assert instr == "Just a single line"
+        assert out == ""
+
+    def test_empty_doc(self):
+        doc = {}
+        instr, out = _extract_sft_fields(doc)
+        assert instr == ""
+        assert out == ""
+
+
+class TestSFTScores:
+    def test_defaults(self):
+        scores = SFTScores()
+        assert scores.avg_complexity == 0.0
+        assert scores.avg_quality == 0.0
+        assert scores.empty_output_ratio == 0.0
+        assert scores.num_scored == 0
+        assert scores.scoring_errors == 0
+
+    def test_to_dict(self):
+        scores = SFTScores(
+            avg_complexity=3.5,
+            avg_quality=4.2,
+            complexity_distribution={3: 5, 4: 3},
+            quality_distribution={4: 6, 5: 2},
+            empty_output_ratio=0.05,
+            num_scored=8,
+            scoring_errors=2,
+        )
+        d = scores.to_dict()
+        assert d["type"] == "sft"
+        assert d["avg_complexity"] == 3.5
+        assert d["avg_quality"] == 4.2
+        assert d["empty_output_ratio"] == 0.05
+        assert d["num_scored"] == 8
+
+
+class TestDatasetResultNewFields:
+    def test_data_type_field(self):
+        dr = DatasetResult(name="test", num_docs=10, data_type="sft")
+        assert dr.data_type == "sft"
+
+    def test_llm_scores_field(self):
+        scores_dict = {"type": "sft", "avg_complexity": 3.0}
+        dr = DatasetResult(name="test", num_docs=10, llm_scores=scores_dict)
+        assert dr.llm_scores["avg_complexity"] == 3.0
+
+    def test_default_data_type(self):
+        dr = DatasetResult(name="test", num_docs=10)
+        assert dr.data_type == "pretrain"
+
+    def test_stats_optional(self):
+        """Stats is None for SFT-only benchmark."""
+        dr = DatasetResult(name="test", num_docs=10, data_type="sft")
+        assert dr.stats is None
+
+
+class TestBenchmarkReportNewFields:
+    def test_llm_scoring_fields(self):
+        report = BenchmarkReport(
+            llm_scoring_enabled=True,
+            llm_samples=50,
+        )
+        assert report.llm_scoring_enabled is True
+        assert report.llm_samples == 50
+
+    def test_defaults(self):
+        report = BenchmarkReport()
+        assert report.llm_scoring_enabled is False
+        assert report.llm_samples == 0
+
+
+class TestRunBenchmarkWithDataType:
+    def test_pretrain_explicit(self):
+        """Explicit pretrain data_type runs heuristic filters."""
+        report = run_benchmark(
+            datasets={
+                "Good": _make_good_docs(10),
+                "Bad": _make_bad_docs(10),
+            },
+            no_dedup=True,
+            data_type="pretrain",
+        )
+        # Should have filter results
+        for dr in report.datasets.values():
+            assert len(dr.per_filter) > 0
+            assert dr.stats is not None
+
+    def test_auto_detect_pretrain(self):
+        """Auto-detect should classify text-only docs as pretrain."""
+        report = run_benchmark(
+            datasets={
+                "Good": _make_good_docs(10),
+                "Bad": _make_bad_docs(10),
+            },
+            no_dedup=True,
+            data_type="auto",
+        )
+        # Text-only docs should be detected as pretrain
+        for dr in report.datasets.values():
+            assert len(dr.per_filter) > 0
+
+    def test_sft_samples_zero_skips_llm(self):
+        """sft_samples=0 should skip LLM scoring even with data_type set."""
+        report = run_benchmark(
+            datasets={
+                "Good": _make_good_docs(10),
+                "Bad": _make_bad_docs(10),
+            },
+            no_dedup=True,
+            sft_samples=0,
+        )
+        assert report.llm_scoring_enabled is False
+
+
+class TestRunLLMScoring:
+    def test_llm_scoring_sft_mocked(self):
+        """Test LLM scoring with mocked API calls."""
+        # Create a base report
+        report = run_benchmark(
+            datasets={
+                "A": _make_sft_docs(5),
+                "B": _make_sft_docs(5),
+            },
+            no_dedup=True,
+            data_type="pretrain",  # Force pretrain for Layer 1
+        )
+
+        # Mock the scorers
+        with patch("dq.benchmark._score_sft_docs") as mock_sft:
+            mock_sft.return_value = {
+                "type": "sft",
+                "avg_complexity": 3.0,
+                "avg_quality": 4.0,
+                "complexity_distribution": {3: 5},
+                "quality_distribution": {4: 5},
+                "empty_output_ratio": 0.0,
+                "num_scored": 5,
+                "scoring_errors": 0,
+            }
+
+            result = run_llm_scoring(
+                report=report,
+                datasets={
+                    "A": _make_sft_docs(5),
+                    "B": _make_sft_docs(5),
+                },
+                llm_samples=5,
+                data_type_override="sft",
+            )
+
+            assert result.llm_scoring_enabled is True
+            assert result.llm_samples == 5
+            for name in ["A", "B"]:
+                dr = result.datasets[name]
+                assert dr.llm_scores is not None
+                assert dr.llm_scores["type"] == "sft"
+                assert dr.data_type == "sft"
+
+
+class TestBenchmarkReportWithLLMScores:
+    def _make_report_with_llm(self) -> BenchmarkReport:
+        """Create a report with LLM scores for testing display."""
+        report = run_benchmark(
+            datasets={
+                "Good": _make_good_docs(10),
+                "Bad": _make_bad_docs(10),
+            },
+            no_dedup=True,
+        )
+        # Manually add LLM scores
+        report.llm_scoring_enabled = True
+        report.llm_samples = 5
+        for name in report.datasets:
+            report.datasets[name].data_type = "sft"
+            report.datasets[name].llm_scores = {
+                "type": "sft",
+                "avg_complexity": 3.5,
+                "avg_quality": 4.2,
+                "complexity_distribution": {3: 3, 4: 2},
+                "quality_distribution": {4: 4, 5: 1},
+                "empty_output_ratio": 0.1,
+                "num_scored": 5,
+                "scoring_errors": 0,
+            }
+        return report
+
+    def test_json_includes_llm_scores(self):
+        report = self._make_report_with_llm()
+        json_str = benchmark_to_json(report)
+        data = json.loads(json_str)
+
+        assert data["llm_scoring_enabled"] is True
+        assert data["llm_samples"] == 5
+        for ds in data["datasets"].values():
+            assert "llm_scores" in ds
+            assert ds["llm_scores"]["type"] == "sft"
+            assert ds["data_type"] == "sft"
+
+    def test_markdown_includes_llm_section(self):
+        report = self._make_report_with_llm()
+        md = benchmark_to_markdown(report)
+        assert "LLM Quality Scoring" in md
+        assert "Complexity" in md
+        assert "Quality" in md
+
+    def test_rich_print_with_llm_no_crash(self):
+        """Ensure rich console output with LLM scores doesn't crash."""
+        from rich.console import Console
+
+        report = self._make_report_with_llm()
+        test_console = Console(file=None, force_terminal=False, no_color=True, width=120)
+        print_benchmark_report(report, console=test_console)
