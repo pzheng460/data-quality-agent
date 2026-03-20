@@ -291,8 +291,7 @@ def _print_llm_scores(
     console.print(table)
     console.print()
 
-    # Print score distributions
-    _print_score_distributions(report, ds_names, data_type, console)
+    # Note: score distributions removed — LLM Binary Judge uses HIGH/LOW, not 1-6 scale
 
 
 def _add_sft_score_rows(
@@ -300,36 +299,35 @@ def _add_sft_score_rows(
     report: BenchmarkReport,
     ds_names: list[str],
 ) -> None:
-    """Add SFT scoring rows (complexity + quality)."""
-    # Avg Complexity
-    row: list[str] = ["Avg Complexity (1-6)"]
+    """Add SFT LLM Binary Judge rows."""
+    # HIGH rate
+    row: list[str] = ["HIGH quality rate"]
     for name in ds_names:
         scores = report.datasets[name].llm_scores
-        if scores and scores.get("avg_complexity", 0) > 0:
-            row.append(f"{scores['avg_complexity']:.1f}")
+        if scores and scores.get("num_scored", 0) > 0:
+            row.append(f"{scores.get('high_rate', 0):.1%}")
         else:
             row.append("—")
     table.add_row(*row)
 
-    # Avg Quality
-    row = ["Avg Quality (1-6)"]
-    for name in ds_names:
-        scores = report.datasets[name].llm_scores
-        if scores and scores.get("avg_quality", 0) > 0:
-            row.append(f"{scores['avg_quality']:.1f}")
-        else:
-            row.append("—")
-    table.add_row(*row)
-
-    # Empty output ratio
-    row = ["Empty output ratio"]
+    # Per-rule failure counts
+    all_rules: set[str] = set()
     for name in ds_names:
         scores = report.datasets[name].llm_scores
         if scores:
-            row.append(f"{scores.get('empty_output_ratio', 0):.1%}")
-        else:
-            row.append("—")
-    table.add_row(*row)
+            all_rules.update(scores.get("rule_fail_counts", {}).keys())
+
+    for rule in sorted(all_rules):
+        row = [f"  ✗ {rule}"]
+        for name in ds_names:
+            scores = report.datasets[name].llm_scores
+            if scores:
+                count = scores.get("rule_fail_counts", {}).get(rule, 0)
+                total = scores.get("num_scored", 0)
+                row.append(f"{count}/{total}" if count > 0 else "—")
+            else:
+                row.append("—")
+        table.add_row(*row, style="dim")
 
 
 def _add_pretrain_score_rows(
@@ -337,26 +335,35 @@ def _add_pretrain_score_rows(
     report: BenchmarkReport,
     ds_names: list[str],
 ) -> None:
-    """Add pre-training scoring rows (educational value + writing quality)."""
-    # Avg Educational Value
-    row: list[str] = ["Avg Educational Value (1-6)"]
+    """Add pre-training LLM Binary Judge rows."""
+    # HIGH rate
+    row: list[str] = ["HIGH quality rate"]
     for name in ds_names:
         scores = report.datasets[name].llm_scores
-        if scores and scores.get("avg_educational_value", 0) > 0:
-            row.append(f"{scores['avg_educational_value']:.1f}")
+        if scores and scores.get("num_scored", 0) > 0:
+            row.append(f"{scores.get('high_rate', 0):.1%}")
         else:
             row.append("—")
     table.add_row(*row)
 
-    # Avg Writing Quality
-    row = ["Avg Writing Quality (1-6)"]
+    # Per-rule failure counts
+    all_rules: set[str] = set()
     for name in ds_names:
         scores = report.datasets[name].llm_scores
-        if scores and scores.get("avg_writing_quality", 0) > 0:
-            row.append(f"{scores['avg_writing_quality']:.1f}")
-        else:
-            row.append("—")
-    table.add_row(*row)
+        if scores:
+            all_rules.update(scores.get("rule_fail_counts", {}).keys())
+
+    for rule in sorted(all_rules):
+        row = [f"  ✗ {rule}"]
+        for name in ds_names:
+            scores = report.datasets[name].llm_scores
+            if scores:
+                count = scores.get("rule_fail_counts", {}).get(rule, 0)
+                total = scores.get("num_scored", 0)
+                row.append(f"{count}/{total}" if count > 0 else "—")
+            else:
+                row.append("—")
+        table.add_row(*row, style="dim")
 
 
 def _print_score_distributions(
@@ -619,53 +626,31 @@ def _append_llm_scores_markdown(
     lines.append(header)
     lines.append(separator)
 
-    if data_type == "sft":
-        # Complexity row
-        row = "| Avg Complexity (1-6) |"
-        for name in ds_names:
-            scores = report.datasets[name].llm_scores
-            if scores and scores.get("avg_complexity", 0) > 0:
-                row += f" {scores['avg_complexity']:.1f} |"
-            else:
-                row += " — |"
-        lines.append(row)
+    # HIGH quality rate row
+    row = "| HIGH quality rate |"
+    for name in ds_names:
+        scores = report.datasets[name].llm_scores
+        if scores and scores.get("num_scored", 0) > 0:
+            row += f" {scores.get('high_rate', 0):.1%} |"
+        else:
+            row += " — |"
+    lines.append(row)
 
-        # Quality row
-        row = "| Avg Quality (1-6) |"
-        for name in ds_names:
-            scores = report.datasets[name].llm_scores
-            if scores and scores.get("avg_quality", 0) > 0:
-                row += f" {scores['avg_quality']:.1f} |"
-            else:
-                row += " — |"
-        lines.append(row)
+    # Per-rule failure counts
+    all_rules: set[str] = set()
+    for name in ds_names:
+        scores = report.datasets[name].llm_scores
+        if scores:
+            all_rules.update(scores.get("rule_fail_counts", {}).keys())
 
-        # Empty output ratio
-        row = "| Empty output ratio |"
+    for rule in sorted(all_rules):
+        row = f"| ✗ {rule} |"
         for name in ds_names:
             scores = report.datasets[name].llm_scores
             if scores:
-                row += f" {scores.get('empty_output_ratio', 0):.1%} |"
-            else:
-                row += " — |"
-        lines.append(row)
-    else:
-        # Educational Value row
-        row = "| Avg Educational Value (1-6) |"
-        for name in ds_names:
-            scores = report.datasets[name].llm_scores
-            if scores and scores.get("avg_educational_value", 0) > 0:
-                row += f" {scores['avg_educational_value']:.1f} |"
-            else:
-                row += " — |"
-        lines.append(row)
-
-        # Writing Quality row
-        row = "| Avg Writing Quality (1-6) |"
-        for name in ds_names:
-            scores = report.datasets[name].llm_scores
-            if scores and scores.get("avg_writing_quality", 0) > 0:
-                row += f" {scores['avg_writing_quality']:.1f} |"
+                count = scores.get("rule_fail_counts", {}).get(rule, 0)
+                total = scores.get("num_scored", 0)
+                row += f" {count}/{total} |" if count > 0 else " — |"
             else:
                 row += " — |"
         lines.append(row)

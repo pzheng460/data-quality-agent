@@ -430,28 +430,28 @@ class TestExtractSFTFields:
 class TestSFTScores:
     def test_defaults(self):
         scores = SFTScores()
-        assert scores.avg_complexity == 0.0
-        assert scores.avg_quality == 0.0
-        assert scores.empty_output_ratio == 0.0
+        assert scores.high_count == 0
+        assert scores.low_count == 0
+        assert scores.high_rate == 0.0
         assert scores.num_scored == 0
         assert scores.scoring_errors == 0
 
     def test_to_dict(self):
         scores = SFTScores(
-            avg_complexity=3.5,
-            avg_quality=4.2,
-            complexity_distribution={3: 5, 4: 3},
-            quality_distribution={4: 6, 5: 2},
-            empty_output_ratio=0.05,
+            high_count=6,
+            low_count=2,
+            high_rate=0.75,
+            rule_fail_counts={"completeness": 1, "factuality": 1},
             num_scored=8,
-            scoring_errors=2,
+            scoring_errors=0,
         )
         d = scores.to_dict()
         assert d["type"] == "sft"
-        assert d["avg_complexity"] == 3.5
-        assert d["avg_quality"] == 4.2
-        assert d["empty_output_ratio"] == 0.05
+        assert d["high_count"] == 6
+        assert d["low_count"] == 2
+        assert d["high_rate"] == 0.75
         assert d["num_scored"] == 8
+        assert d["rule_fail_counts"]["completeness"] == 1
 
 
 class TestDatasetResultNewFields:
@@ -460,9 +460,9 @@ class TestDatasetResultNewFields:
         assert dr.data_type == "sft"
 
     def test_llm_scores_field(self):
-        scores_dict = {"type": "sft", "avg_complexity": 3.0}
+        scores_dict = {"type": "sft", "high_rate": 0.75}
         dr = DatasetResult(name="test", num_docs=10, llm_scores=scores_dict)
-        assert dr.llm_scores["avg_complexity"] == 3.0
+        assert dr.llm_scores["high_rate"] == 0.75
 
     def test_default_data_type(self):
         dr = DatasetResult(name="test", num_docs=10)
@@ -594,11 +594,10 @@ class TestBenchmarkReportWithLLMScores:
             report.datasets[name].data_type = "sft"
             report.datasets[name].llm_scores = {
                 "type": "sft",
-                "avg_complexity": 3.5,
-                "avg_quality": 4.2,
-                "complexity_distribution": {3: 3, 4: 2},
-                "quality_distribution": {4: 4, 5: 1},
-                "empty_output_ratio": 0.1,
+                "high_count": 3,
+                "low_count": 2,
+                "high_rate": 0.6,
+                "rule_fail_counts": {"completeness": 1, "factuality": 1},
                 "num_scored": 5,
                 "scoring_errors": 0,
             }
@@ -620,8 +619,7 @@ class TestBenchmarkReportWithLLMScores:
         report = self._make_report_with_llm()
         md = benchmark_to_markdown(report)
         assert "LLM Binary Judge" in md
-        assert "Complexity" in md
-        assert "Quality" in md
+        assert "HIGH quality rate" in md
 
     def test_rich_print_with_llm_no_crash(self):
         """Ensure rich console output with LLM scores doesn't crash."""

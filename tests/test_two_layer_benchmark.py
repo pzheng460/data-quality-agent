@@ -152,44 +152,43 @@ class TestExtractSFTFields:
 class TestScoreDataclasses:
     def test_sft_scores_to_dict(self):
         scores = SFTScores(
-            avg_complexity=3.5,
-            avg_quality=4.2,
-            complexity_distribution={3: 5, 4: 3},
-            quality_distribution={4: 6, 5: 2},
-            empty_output_ratio=0.1,
+            high_count=7,
+            low_count=3,
+            high_rate=0.7,
+            rule_fail_counts={"completeness": 2, "factuality": 1},
             num_scored=10,
-            scoring_errors=1,
+            scoring_errors=0,
         )
         d = scores.to_dict()
         assert d["type"] == "sft"
-        assert d["avg_complexity"] == 3.5
-        assert d["avg_quality"] == 4.2
-        assert d["empty_output_ratio"] == 0.1
+        assert d["high_count"] == 7
+        assert d["low_count"] == 3
+        assert d["high_rate"] == 0.7
         assert d["num_scored"] == 10
-        assert d["scoring_errors"] == 1
+        assert d["rule_fail_counts"]["completeness"] == 2
 
     def test_pretrain_scores_to_dict(self):
         scores = PretrainScores(
-            avg_educational_value=4.0,
-            avg_writing_quality=3.8,
-            educational_distribution={4: 8, 5: 2},
-            writing_distribution={3: 3, 4: 5, 5: 2},
+            high_count=6,
+            low_count=4,
+            high_rate=0.6,
+            rule_fail_counts={"coherence": 3, "originality": 1},
             num_scored=10,
             scoring_errors=0,
         )
         d = scores.to_dict()
         assert d["type"] == "pretrain"
-        assert d["avg_educational_value"] == 4.0
-        assert d["avg_writing_quality"] == 3.8
+        assert d["high_count"] == 6
+        assert d["high_rate"] == 0.6
         assert d["num_scored"] == 10
 
     def test_default_scores(self):
         sft = SFTScores()
-        assert sft.avg_complexity == 0.0
+        assert sft.high_count == 0
         assert sft.to_dict()["type"] == "sft"
 
         pt = PretrainScores()
-        assert pt.avg_educational_value == 0.0
+        assert pt.high_count == 0
         assert pt.to_dict()["type"] == "pretrain"
 
 
@@ -204,16 +203,16 @@ class TestDatasetResultLLMScores:
         assert dr.data_type == "pretrain"
 
     def test_with_sft_scores(self):
-        scores = SFTScores(avg_complexity=3.0, avg_quality=4.0, num_scored=5).to_dict()
+        scores = SFTScores(high_count=3, low_count=2, high_rate=0.6, num_scored=5).to_dict()
         dr = DatasetResult(name="test", num_docs=10, data_type="sft", llm_scores=scores)
         assert dr.llm_scores["type"] == "sft"
-        assert dr.llm_scores["avg_complexity"] == 3.0
+        assert dr.llm_scores["high_rate"] == 0.6
 
     def test_with_pretrain_scores(self):
-        scores = PretrainScores(avg_educational_value=4.5, avg_writing_quality=3.8, num_scored=5).to_dict()
+        scores = PretrainScores(high_count=4, low_count=1, high_rate=0.8, num_scored=5).to_dict()
         dr = DatasetResult(name="test", num_docs=10, data_type="pretrain", llm_scores=scores)
         assert dr.llm_scores["type"] == "pretrain"
-        assert dr.llm_scores["avg_educational_value"] == 4.5
+        assert dr.llm_scores["high_rate"] == 0.8
 
 
 # ---------------------------------------------------------------------------
@@ -244,13 +243,27 @@ class TestScoreSFTDocs:
         return mock_resp
 
     def test_score_sft_docs_with_mock(self):
+        """Test SFT scoring with mocked LLM Binary Judge."""
+        import json
+        judge_response_high = json.dumps({
+            "instruction_following": {"pass": True, "reason": "ok"},
+            "factuality": {"pass": True, "reason": "ok"},
+            "completeness": {"pass": True, "reason": "ok"},
+            "format_compliance": {"pass": True, "reason": "ok"},
+            "harmlessness": {"pass": True, "reason": "ok"},
+        })
+        judge_response_low = json.dumps({
+            "instruction_following": {"pass": False, "reason": "off-topic"},
+            "factuality": {"pass": True, "reason": "ok"},
+            "completeness": {"pass": False, "reason": "incomplete"},
+            "format_compliance": {"pass": True, "reason": "ok"},
+            "harmlessness": {"pass": True, "reason": "ok"},
+        })
+
         mock_client = MagicMock()
-        # Alternate complexity=3, quality=4
         mock_client.chat.completions.create.side_effect = [
-            self._mock_response("3"),
-            self._mock_response("4"),
-            self._mock_response("3"),
-            self._mock_response("4"),
+            self._mock_response(judge_response_high),
+            self._mock_response(judge_response_low),
         ]
 
         docs = [
@@ -258,26 +271,13 @@ class TestScoreSFTDocs:
             {"instruction": "Q2", "output": "A2", "text": "Q2\nA2"},
         ]
 
-        with patch("dq.sft.complexity.get_client", return_value=mock_client), \
-             patch("dq.sft.quality.get_client", return_value=mock_client):
+        with patch("dq.sft.llm_judge.get_client", return_value=mock_client):
             result = _score_sft_docs(docs, api_key="test", progress=False)
 
         assert result["type"] == "sft"
-        assert result["avg_complexity"] == 3.0
-        assert result["avg_quality"] == 4.0
+        assert result["high_count"] == 1
+        assert result["low_count"] == 1
         assert result["num_scored"] == 2
-
-    def test_score_sft_docs_empty_output(self):
-        mock_client = MagicMock()
-        mock_client.chat.completions.create.return_value = self._mock_response("3")
-
-        docs = [{"instruction": "Q1", "output": "", "text": "Q1\n"}]
-
-        with patch("dq.sft.complexity.get_client", return_value=mock_client), \
-             patch("dq.sft.quality.get_client", return_value=mock_client):
-            result = _score_sft_docs(docs, api_key="test", progress=False)
-
-        assert result["empty_output_ratio"] == 1.0
 
     def test_score_sft_docs_api_failure(self):
         mock_client = MagicMock()
@@ -285,8 +285,7 @@ class TestScoreSFTDocs:
 
         docs = [{"instruction": "Q1", "output": "A1", "text": "Q1\nA1"}]
 
-        with patch("dq.sft.complexity.get_client", return_value=mock_client), \
-             patch("dq.sft.quality.get_client", return_value=mock_client):
+        with patch("dq.sft.llm_judge.get_client", return_value=mock_client):
             result = _score_sft_docs(docs, api_key="test", progress=False)
 
         assert result["scoring_errors"] > 0
@@ -304,13 +303,23 @@ class TestScorePretrainDocs:
         return mock_resp
 
     def test_score_pretrain_docs_with_mock(self):
+        """Test pretrain scoring with mocked LLM Binary Judge."""
+        import json
+        judge_response_high = json.dumps({
+            "information_density": {"pass": True, "reason": "ok"},
+            "coherence": {"pass": True, "reason": "ok"},
+            "originality": {"pass": True, "reason": "ok"},
+        })
+        judge_response_low = json.dumps({
+            "information_density": {"pass": False, "reason": "shallow"},
+            "coherence": {"pass": True, "reason": "ok"},
+            "originality": {"pass": False, "reason": "generic"},
+        })
+
         mock_client = MagicMock()
-        # Alternate edu=4, writing=5
         mock_client.chat.completions.create.side_effect = [
-            self._mock_response("4"),
-            self._mock_response("5"),
-            self._mock_response("4"),
-            self._mock_response("5"),
+            self._mock_response(judge_response_high),
+            self._mock_response(judge_response_low),
         ]
 
         docs = [
@@ -318,13 +327,12 @@ class TestScorePretrainDocs:
             {"text": "Another educational article about chemistry."},
         ]
 
-        with patch("dq.sft.educational.get_client", return_value=mock_client), \
-             patch("dq.sft.writing_quality.get_client", return_value=mock_client):
+        with patch("dq.model_filters.llm_quality_judge.get_client", return_value=mock_client):
             result = _score_pretrain_docs(docs, api_key="test", progress=False)
 
         assert result["type"] == "pretrain"
-        assert result["avg_educational_value"] == 4.0
-        assert result["avg_writing_quality"] == 5.0
+        assert result["high_count"] == 1
+        assert result["low_count"] == 1
         assert result["num_scored"] == 2
 
     def test_score_pretrain_docs_api_failure(self):
@@ -333,8 +341,7 @@ class TestScorePretrainDocs:
 
         docs = [{"text": "Some text."}]
 
-        with patch("dq.sft.educational.get_client", return_value=mock_client), \
-             patch("dq.sft.writing_quality.get_client", return_value=mock_client):
+        with patch("dq.model_filters.llm_quality_judge.get_client", return_value=mock_client):
             result = _score_pretrain_docs(docs, api_key="test", progress=False)
 
         assert result["scoring_errors"] > 0
@@ -592,16 +599,14 @@ class TestReportWithLLMScores:
 
         if data_type == "sft":
             scores = SFTScores(
-                avg_complexity=3.5, avg_quality=4.2,
-                complexity_distribution={3: 5, 4: 3, 5: 2},
-                quality_distribution={3: 2, 4: 5, 5: 3},
-                empty_output_ratio=0.05, num_scored=10,
+                high_count=7, low_count=3, high_rate=0.7,
+                rule_fail_counts={"completeness": 2, "factuality": 1},
+                num_scored=10,
             ).to_dict()
         else:
             scores = PretrainScores(
-                avg_educational_value=3.8, avg_writing_quality=4.1,
-                educational_distribution={3: 3, 4: 5, 5: 2},
-                writing_distribution={3: 2, 4: 4, 5: 4},
+                high_count=6, low_count=4, high_rate=0.6,
+                rule_fail_counts={"coherence": 3, "originality": 1},
                 num_scored=10,
             ).to_dict()
 
@@ -630,7 +635,8 @@ class TestReportWithLLMScores:
 
         for ds_data in data["datasets"].values():
             assert ds_data["llm_scores"]["type"] == "pretrain"
-            assert "avg_educational_value" in ds_data["llm_scores"]
+            assert "high_rate" in ds_data["llm_scores"]
+            assert "high_rate" in ds_data["llm_scores"]
 
     def test_json_no_llm_scores_when_disabled(self):
         report = run_benchmark(
@@ -649,16 +655,14 @@ class TestReportWithLLMScores:
         md = benchmark_to_markdown(report)
 
         assert "Layer 2: LLM Binary Judge" in md
-        assert "Avg Complexity" in md
-        assert "Avg Quality" in md
+        assert "HIGH quality rate" in md
 
     def test_markdown_includes_pretrain_layer2(self):
         report = self._make_report_with_llm("pretrain")
         md = benchmark_to_markdown(report)
 
         assert "Layer 2: LLM Binary Judge" in md
-        assert "Avg Educational Value" in md
-        assert "Avg Writing Quality" in md
+        assert "HIGH quality rate" in md
 
     def test_markdown_no_layer2_when_disabled(self):
         report = run_benchmark(

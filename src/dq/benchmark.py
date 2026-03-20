@@ -100,24 +100,22 @@ def _extract_sft_fields(doc: dict) -> tuple[str, str]:
 
 @dataclass
 class SFTScores:
-    """SFT quality scores from DEITA-style evaluation."""
+    """SFT quality scores from LLM Binary Judge."""
 
-    avg_complexity: float = 0.0
-    avg_quality: float = 0.0
-    complexity_distribution: dict[int, int] = field(default_factory=dict)
-    quality_distribution: dict[int, int] = field(default_factory=dict)
-    empty_output_ratio: float = 0.0
+    high_count: int = 0
+    low_count: int = 0
+    high_rate: float = 0.0
+    rule_fail_counts: dict[str, int] = field(default_factory=dict)
     num_scored: int = 0
     scoring_errors: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "type": "sft",
-            "avg_complexity": round(self.avg_complexity, 2),
-            "avg_quality": round(self.avg_quality, 2),
-            "complexity_distribution": self.complexity_distribution,
-            "quality_distribution": self.quality_distribution,
-            "empty_output_ratio": round(self.empty_output_ratio, 3),
+            "high_count": self.high_count,
+            "low_count": self.low_count,
+            "high_rate": round(self.high_rate, 3),
+            "rule_fail_counts": self.rule_fail_counts,
             "num_scored": self.num_scored,
             "scoring_errors": self.scoring_errors,
         }
@@ -125,22 +123,22 @@ class SFTScores:
 
 @dataclass
 class PretrainScores:
-    """Pre-training text quality scores from LLM evaluation."""
+    """Pre-training text quality scores from LLM Binary Judge."""
 
-    avg_educational_value: float = 0.0
-    avg_writing_quality: float = 0.0
-    educational_distribution: dict[int, int] = field(default_factory=dict)
-    writing_distribution: dict[int, int] = field(default_factory=dict)
+    high_count: int = 0
+    low_count: int = 0
+    high_rate: float = 0.0
+    rule_fail_counts: dict[str, int] = field(default_factory=dict)
     num_scored: int = 0
     scoring_errors: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "type": "pretrain",
-            "avg_educational_value": round(self.avg_educational_value, 2),
-            "avg_writing_quality": round(self.avg_writing_quality, 2),
-            "educational_distribution": self.educational_distribution,
-            "writing_distribution": self.writing_distribution,
+            "high_count": self.high_count,
+            "low_count": self.low_count,
+            "high_rate": round(self.high_rate, 3),
+            "rule_fail_counts": self.rule_fail_counts,
             "num_scored": self.num_scored,
             "scoring_errors": self.scoring_errors,
         }
@@ -585,58 +583,36 @@ def _score_sft_docs(
     model: str | None = None,
     progress: bool = True,
 ) -> dict[str, Any]:
-    """Score SFT docs using ComplexityScorer + QualityScorer."""
+    """Score SFT docs using LLM Binary Judge."""
     try:
         from tqdm import tqdm
     except ImportError:
         def tqdm(iterable, **kwargs):  # type: ignore[misc]
             return iterable
 
-    from dq.sft.complexity import ComplexityScorer
-    from dq.sft.quality import QualityScorer
+    from dq.sft.llm_judge import SFTQualityJudge
 
-    complexity_scorer = ComplexityScorer(api_url=api_url, api_key=api_key, model=model)
-    quality_scorer = QualityScorer(api_url=api_url, api_key=api_key, model=model)
+    judge = SFTQualityJudge(api_url=api_url, api_key=api_key, model=model)
 
     scores = SFTScores()
-    complexity_vals: list[float] = []
-    quality_vals: list[float] = []
-    empty_outputs = 0
 
-    for doc in tqdm(docs, desc="  SFT scoring", disable=not progress):
+    for doc in tqdm(docs, desc="  SFT judging", disable=not progress):
         instruction, output = _extract_sft_fields(doc)
 
-        if not output.strip():
-            empty_outputs += 1
+        result = judge.judge_one(instruction, output)
 
-        # Score complexity
-        c_doc = {"instruction": instruction}
-        complexity_scorer.score(c_doc)
-        c_score = c_doc.get("complexity_score", -1.0)
-
-        # Score quality
-        q_doc = {"instruction": instruction, "output": output}
-        quality_scorer.score(q_doc)
-        q_score = q_doc.get("quality_score", -1.0)
-
-        if c_score > 0:
-            complexity_vals.append(c_score)
-            bucket = int(c_score)
-            scores.complexity_distribution[bucket] = scores.complexity_distribution.get(bucket, 0) + 1
-        else:
+        if "error" in result:
             scores.scoring_errors += 1
-
-        if q_score > 0:
-            quality_vals.append(q_score)
-            bucket = int(q_score)
-            scores.quality_distribution[bucket] = scores.quality_distribution.get(bucket, 0) + 1
+        elif result["quality"] == "high":
+            scores.high_count += 1
         else:
-            scores.scoring_errors += 1
+            scores.low_count += 1
+            for rule in result.get("failed_rules", []):
+                scores.rule_fail_counts[rule] = scores.rule_fail_counts.get(rule, 0) + 1
 
     scores.num_scored = len(docs)
-    scores.avg_complexity = sum(complexity_vals) / len(complexity_vals) if complexity_vals else 0.0
-    scores.avg_quality = sum(quality_vals) / len(quality_vals) if quality_vals else 0.0
-    scores.empty_output_ratio = empty_outputs / len(docs) if docs else 0.0
+    total_judged = scores.high_count + scores.low_count
+    scores.high_rate = scores.high_count / total_judged if total_judged > 0 else 0.0
 
     return scores.to_dict()
 
@@ -648,48 +624,34 @@ def _score_pretrain_docs(
     model: str | None = None,
     progress: bool = True,
 ) -> dict[str, Any]:
-    """Score pre-training docs using EducationalValueScorer + WritingQualityScorer."""
+    """Score pre-training docs using LLM Binary Judge."""
     try:
         from tqdm import tqdm
     except ImportError:
         def tqdm(iterable, **kwargs):  # type: ignore[misc]
             return iterable
 
-    from dq.sft.educational import EducationalValueScorer
-    from dq.sft.writing_quality import WritingQualityScorer
+    from dq.model_filters.llm_quality_judge import PretrainingQualityJudge
 
-    edu_scorer = EducationalValueScorer(api_url=api_url, api_key=api_key, model=model)
-    writing_scorer = WritingQualityScorer(api_url=api_url, api_key=api_key, model=model)
+    judge = PretrainingQualityJudge(api_url=api_url, api_key=api_key, model=model)
 
     scores = PretrainScores()
-    edu_vals: list[float] = []
-    writing_vals: list[float] = []
 
-    for doc in tqdm(docs, desc="  Pretrain scoring", disable=not progress):
-        # Score educational value
-        edu_scorer.score(doc)
-        e_score = doc.get("educational_value_score", -1.0)
+    for doc in tqdm(docs, desc="  Pretrain judging", disable=not progress):
+        text = doc.get("text", "")
+        result = judge.judge_one(text)
 
-        # Score writing quality
-        writing_scorer.score(doc)
-        w_score = doc.get("writing_quality_score", -1.0)
-
-        if e_score > 0:
-            edu_vals.append(e_score)
-            bucket = int(e_score)
-            scores.educational_distribution[bucket] = scores.educational_distribution.get(bucket, 0) + 1
-        else:
+        if "error" in result:
             scores.scoring_errors += 1
-
-        if w_score > 0:
-            writing_vals.append(w_score)
-            bucket = int(w_score)
-            scores.writing_distribution[bucket] = scores.writing_distribution.get(bucket, 0) + 1
+        elif result["quality"] == "high":
+            scores.high_count += 1
         else:
-            scores.scoring_errors += 1
+            scores.low_count += 1
+            for rule in result.get("failed_rules", []):
+                scores.rule_fail_counts[rule] = scores.rule_fail_counts.get(rule, 0) + 1
 
     scores.num_scored = len(docs)
-    scores.avg_educational_value = sum(edu_vals) / len(edu_vals) if edu_vals else 0.0
-    scores.avg_writing_quality = sum(writing_vals) / len(writing_vals) if writing_vals else 0.0
+    total_judged = scores.high_count + scores.low_count
+    scores.high_rate = scores.high_count / total_judged if total_judged > 0 else 0.0
 
     return scores.to_dict()
