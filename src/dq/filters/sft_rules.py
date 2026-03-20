@@ -2,10 +2,15 @@
 
 Catches common SFT data quality issues that don't require an LLM:
 - Empty outputs
-- Outputs too short relative to instruction
+- Outputs too short relative to instruction (with closed-form task awareness)
 - Instruction echo/copy
-- AI refusal patterns
+- AI refusal patterns (with content-after-refusal check)
 - Language mismatch between instruction and output
+
+References:
+- AlpaGasus (Chen et al., 2023) — LLM-based filtering for SFT quality
+- DEITA (Liu et al., 2023) — Automatic data selection for instruction tuning
+- InsTag (Lu et al., 2023) — Instruction tagging (open-ended vs closed-form)
 """
 
 from __future__ import annotations
@@ -18,17 +23,50 @@ from dq.pipeline import register_filter
 from dq.utils.stats import word_count
 
 # Default AI refusal patterns (case-insensitive prefix match)
+# These indicate the model refused to answer rather than providing content.
 DEFAULT_REFUSAL_PATTERNS = [
-    "as an ai language model",
-    "as an ai assistant",
     "i cannot",
-    "i'm sorry, but i",
-    "i apologize",
+    "i'm sorry, but i cannot",
+    "i'm sorry, but i can't",
+    "i apologize, but i cannot",
+    "i apologize, but i can't",
     "i'm not able to",
     "i am not able to",
     "i'm unable to",
     "i am unable to",
 ]
+
+# Patterns that look like refusal but often precede real content.
+# These are only flagged if the output is too short to contain real content.
+SOFT_REFUSAL_PATTERNS = [
+    "as an ai language model",
+    "as an ai assistant",
+    "as an ai,",
+    "i'm sorry, but i",  # Generic sorry — may have content after
+    "i apologize",        # Generic apology — may have content after
+]
+
+# Instruction patterns indicating closed-form tasks where short output is expected.
+# Based on InsTag (Lu et al., 2023) taxonomy of instruction types.
+_CLOSED_FORM_PATTERNS = re.compile(
+    r"(?i)\b("
+    r"classif[y|ication]|categoriz|label|"  # classification
+    r"output\s+[01]|output\s+(true|false|yes|no)|"  # binary output
+    r"answer\s+(yes|no|true|false)|"
+    r"(is|are|was|were)\s+.{1,40}\?$|"  # yes/no questions
+    r"name\s+the|list\s+the|identify\s+the|extract\s+the|"  # extraction
+    r"what\s+is\s+the\s+(name|number|date|year|country|city|capital)|"  # factoid QA
+    r"who\s+(is|was|are|were)\b|"  # person extraction
+    r"how\s+many\b|"  # counting
+    r"choose\s+(one|the|from|between)|select\s+(one|the|from)|"  # selection
+    r"pick\s+(one|the)|which\s+(one|of)\b|"  # selection
+    r"translate\s+.{1,20}\s+to\b|"  # translation (can be short)
+    r"convert\s+.{1,30}\s+to\b|"  # conversion
+    r"spell|abbreviat|acronym|"  # short answers
+    r"true\s+or\s+false|yes\s+or\s+no|"  # explicit binary
+    r"in\s+one\s+word|in\s+a\s+word|one-word\s+answer"  # explicit short
+    r")"
+)
 
 # Regex for CJK characters
 _CJK_RE = re.compile(
@@ -95,9 +133,12 @@ class SFTRulesFilter(BaseFilter):
         instruction_field: str = "instruction",
         output_field: str = "output",
         min_output_words: int = 5,
+        min_output_words_closed_form: int = 1,
         min_instruction_words_for_short_check: int = 20,
         max_copy_similarity: float = 0.80,
         refusal_patterns: list[str] | None = None,
+        soft_refusal_patterns: list[str] | None = None,
+        min_words_after_refusal: int = 50,
         lang_mismatch_threshold: float = 0.3,
         **kwargs: Any,
     ) -> None:
@@ -105,11 +146,16 @@ class SFTRulesFilter(BaseFilter):
         self.instruction_field = instruction_field
         self.output_field = output_field
         self.min_output_words = min_output_words
+        self.min_output_words_closed_form = min_output_words_closed_form
         self.min_instruction_words_for_short_check = min_instruction_words_for_short_check
         self.max_copy_similarity = max_copy_similarity
         self.refusal_patterns = [
             p.lower() for p in (refusal_patterns or DEFAULT_REFUSAL_PATTERNS)
         ]
+        self.soft_refusal_patterns = [
+            p.lower() for p in (soft_refusal_patterns or SOFT_REFUSAL_PATTERNS)
+        ]
+        self.min_words_after_refusal = min_words_after_refusal
         self.lang_mismatch_threshold = lang_mismatch_threshold
 
     def _extract_fields(self, doc: dict) -> tuple[str, str]:
@@ -129,6 +175,38 @@ class SFTRulesFilter(BaseFilter):
 
         return instruction, output
 
+    def _is_closed_form(self, instruction: str) -> bool:
+        """Check if instruction expects a short/closed-form answer.
+
+        Based on InsTag (Lu et al., 2023) instruction taxonomy.
+        """
+        return bool(_CLOSED_FORM_PATTERNS.search(instruction))
+
+    def _is_refusal(self, output: str) -> tuple[bool, str]:
+        """Check if output is an AI refusal.
+
+        Hard refusals (e.g., "I cannot do X") always flag.
+        Soft refusals (e.g., "As an AI, ...") only flag if output lacks
+        substantive content after the refusal prefix.
+        """
+        out_lower = output.strip().lower()
+
+        # Hard refusal — always reject
+        for pattern in self.refusal_patterns:
+            if out_lower.startswith(pattern):
+                return True, pattern
+
+        # Soft refusal — only reject if no substantial content follows
+        for pattern in self.soft_refusal_patterns:
+            if out_lower.startswith(pattern):
+                # Check if there's real content after the refusal-like opening
+                if word_count(output) < self.min_words_after_refusal:
+                    return True, pattern
+                # Has enough content → not a real refusal, just a preamble
+                return False, ""
+
+        return False, ""
+
     def filter(self, doc: dict) -> tuple[bool, dict]:
         """Return (keep, info) — stops at first failure."""
         instruction, output = self._extract_fields(doc)
@@ -137,13 +215,16 @@ class SFTRulesFilter(BaseFilter):
         if not output or not output.strip():
             return False, {"filter": self.name, "reason": "empty_output"}
 
-        # Rule 2: output_too_short
+        # Rule 2: output_too_short (with closed-form awareness)
         instr_wc = word_count(instruction)
         out_wc = word_count(output)
+        is_closed = self._is_closed_form(instruction)
+        min_words = self.min_output_words_closed_form if is_closed else self.min_output_words
         if (instr_wc >= self.min_instruction_words_for_short_check
-                and out_wc < self.min_output_words):
+                and out_wc < min_words):
             return False, {"filter": self.name, "reason": "output_too_short",
-                           "instruction_words": instr_wc, "output_words": out_wc}
+                           "instruction_words": instr_wc, "output_words": out_wc,
+                           "closed_form": is_closed}
 
         # Rule 3: instruction_copy
         sim = _simple_similarity(instruction, output)
@@ -151,12 +232,11 @@ class SFTRulesFilter(BaseFilter):
             return False, {"filter": self.name, "reason": "instruction_copy",
                            "similarity": round(sim, 3)}
 
-        # Rule 4: ai_refusal
-        out_lower = output.strip().lower()
-        for pattern in self.refusal_patterns:
-            if out_lower.startswith(pattern):
-                return False, {"filter": self.name, "reason": "ai_refusal",
-                               "pattern": pattern}
+        # Rule 4: ai_refusal (with content-after-refusal check)
+        is_refusal, pattern = self._is_refusal(output)
+        if is_refusal:
+            return False, {"filter": self.name, "reason": "ai_refusal",
+                           "pattern": pattern}
 
         # Rule 5: language_mismatch
         instr_cjk = _cjk_ratio(instruction)
@@ -182,14 +262,16 @@ class SFTRulesFilter(BaseFilter):
                 "value": 0, "threshold": 1,
             })
 
-        # Rule 2: output_too_short
+        # Rule 2: output_too_short (with closed-form awareness)
         instr_wc = word_count(instruction)
         out_wc = word_count(output)
+        is_closed = self._is_closed_form(instruction)
+        min_words = self.min_output_words_closed_form if is_closed else self.min_output_words
         if (instr_wc >= self.min_instruction_words_for_short_check
-                and out_wc < self.min_output_words):
+                and out_wc < min_words):
             failures.append({
                 "filter": self.name, "rule": "output_too_short",
-                "value": out_wc, "threshold": self.min_output_words,
+                "value": out_wc, "threshold": min_words,
             })
 
         # Rule 3: instruction_copy
@@ -201,16 +283,14 @@ class SFTRulesFilter(BaseFilter):
                     "value": round(sim, 3), "threshold": self.max_copy_similarity,
                 })
 
-        # Rule 4: ai_refusal
+        # Rule 4: ai_refusal (with content-after-refusal check)
         if not is_empty:
-            out_lower = output.strip().lower()
-            for pattern in self.refusal_patterns:
-                if out_lower.startswith(pattern):
-                    failures.append({
-                        "filter": self.name, "rule": "ai_refusal",
-                        "value": pattern, "threshold": "prefix_match",
-                    })
-                    break  # One refusal match is enough
+            is_refusal, pattern = self._is_refusal(output)
+            if is_refusal:
+                failures.append({
+                    "filter": self.name, "rule": "ai_refusal",
+                    "value": pattern, "threshold": "prefix_match",
+                })
 
         # Rule 5: language_mismatch
         if instruction and output and not is_empty:
