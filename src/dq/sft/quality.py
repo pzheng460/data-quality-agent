@@ -1,3 +1,6 @@
+# DEPRECATED: Use SFTQualityJudge (llm_judge.py) for binary quality classification.
+# This absolute scoring approach (1-6) is unreliable. Kept for backward compatibility.
+
 """DEITA Quality Scorer for SFT data.
 
 Scores response quality given an instruction using an LLM (OpenAI-compatible API).

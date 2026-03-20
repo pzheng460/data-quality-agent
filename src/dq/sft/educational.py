@@ -1,3 +1,6 @@
+# DEPRECATED: Use PretrainingQualityJudge (model_filters/llm_quality_judge.py) for binary quality classification.
+# This absolute scoring approach (1-6) is unreliable. Kept for backward compatibility.
+
 """Educational Value Scorer for pre-training data.
 
 Scores text on educational value (1-6) using an LLM (OpenAI-compatible API).
