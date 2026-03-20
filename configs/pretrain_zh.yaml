@@ -1,0 +1,61 @@
+# Chinese pre-training data pipeline config
+# Adjusted thresholds for Chinese text characteristics:
+# - CJK chars treated as individual words
+# - Lower avg word length (single-char words)
+# - Stopword check disabled (English stopwords not applicable)
+# - Adjusted terminal punctuation to include Chinese punctuation
+
+pipeline:
+  text_field: "text"
+
+  filters:
+    - name: length
+      params:
+        min_words: 50
+        max_words: 100000
+
+    - name: gopher_quality
+      params:
+        min_avg_word_len: 1        # CJK chars are 1-char words
+        max_avg_word_len: 10
+        max_symbol_ratio: 0.15
+        min_lines_end_punct: 0.05  # Relaxed for Chinese text
+        min_stopwords: 0           # Disabled for Chinese
+        min_alpha_ratio: 0.6       # CJK chars count as alpha
+
+    - name: gopher_repetition
+      params:
+        max_top_2gram: 0.20
+        max_top_3gram: 0.18
+        max_top_4gram: 0.16
+        max_dup_line_ratio: 0.30
+        max_dup_para_ratio: 0.30
+        max_char_repetition: 0.20
+
+    - name: c4
+      params:
+        remove_no_terminal_punct: false  # Disabled — Chinese line structure differs
+        remove_javascript_lines: true
+        remove_policy_lines: true
+        remove_lorem_ipsum: true
+        remove_curly_brace: false
+        min_sentences: 2
+
+    - name: fineweb
+      params:
+        max_list_line_ratio: 0.90
+        max_dup_line_ratio: 0.30
+        min_avg_line_len: 15       # Chinese lines are shorter in char count
+        max_short_line_count: 10
+
+    - name: pii
+      mode: redact  # Redact Chinese PII (phone, ID card, bank card)
+
+  dedup:
+    exact: true
+    minhash:
+      enabled: true
+      num_perm: 112
+      bands: 14
+      rows: 8
+      ngram_size: 3  # Shorter n-grams for CJK text

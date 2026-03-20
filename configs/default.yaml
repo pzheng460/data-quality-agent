@@ -1,0 +1,54 @@
+pipeline:
+  text_field: "text"
+
+  filters:
+    - name: length
+      params:
+        min_words: 50
+        max_words: 100000
+
+    - name: gopher_quality
+      params:
+        min_avg_word_len: 3
+        max_avg_word_len: 10
+        max_symbol_ratio: 0.1
+        min_lines_end_punct: 0.1
+        min_stopwords: 2
+        min_alpha_ratio: 0.8
+
+    - name: gopher_repetition
+      params:
+        max_top_2gram: 0.20
+        max_top_3gram: 0.18
+        max_top_4gram: 0.16
+        max_dup_line_ratio: 0.30
+        max_dup_para_ratio: 0.30
+        max_char_repetition: 0.20
+
+    - name: c4
+      params:
+        remove_no_terminal_punct: true
+        remove_javascript_lines: true
+        remove_policy_lines: true
+        remove_lorem_ipsum: true
+        remove_curly_brace: false
+        min_sentences: 3
+
+    - name: fineweb
+      params:
+        max_list_line_ratio: 0.90
+        max_dup_line_ratio: 0.30
+        min_avg_line_len: 30
+        max_short_line_count: 10
+
+    - name: pii
+      mode: redact
+
+  dedup:
+    exact: true
+    minhash:
+      enabled: true
+      num_perm: 112
+      bands: 14
+      rows: 8
+      ngram_size: 5
