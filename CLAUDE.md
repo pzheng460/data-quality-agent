@@ -3,6 +3,45 @@
 ## What is this?
 A Python CLI + library for detecting and filtering low-quality LLM training data. Implements methods from Gopher, C4, FineWeb, DCLM, DEITA, and contamination detection papers.
 
+## ⚠️ Mandatory Rules
+1. **Every significant change must be committed and pushed** — `git add -A && git commit -m "..." && git push`
+2. **Update both README.md AND CLAUDE.md** when changing architecture, adding features, or modifying filters/configs
+3. **Run `uv run pytest` before every commit** — never push broken tests
+4. **Read the Permanent Memory section below** before starting work — it contains critical lessons
+
+## 🧠 Permanent Memory
+
+### Architectural Decisions
+- **Filter Registry pattern**: Filters self-register via `@register_filter("name")`. New filters MUST use this decorator.
+- **Graceful degradation**: Model/API-dependent code catches ImportError → warns → passes through. NEVER crash on missing optional deps.
+- **Config-driven thresholds**: Every numeric threshold must be YAML-configurable. No hardcoded magic numbers in filter logic.
+- **Chinese support is first-class**: All text processing must handle CJK. Use `stats.py` utilities (CJK-aware word count, Chinese punctuation).
+
+### Known Issues & Lessons Learned
+- **`char_repetition_ratio` is unreliable**: Normal English text scores ~0.39. Threshold was raised from 0.20→0.40 but algorithm itself is flawed for short text. Consider removing entirely for SFT data.
+- **Heuristic filters don't work for SFT quality**: Gopher/C4/FineWeb are designed for pre-training web data. Alpaca Original vs Cleaned benchmark showed no meaningful discrimination on SFT data. SFT quality differences (hallucinations, errors) require Phase 2 model-based evaluation.
+- **`tatsu-lab/stanford_alpaca` removed from HuggingFace**: Must download from GitHub raw URL. Cached at `~/.cache/dq/alpaca_original.json`.
+- **`trust_remote_code=True` deprecated in newer HuggingFace datasets lib**: Remove this parameter from all `load_dataset()` calls.
+- **`gopher_repetition` direction reverses on SFT data**: Cleaned Alpaca has LOWER pass rate than original because cleaned responses are longer with more natural phrase repetition. This is expected behavior, not a bug.
+
+### Redundancy Analysis (2026-03-20)
+Identified redundant pipeline steps to be cleaned up:
+1. `length` filter is fully redundant with `gopher_quality.min_words`
+2. `char_repetition` overlaps with n-gram ratios and has algorithm issues
+3. `fineweb.max_dup_line_ratio` duplicates `gopher_repetition.max_dup_line_ratio`
+4. `gopher_quality.max_symbol_ratio` overlaps with `min_alpha_ratio`
+5. Top 2-gram check is too aggressive — 3-gram alone is sufficient
+
+### Benchmark Reference (2026-03-20, default config, 1000 samples)
+| Filter | Alpaca Original | Alpaca Cleaned | Δ |
+|--------|----------------|----------------|---|
+| gopher_quality | 44.7% | 59.6% | +14.9% ✅ |
+| gopher_repetition | 32.2% | 19.3% | -12.9% ⚠️ reversed |
+| c4 | 93.1% | 94.8% | +1.7% — |
+| fineweb | 97.0% | 96.3% | -0.7% — |
+| pii | 100.0% | 100.0% | 0% — |
+| contamination (ngram) | 0% | — | clean ✅ |
+
 ## Quick Commands
 ```bash
 uv sync                              # Install deps
