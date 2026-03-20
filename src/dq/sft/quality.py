@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+
+from dq.llm_client import get_client, get_default_model
 
 logger = logging.getLogger(__name__)
-
-_openai_available = None
 
 QUALITY_PROMPT = """Score the quality of the following response given the instruction on a scale of 1 to 6, where:
 1 = Very poor: Incorrect, irrelevant, or incoherent response
@@ -33,28 +32,18 @@ Response:
 Quality score:"""
 
 
-def _check_openai() -> bool:
-    global _openai_available
-    if _openai_available is None:
-        try:
-            import openai  # noqa: F401
-            _openai_available = True
-        except ImportError:
-            _openai_available = False
-    return _openai_available
-
-
 class QualityScorer:
     """Score response quality using the DEITA approach.
 
-    This is a scorer, not a filter — it adds a `quality_score` field
-    to each document without dropping any.
+    Uses shared LLM client from dq.llm_client. Configure via:
+    - Explicit params (api_url, api_key, model)
+    - Env vars: DQ_API_BASE_URL, DQ_API_KEY, DQ_MODEL
+    - Fallback: OPENAI_BASE_URL, OPENAI_API_KEY
 
     Args:
-        api_url: OpenAI-compatible API base URL (None for default OpenAI).
-        api_key: API key (None to use OPENAI_API_KEY env var).
+        api_url: OpenAI-compatible API base URL.
+        api_key: API key.
         model: Model name for scoring.
-        batch_size: Number of documents to score per API batch.
         max_retries: Max retries on API failure.
         retry_delay: Seconds between retries.
     """
@@ -63,41 +52,18 @@ class QualityScorer:
         self,
         api_url: str | None = None,
         api_key: str | None = None,
-        model: str = "gpt-4o-mini",
-        batch_size: int = 10,
+        model: str | None = None,
         max_retries: int = 3,
         retry_delay: float = 1.0,
     ) -> None:
         self.api_url = api_url
         self.api_key = api_key
-        self.model = model
-        self.batch_size = batch_size
+        self.model = model or get_default_model()
         self.max_retries = max_retries
         self.retry_delay = retry_delay
-        self._client = None
-        self._available = _check_openai()
-
-        if not self._available:
-            logger.warning("openai not installed — QualityScorer will skip scoring. "
-                           "Install with: pip install openai")
 
     def _get_client(self):
-        """Lazy-initialize the OpenAI client."""
-        if self._client is not None:
-            return self._client
-        if not self._available:
-            return None
-
-        import openai
-
-        kwargs: dict[str, Any] = {}
-        if self.api_key:
-            kwargs["api_key"] = self.api_key
-        if self.api_url:
-            kwargs["base_url"] = self.api_url
-
-        self._client = openai.OpenAI(**kwargs)
-        return self._client
+        return get_client(api_url=self.api_url, api_key=self.api_key)
 
     def _score_one(self, instruction: str, output: str) -> float:
         """Score a single instruction-response pair via API with retry logic."""
@@ -109,6 +75,7 @@ class QualityScorer:
             instruction=instruction[:4000],
             output=output[:4000],
         )
+        text = ""
 
         for attempt in range(self.max_retries):
             try:
@@ -119,10 +86,11 @@ class QualityScorer:
                     temperature=0.0,
                 )
                 text = response.choices[0].message.content.strip()
-                score = float(text)
-                return max(1.0, min(6.0, score))
-            except (ValueError, TypeError):
-                logger.warning("Failed to parse quality score: %r", text)
+                for ch in text:
+                    if ch.isdigit():
+                        score = float(ch)
+                        return max(1.0, min(6.0, score))
+                logger.warning("No digit in quality score: %r", text)
                 return 3.0
             except Exception as e:
                 if attempt < self.max_retries - 1:
@@ -137,35 +105,19 @@ class QualityScorer:
               output_field: str = "output") -> dict:
         """Score a single document's response quality.
 
-        Args:
-            doc: Document dict with instruction and output fields.
-            instruction_field: Name of the instruction field.
-            output_field: Name of the output/response field.
-
-        Returns:
-            The document dict with `quality_score` added.
+        Returns the document dict with `quality_score` added.
         """
         instruction = doc.get(instruction_field, "")
         output = doc.get(output_field, "")
         if not instruction or not output:
             doc["quality_score"] = -1.0
             return doc
-
         doc["quality_score"] = self._score_one(instruction, output)
         return doc
 
     def score_batch(self, docs: list[dict], instruction_field: str = "instruction",
                     output_field: str = "output") -> list[dict]:
-        """Score a batch of documents.
-
-        Args:
-            docs: List of document dicts.
-            instruction_field: Name of the instruction field.
-            output_field: Name of the output/response field.
-
-        Returns:
-            Documents with `quality_score` added.
-        """
+        """Score a batch of documents."""
         for doc in docs:
             self.score(doc, instruction_field, output_field)
         return docs

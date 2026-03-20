@@ -433,6 +433,7 @@ source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "datasketch" },
+    { name = "openai" },
     { name = "pyyaml" },
     { name = "regex" },
     { name = "rich" },
@@ -464,6 +465,7 @@ requires-dist = [
     { name = "datasets", marker = "extra == 'bench'", specifier = ">=2.14" },
     { name = "datasketch", specifier = ">=1.6" },
     { name = "fasttext-wheel", marker = "extra == 'model'", specifier = ">=0.9" },
+    { name = "openai", specifier = ">=2.29.0" },
     { name = "openai", marker = "extra == 'model'", specifier = ">=1.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "regex", specifier = ">=2023.0" },

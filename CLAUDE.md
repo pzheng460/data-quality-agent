@@ -164,3 +164,4 @@ Use `configs/pretrain_zh.yaml` — CJK-aware word counting, Chinese punctuation,
 - **Model** (optional): fasttext-wheel, transformers, sentence-transformers, torch, openai
 - **Bench** (optional): datasets (HuggingFace)
 - **Dev**: pytest, pyarrow
+chuang
