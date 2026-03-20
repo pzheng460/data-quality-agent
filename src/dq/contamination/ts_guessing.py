@@ -4,7 +4,7 @@ Based on: "Time Travel in LLMs: Tracing Data Contamination in Large Language Mod
 For multiple-choice questions, check if a model can guess the correct answer given
 only the choices (without the question). If yes at above-chance rates -> contaminated.
 
-Requires: openai (optional dependency) or any OpenAI-compatible API.
+Uses shared LLM client from dq.llm_client.
 """
 
 from __future__ import annotations
@@ -14,16 +14,9 @@ import time
 from dataclasses import dataclass, field
 
 from dq.contamination.report import ContaminationReport, BenchmarkContamination
+from dq.llm_client import get_client
 
 logger = logging.getLogger(__name__)
-
-_OPENAI_AVAILABLE = False
-try:
-    import openai  # noqa: F401
-
-    _OPENAI_AVAILABLE = True
-except ImportError:
-    pass
 
 
 @dataclass
@@ -65,38 +58,26 @@ class TSGuessingDetector:
         self,
         api_url: str | None = None,
         api_key: str | None = None,
-        model: str = "gpt-4o-mini",
+        model: str | None = None,
         max_retries: int = 3,
         retry_delay: float = 1.0,
     ) -> None:
-        self.model = model
         self.max_retries = max_retries
         self.retry_delay = retry_delay
-        self._client = None
-
-        if not _OPENAI_AVAILABLE:
-            logger.warning(
-                "openai not installed. TSGuessingDetector will skip. "
-                "Install with: uv sync --extra model"
-            )
-            return
-
-        kwargs: dict = {}
-        if api_url:
-            kwargs["base_url"] = api_url
-        if api_key:
-            kwargs["api_key"] = api_key
 
         try:
-            self._client = openai.OpenAI(**kwargs)
+            self._client, self.model = get_client(
+                api_url=api_url, api_key=api_key, model=model
+            )
         except Exception as e:
-            logger.warning("Failed to initialize OpenAI client: %s", e)
+            logger.warning("Failed to initialize LLM client: %s", e)
             self._client = None
+            self.model = model or "unknown"
 
     @property
     def available(self) -> bool:
         """Check if the detector is usable."""
-        return _OPENAI_AVAILABLE and self._client is not None
+        return self._client is not None
 
     def check_mcq_contamination(
         self,

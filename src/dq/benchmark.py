@@ -24,7 +24,12 @@ ALPACA_ORIGINAL = "tatsu-lab/alpaca"
 ALPACA_CLEANED = "yahma/alpaca-cleaned"
 
 # SFT field detection heuristics
-SFT_FIELDS = {"instruction", "conversations", "prompt", "question"}
+# Must stay in sync with sft_rules.py _extract_fields() alternative field names
+SFT_FIELDS = {
+    "instruction", "conversations", "prompt", "question", "query",
+    "human", "input",  # instruction-side
+    "output", "response", "answer", "reply", "assistant", "completion",  # output-side
+}
 
 
 def _ensure_datasets():

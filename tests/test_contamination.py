@@ -264,19 +264,19 @@ class TestMinKProbDetector:
         with patch("dq.contamination.min_k_prob._TRANSFORMERS_AVAILABLE", False):
             from dq.contamination.min_k_prob import MinKProbDetector
 
-            detector = MinKProbDetector.__new__(MinKProbDetector)
-            detector.model_name = "test"
-            detector.k_percent = 20.0
-            detector.threshold = -0.5
-            detector._device_str = "cpu"
-            detector._model = None
-            detector._tokenizer = None
-            detector._device = None
+        detector = MinKProbDetector.__new__(MinKProbDetector)
+        detector.model_name = "test"
+        detector.k_percent = 20.0
+        detector.threshold = -0.5
+        detector._device_str = "cpu"
+        detector._model = None
+        detector._tokenizer = None
+        detector._device = None
 
-            assert detector.available is False
-            result = detector.check_contamination("some text here")
-            assert result.is_contaminated is False
-            assert result.method == "min_k_prob"
+        assert detector.available is False
+        result = detector.check_contamination("some text here")
+        assert result.is_contaminated is False
+        assert result.method == "min_k_prob"
 
     def test_available_property(self):
         """Available should reflect transformers availability."""
@@ -291,17 +291,17 @@ class TestMinKProbDetector:
         with patch("dq.contamination.min_k_prob._TRANSFORMERS_AVAILABLE", False):
             from dq.contamination.min_k_prob import MinKProbDetector
 
-            detector = MinKProbDetector.__new__(MinKProbDetector)
-            detector.model_name = "test"
-            detector.k_percent = 20.0
-            detector.threshold = -0.5
-            detector._device_str = "cpu"
-            detector._model = None
-            detector._tokenizer = None
-            detector._device = None
+        detector = MinKProbDetector.__new__(MinKProbDetector)
+        detector.model_name = "test"
+        detector.k_percent = 20.0
+        detector.threshold = -0.5
+        detector._device_str = "cpu"
+        detector._model = None
+        detector._tokenizer = None
+        detector._device = None
 
-            score = detector.compute_min_k_prob("hello world")
-            assert score == float("-inf")
+        score = detector.compute_min_k_prob("hello world")
+        assert score == float("-inf")
 
     def test_check_contamination_high_score(self):
         """High score (less negative) should flag as contaminated."""
@@ -371,24 +371,23 @@ class TestTSGuessingDetector:
     """Tests for TSGuessingDetector with mocked API."""
 
     def test_unavailable_graceful_skip(self):
-        """Should return empty result when openai not installed."""
-        with patch("dq.contamination.ts_guessing._OPENAI_AVAILABLE", False):
-            from dq.contamination.ts_guessing import TSGuessingDetector
+        """Should return empty result when client init fails."""
+        from dq.contamination.ts_guessing import TSGuessingDetector
 
-            detector = TSGuessingDetector.__new__(TSGuessingDetector)
-            detector.model = "test"
-            detector.max_retries = 1
-            detector.retry_delay = 0.0
-            detector._client = None
+        detector = TSGuessingDetector.__new__(TSGuessingDetector)
+        detector.model = "test"
+        detector.max_retries = 1
+        detector.retry_delay = 0.0
+        detector._client = None
 
-            assert detector.available is False
-            result = detector.check_mcq_contamination(
-                question="What is 2+2?",
-                choices=["3", "4", "5", "6"],
-                correct_idx=1,
-            )
-            assert result.is_correct is False
-            assert result.num_choices == 4
+        assert detector.available is False
+        result = detector.check_mcq_contamination(
+            question="What is 2+2?",
+            choices=["3", "4", "5", "6"],
+            correct_idx=1,
+        )
+        assert result.is_correct is False
+        assert result.num_choices == 4
 
     def test_check_mcq_correct_guess(self):
         """Should detect when model guesses correctly."""
@@ -399,22 +398,22 @@ class TestTSGuessingDetector:
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = mock_response
 
-        with patch("dq.contamination.ts_guessing._OPENAI_AVAILABLE", True):
-            from dq.contamination.ts_guessing import TSGuessingDetector
 
-            detector = TSGuessingDetector.__new__(TSGuessingDetector)
-            detector.model = "test"
-            detector.max_retries = 1
-            detector.retry_delay = 0.0
-            detector._client = mock_client
+        from dq.contamination.ts_guessing import TSGuessingDetector
 
-            result = detector.check_mcq_contamination(
-                question="What is the capital of France?",
-                choices=["London", "Paris", "Berlin", "Madrid"],
-                correct_idx=1,  # B = Paris
-            )
-            assert result.is_correct is True
-            assert result.guessed_idx == 1
+        detector = TSGuessingDetector.__new__(TSGuessingDetector)
+        detector.model = "test"
+        detector.max_retries = 1
+        detector.retry_delay = 0.0
+        detector._client = mock_client
+
+        result = detector.check_mcq_contamination(
+            question="What is the capital of France?",
+            choices=["London", "Paris", "Berlin", "Madrid"],
+            correct_idx=1,  # B = Paris
+        )
+        assert result.is_correct is True
+        assert result.guessed_idx == 1
 
     def test_check_mcq_wrong_guess(self):
         """Should detect when model guesses incorrectly."""
@@ -425,22 +424,22 @@ class TestTSGuessingDetector:
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = mock_response
 
-        with patch("dq.contamination.ts_guessing._OPENAI_AVAILABLE", True):
-            from dq.contamination.ts_guessing import TSGuessingDetector
 
-            detector = TSGuessingDetector.__new__(TSGuessingDetector)
-            detector.model = "test"
-            detector.max_retries = 1
-            detector.retry_delay = 0.0
-            detector._client = mock_client
+        from dq.contamination.ts_guessing import TSGuessingDetector
 
-            result = detector.check_mcq_contamination(
-                question="What is 2+2?",
-                choices=["3", "4", "5", "6"],
-                correct_idx=1,
-            )
-            assert result.is_correct is False
-            assert result.guessed_idx == 0
+        detector = TSGuessingDetector.__new__(TSGuessingDetector)
+        detector.model = "test"
+        detector.max_retries = 1
+        detector.retry_delay = 0.0
+        detector._client = mock_client
+
+        result = detector.check_mcq_contamination(
+            question="What is 2+2?",
+            choices=["3", "4", "5", "6"],
+            correct_idx=1,
+        )
+        assert result.is_correct is False
+        assert result.guessed_idx == 0
 
     def test_scan_mcq_dataset(self):
         """Should scan a dataset and produce a report."""
@@ -452,41 +451,41 @@ class TestTSGuessingDetector:
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = mock_response
 
-        with patch("dq.contamination.ts_guessing._OPENAI_AVAILABLE", True):
-            from dq.contamination.ts_guessing import TSGuessingDetector
 
-            detector = TSGuessingDetector.__new__(TSGuessingDetector)
-            detector.model = "test"
-            detector.max_retries = 1
-            detector.retry_delay = 0.0
-            detector._client = mock_client
+        from dq.contamination.ts_guessing import TSGuessingDetector
 
-            items = [
-                {"question": "Q1", "choices": ["a", "b", "c", "d"], "correct_idx": 1},
-                {"question": "Q2", "choices": ["a", "b", "c", "d"], "correct_idx": 0},
-                {"question": "Q3", "choices": ["a", "b", "c", "d"], "correct_idx": 1},
-            ]
+        detector = TSGuessingDetector.__new__(TSGuessingDetector)
+        detector.model = "test"
+        detector.max_retries = 1
+        detector.retry_delay = 0.0
+        detector._client = mock_client
 
-            report = detector.scan_mcq_dataset(items, dataset_name="test_mcq")
-            assert report.dataset_name == "test_mcq"
-            assert report.total_docs == 3
-            assert report.method == "ts_guessing"
+        items = [
+            {"question": "Q1", "choices": ["a", "b", "c", "d"], "correct_idx": 1},
+            {"question": "Q2", "choices": ["a", "b", "c", "d"], "correct_idx": 0},
+            {"question": "Q3", "choices": ["a", "b", "c", "d"], "correct_idx": 1},
+        ]
+
+        report = detector.scan_mcq_dataset(items, dataset_name="test_mcq")
+        assert report.dataset_name == "test_mcq"
+        assert report.total_docs == 3
+        assert report.method == "ts_guessing"
 
     def test_scan_mcq_unavailable_empty_report(self):
         """Should return empty report when API not available."""
-        with patch("dq.contamination.ts_guessing._OPENAI_AVAILABLE", False):
-            from dq.contamination.ts_guessing import TSGuessingDetector
 
-            detector = TSGuessingDetector.__new__(TSGuessingDetector)
-            detector.model = "test"
-            detector.max_retries = 1
-            detector.retry_delay = 0.0
-            detector._client = None
+        from dq.contamination.ts_guessing import TSGuessingDetector
 
-            items = [{"question": "Q1", "choices": ["a", "b"], "correct_idx": 0}]
-            report = detector.scan_mcq_dataset(items)
-            assert report.total_docs == 1
-            assert report.contaminated_docs == 0
+        detector = TSGuessingDetector.__new__(TSGuessingDetector)
+        detector.model = "test"
+        detector.max_retries = 1
+        detector.retry_delay = 0.0
+        detector._client = None
+
+        items = [{"question": "Q1", "choices": ["a", "b"], "correct_idx": 0}]
+        report = detector.scan_mcq_dataset(items)
+        assert report.total_docs == 1
+        assert report.contaminated_docs == 0
 
     def test_api_failure_retry(self):
         """Should retry on API failure."""
@@ -496,19 +495,19 @@ class TestTSGuessingDetector:
             MagicMock(choices=[MagicMock(message=MagicMock(content="A"))]),
         ]
 
-        with patch("dq.contamination.ts_guessing._OPENAI_AVAILABLE", True):
-            from dq.contamination.ts_guessing import TSGuessingDetector
 
-            detector = TSGuessingDetector.__new__(TSGuessingDetector)
-            detector.model = "test"
-            detector.max_retries = 3
-            detector.retry_delay = 0.01  # fast for tests
-            detector._client = mock_client
+        from dq.contamination.ts_guessing import TSGuessingDetector
 
-            result = detector.check_mcq_contamination(
-                question="Q", choices=["a", "b"], correct_idx=0,
-            )
-            assert result.guessed_idx == 0
+        detector = TSGuessingDetector.__new__(TSGuessingDetector)
+        detector.model = "test"
+        detector.max_retries = 3
+        detector.retry_delay = 0.01  # fast for tests
+        detector._client = mock_client
+
+        result = detector.check_mcq_contamination(
+            question="Q", choices=["a", "b"], correct_idx=0,
+        )
+        assert result.guessed_idx == 0
 
 
 # ---------------------------------------------------------------------------

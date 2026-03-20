@@ -17,8 +17,10 @@ pipeline:
         instruction_field: instruction
         output_field: output
         min_output_words: 5
+        min_output_words_closed_form: 1  # Short answers OK for classification/extraction
         min_instruction_words_for_short_check: 20
         max_copy_similarity: 0.80
+        min_words_after_refusal: 50  # "As an AI..." with real content = not a refusal
 
     - name: pii
       mode: detect  # Detect only — don't redact SFT data
