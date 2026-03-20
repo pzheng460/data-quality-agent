@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 FINEWEB_DATASET = "HuggingFaceFW/fineweb"
 FINEWEB_CONFIG = "sample-10BT"
 ALPACA_DATASET = "tatsu-lab/alpaca"
-ALPACA_ORIGINAL = "tatsu-lab/stanford_alpaca"
+ALPACA_ORIGINAL = "tatsu-lab/alpaca"
 ALPACA_CLEANED = "yahma/alpaca-cleaned"
 
 
@@ -144,22 +144,36 @@ def load_alpaca_sample(n: int = 1000, seed: int = 42) -> list[dict]:
 def load_alpaca_original(n: int | None = None) -> list[dict]:
     """Load samples from tatsu-lab/stanford_alpaca (original, known quality issues).
 
+    Downloads directly from GitHub since HuggingFace Hub removed the dataset.
+
     Args:
         n: Number of samples. None or 0 means all samples.
     """
-    load_dataset = _ensure_datasets()
-    logger.info("Loading Alpaca original (tatsu-lab/stanford_alpaca)...")
-    try:
-        ds = load_dataset(ALPACA_ORIGINAL, split="train", trust_remote_code=True)
-    except Exception as e:
-        raise RuntimeError(f"Failed to load Alpaca original dataset: {e}") from e
+    import json
+    import random
+    from pathlib import Path
+    from urllib.request import urlretrieve
 
-    samples: list[dict] = []
-    limit = n if n and n > 0 else len(ds)
-    for i, item in enumerate(ds):
-        if i >= limit:
-            break
-        samples.append({"text": _merge_alpaca_fields(item)})
+    cache_path = Path.home() / ".cache" / "dq" / "alpaca_original.json"
+    if not cache_path.exists():
+        logger.info("Downloading Alpaca original from GitHub...")
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        url = "https://raw.githubusercontent.com/tatsu-lab/stanford_alpaca/main/alpaca_data.json"
+        try:
+            urlretrieve(url, cache_path)
+        except Exception as e:
+            raise RuntimeError(f"Failed to download Alpaca original: {e}") from e
+
+    logger.info("Loading Alpaca original from cache...")
+    with open(cache_path) as f:
+        raw = json.load(f)
+
+    # Shuffle with seed for reproducibility
+    rng = random.Random(42)
+    rng.shuffle(raw)
+
+    limit = n if n and n > 0 else len(raw)
+    samples = [{"text": _merge_alpaca_fields(item)} for item in raw[:limit]]
     logger.info("Loaded %d Alpaca original samples.", len(samples))
     return samples
 
@@ -173,7 +187,7 @@ def load_alpaca_cleaned(n: int | None = None) -> list[dict]:
     load_dataset = _ensure_datasets()
     logger.info("Loading Alpaca cleaned (yahma/alpaca-cleaned)...")
     try:
-        ds = load_dataset(ALPACA_CLEANED, split="train", trust_remote_code=True)
+        ds = load_dataset(ALPACA_CLEANED, split="train")
     except Exception as e:
         raise RuntimeError(f"Failed to load Alpaca cleaned dataset: {e}") from e
 

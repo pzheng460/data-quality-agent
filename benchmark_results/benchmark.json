@@ -2,392 +2,98 @@
   "config_path": null,
   "num_samples": 1000,
   "datasets": {
-    "FineWeb": {
+    "Alpaca Original": {
       "num_docs": 1000,
-      "overall_pass_rate": 0.179,
+      "overall_pass_rate": 0.061,
       "per_filter": {
         "gopher_quality": {
           "total": 1000,
-          "passed": 985,
-          "failed": 15,
-          "pass_rate": 0.985,
+          "passed": 447,
+          "failed": 553,
+          "pass_rate": 0.447,
           "sample_failed": [
             {
-              "text_preview": "Abby, Sadie (E, F, G)\nTwo little girls, one big wry streak.\nSaturday, January 22, 2011\nMom's shoes are hard to fill. Maybe I should get out the Play-Doh.\nRichard H. Rhode\nFebruary 4, 2011 at 6:24 AM\nH",
+              "text_preview": "Classify the following phrase \"I am so cold\":\nI am so cold\nThis phrase is an expression of discomfort.",
               "reason": {
                 "filter": "gopher_quality",
                 "reason": "too_few_words",
-                "value": 48
+                "value": 19
               }
             },
             {
-              "text_preview": "by Shelley Woodward\n(Dunsborough, Western Australia.)\nYork City versus, Aston Villa, first ever match in Division two 17th August 1974. Perfect condition.\nClick here to post comments\nJoin in and write",
+              "text_preview": "Make a list of 3 things to do to preserve the environment.\n- Reduce water and energy usage\n- Recycle waste\n- Plant trees and other plants to build green spaces",
               "reason": {
                 "filter": "gopher_quality",
                 "reason": "too_few_words",
-                "value": 49
+                "value": 31
               }
             },
             {
-              "text_preview": "International Monetary Fund (21 - 30 of 58 items)\nDeveloping Countries: Challenges Confronting Debt Relief and IMF Lending to Poor Countries\nGAO-01-745T: Published: May 15, 2001. Publicly Released: Ma",
-              "reason": {
-                "filter": "gopher_quality",
-                "reason": "low_alpha_ratio",
-                "value": 0.7960812772133526
-              }
-            }
-          ]
-        },
-        "gopher_repetition": {
-          "total": 985,
-          "passed": 197,
-          "failed": 788,
-          "pass_rate": 0.2,
-          "sample_failed": [
-            {
-              "text_preview": "Radisson Blu Dubai Deira Creek Unveils New Renovations\nThe new designs bring a fresh look to the heritage property, which opened in 1974 as the first 5 star hotel in Dubai. The Creekside property’s ne",
-              "reason": {
-                "filter": "gopher_repetition",
-                "reason": "high_char_repetition",
-                "value": 1.0
-              }
-            },
-            {
-              "text_preview": "It's the final week of our fabulous Coach giveaways for PopSugar Daily. This week baby needs a new pair of shoes and now is your chance to enter to win one of five Spring-worthy pairs of Coach sandals",
-              "reason": {
-                "filter": "gopher_repetition",
-                "reason": "high_char_repetition",
-                "value": 0.5021520803443329
-              }
-            },
-            {
-              "text_preview": "From the soil\nFrom the air\nIt is a kind of plant.\nIt is the food that the plant gets.\nIt is a process by which plants reproduce.\nIt is a process by which plants make food.\nSunlight, carbon dioxide gas",
-              "reason": {
-                "filter": "gopher_repetition",
-                "reason": "high_char_repetition",
-                "value": 1.0
-              }
-            }
-          ]
-        },
-        "c4": {
-          "total": 197,
-          "passed": 179,
-          "failed": 18,
-          "pass_rate": 0.9086,
-          "sample_failed": [
-            {
-              "text_preview": "Solid and Smooth with Flared Base for Safety Strong Suction Cup Grips Any Flat SurfaceLow Maintenance and Easy to CleanUltra Durable Firm & PliableExclusively formulated PVCMade with USA Materials\nCle",
-              "reason": {
-                "filter": "c4",
-                "reason": "too_few_sentences",
-                "value": 2
-              }
-            },
-            {
-              "text_preview": "Shown on site - a collection of hand printed lino-cuts, hand made artists' books and drawings.\nEnter Galleries below\nmarine townscape drawings commemorative figurative reportage artists books\nConvert ",
-              "reason": {
-                "filter": "c4",
-                "reason": "too_few_sentences",
-                "value": 2
-              }
-            },
-            {
-              "text_preview": "Trim any fat or silver sinew from 500g lamb\nfillets. Slice the meat across the grain into very thin strips. (This\nwill be easier if the meat is chilled.) Combine 1 roughly chopped onion,\n2 cloves garl",
-              "reason": {
-                "filter": "c4",
-                "reason": "too_few_sentences",
-                "value": 2
-              }
-            }
-          ]
-        },
-        "fineweb": {
-          "total": 179,
-          "passed": 179,
-          "failed": 0,
-          "pass_rate": 1.0,
-          "sample_failed": []
-        },
-        "pii": {
-          "total": 179,
-          "passed": 179,
-          "failed": 0,
-          "pass_rate": 1.0,
-          "sample_failed": []
-        }
-      },
-      "per_filter_pass_rate": {
-        "gopher_quality": 0.985,
-        "gopher_repetition": 0.2,
-        "c4": 0.9086,
-        "fineweb": 1.0,
-        "pii": 1.0
-      },
-      "pipeline_stats": {
-        "total_in": 1000,
-        "total_out": 179,
-        "total_dropped": 821,
-        "overall_drop_rate": 0.821,
-        "filters": [
-          {
-            "name": "gopher_quality",
-            "docs_in": 1000,
-            "docs_out": 985,
-            "docs_dropped": 15,
-            "drop_rate": 0.015,
-            "sample_drops": [
-              {
-                "text_preview": "Abby, Sadie (E, F, G)\nTwo little girls, one big wry streak.\nSaturday, January 22, 2011\nMom's shoes are hard to fill. Maybe I should get out the Play-Doh.\nRichard H. Rhode\nFebruary 4, 2011 at 6:24 AM\nH",
-                "reason": {
-                  "filter": "gopher_quality",
-                  "reason": "too_few_words",
-                  "value": 48
-                }
-              },
-              {
-                "text_preview": "by Shelley Woodward\n(Dunsborough, Western Australia.)\nYork City versus, Aston Villa, first ever match in Division two 17th August 1974. Perfect condition.\nClick here to post comments\nJoin in and write",
-                "reason": {
-                  "filter": "gopher_quality",
-                  "reason": "too_few_words",
-                  "value": 49
-                }
-              },
-              {
-                "text_preview": "International Monetary Fund (21 - 30 of 58 items)\nDeveloping Countries: Challenges Confronting Debt Relief and IMF Lending to Poor Countries\nGAO-01-745T: Published: May 15, 2001. Publicly Released: Ma",
-                "reason": {
-                  "filter": "gopher_quality",
-                  "reason": "low_alpha_ratio",
-                  "value": 0.7960812772133526
-                }
-              },
-              {
-                "text_preview": "Rating is available when the video has been rented.\nThis feature is not available right now. Please try again later.\nPublished on Jul 10, 2015\n2-in-1sensorless brushless 4-pole power unit for 1/10 sca",
-                "reason": {
-                  "filter": "gopher_quality",
-                  "reason": "too_few_words",
-                  "value": 49
-                }
-              },
-              {
-                "text_preview": "James Coviello's lacy, moss-green maxi melds cultivated styling with organic imagery, and ties it together with a sash of neon green velvet. Back zip and hook-and-eye closure. Nylon, rayon; polyester ",
-                "reason": {
-                  "filter": "gopher_quality",
-                  "reason": "too_few_words",
-                  "value": 48
-                }
-              }
-            ]
-          },
-          {
-            "name": "gopher_repetition",
-            "docs_in": 985,
-            "docs_out": 197,
-            "docs_dropped": 788,
-            "drop_rate": 0.8,
-            "sample_drops": [
-              {
-                "text_preview": "Radisson Blu Dubai Deira Creek Unveils New Renovations\nThe new designs bring a fresh look to the heritage property, which opened in 1974 as the first 5 star hotel in Dubai. The Creekside property’s ne",
-                "reason": {
-                  "filter": "gopher_repetition",
-                  "reason": "high_char_repetition",
-                  "value": 1.0
-                }
-              },
-              {
-                "text_preview": "It's the final week of our fabulous Coach giveaways for PopSugar Daily. This week baby needs a new pair of shoes and now is your chance to enter to win one of five Spring-worthy pairs of Coach sandals",
-                "reason": {
-                  "filter": "gopher_repetition",
-                  "reason": "high_char_repetition",
-                  "value": 0.5021520803443329
-                }
-              },
-              {
-                "text_preview": "From the soil\nFrom the air\nIt is a kind of plant.\nIt is the food that the plant gets.\nIt is a process by which plants reproduce.\nIt is a process by which plants make food.\nSunlight, carbon dioxide gas",
-                "reason": {
-                  "filter": "gopher_repetition",
-                  "reason": "high_char_repetition",
-                  "value": 1.0
-                }
-              },
-              {
-                "text_preview": "We are looking for an icon that really represents relaxation, but that is also attractive and get the customer to take a look to our app.\nWe changed our app icon in the last update and we had many com",
-                "reason": {
-                  "filter": "gopher_repetition",
-                  "reason": "high_char_repetition",
-                  "value": 0.2054794520547945
-                }
-              },
-              {
-                "text_preview": "Aren't online investing and day trading the same thing?\nNo. Online investing refers to the method of placing orders via the Internet to buy and sell securities as compared to the method of placing ord",
-                "reason": {
-                  "filter": "gopher_repetition",
-                  "reason": "high_char_repetition",
-                  "value": 0.7926267281105991
-                }
-              }
-            ]
-          },
-          {
-            "name": "c4",
-            "docs_in": 197,
-            "docs_out": 179,
-            "docs_dropped": 18,
-            "drop_rate": 0.0914,
-            "sample_drops": [
-              {
-                "text_preview": "Solid and Smooth with Flared Base for Safety Strong Suction Cup Grips Any Flat SurfaceLow Maintenance and Easy to CleanUltra Durable Firm & PliableExclusively formulated PVCMade with USA Materials\nCle",
-                "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 2
-                }
-              },
-              {
-                "text_preview": "Shown on site - a collection of hand printed lino-cuts, hand made artists' books and drawings.\nEnter Galleries below\nmarine townscape drawings commemorative figurative reportage artists books\nConvert ",
-                "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 2
-                }
-              },
-              {
-                "text_preview": "Trim any fat or silver sinew from 500g lamb\nfillets. Slice the meat across the grain into very thin strips. (This\nwill be easier if the meat is chilled.) Combine 1 roughly chopped onion,\n2 cloves garl",
-                "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 2
-                }
-              },
-              {
-                "text_preview": "All teachers moving from Level I to Level II Certification are required to earn 24 credits beyond a bachelor's degree. All 24 of these credits may be earned via the BVIU CPE Credit Courses\nBeaver Vall",
-                "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 1
-                }
-              },
-              {
-                "text_preview": "Official Twitter page for the Frederick Keys, Advanced-A Affiliate of the Baltimore Orioles\n745 days ago\nA big thanks to everyone who came out and supported the @FredArtsCouncil at the Keys Art in the",
-                "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 1
-                }
-              }
-            ]
-          },
-          {
-            "name": "fineweb",
-            "docs_in": 179,
-            "docs_out": 179,
-            "docs_dropped": 0,
-            "drop_rate": 0.0,
-            "sample_drops": []
-          },
-          {
-            "name": "pii",
-            "docs_in": 179,
-            "docs_out": 179,
-            "docs_dropped": 0,
-            "drop_rate": 0.0,
-            "sample_drops": []
-          }
-        ]
-      }
-    },
-    "Alpaca 52K": {
-      "num_docs": 1000,
-      "overall_pass_rate": 0.062,
-      "per_filter": {
-        "gopher_quality": {
-          "total": 1000,
-          "passed": 458,
-          "failed": 542,
-          "pass_rate": 0.458,
-          "sample_failed": [
-            {
-              "text_preview": "What would be the best type of exercise for a person who has arthritis?\nFor someone with arthritis, the best type of exercise would be low-impact activities like yoga, swimming, or walking. These exer",
-              "reason": {
-                "filter": "gopher_quality",
-                "reason": "too_few_words",
-                "value": 45
-              }
-            },
-            {
-              "text_preview": "Convert the following binary code to ASCII characters.\n01110101 01100001 01110010 01101001 01110100\nThe ASCII characters for the binary code is: wast.",
+              "text_preview": "Transform the sentence so that it uses direct quotations.\nThe speaker said that education was important.\nThe speaker said, “Education is important.”",
               "reason": {
                 "filter": "gopher_quality",
                 "reason": "too_few_words",
                 "value": 22
               }
-            },
-            {
-              "text_preview": "Take this sentence and make it more descriptive: She was scared.\nShe was scared.\nShe was trembling with fear, her heart racing wildly and her breath coming in short, panicked gasps. She felt her palms",
-              "reason": {
-                "filter": "gopher_quality",
-                "reason": "too_few_words",
-                "value": 48
-              }
             }
           ]
         },
         "gopher_repetition": {
-          "total": 458,
-          "passed": 67,
-          "failed": 391,
-          "pass_rate": 0.1463,
+          "total": 447,
+          "passed": 70,
+          "failed": 377,
+          "pass_rate": 0.1566,
           "sample_failed": [
             {
-              "text_preview": "Calculate the atomic mass for lithium.\nThe atomic mass for lithium is 6.941 u (units). This is determined from the number of protons and neutrons in the nucleus of a lithium atom, which is 3 protons a",
+              "text_preview": "Describe an example of a time you used influence in a positive way\nI recently had a team project at work where I had to influence my team members to complete the task in the most efficient way possibl",
               "reason": {
                 "filter": "gopher_repetition",
                 "reason": "high_char_repetition",
-                "value": 0.802675585284281
+                "value": 0.32934131736526945
               }
             },
             {
-              "text_preview": "Describe a picnic vacation where four people are travelling together.\nFour people are travelling together to a picnic vacation.\nThe four friends decided to take a picnic vacation to the countryside. T",
+              "text_preview": "Examine the differences between an LLC and a C-corporation.\nAn LLC and a C-corporation are two different legal structures used for businesses. \n\nLLCs are a type of pass-through entity, meaning that th",
               "reason": {
                 "filter": "gopher_repetition",
                 "reason": "high_char_repetition",
-                "value": 0.9508716323296355
+                "value": 1.0
               }
             },
             {
-              "text_preview": "Explain the concept of Big Data and what it means for companies and customers.\nBig Data is the massive volume of data that is generated from companies’ interactions with customers, both online and off",
+              "text_preview": "Generate a single sentence that summarizes the effects of the given policy.\nPolicy: Tax credits for businesses investing in renewable energy\nTax credits for businesses investing in renewable energy ha",
               "reason": {
                 "filter": "gopher_repetition",
                 "reason": "high_char_repetition",
-                "value": 0.2750809061488673
+                "value": 1.0
               }
             }
           ]
         },
         "c4": {
-          "total": 67,
+          "total": 70,
           "passed": 62,
-          "failed": 5,
-          "pass_rate": 0.9254,
+          "failed": 8,
+          "pass_rate": 0.8857,
           "sample_failed": [
             {
-              "text_preview": "Create a list of 5 books which are suitable as gifts for your best friend.\nOccasion: Birthday\n1. Harry Potter and the Philosopher’s Stone by J.K. Rowling\n2. The Catcher in the Rye by J.D. Salinger\n3. ",
+              "text_preview": "Add a sentence to the end of the given paragraph to bring clarity to the argument.\nHumans have a limited capacity to concentrate and focus on intellectual tasks. This hinders our ability to acquire ne",
               "reason": {
                 "filter": "c4",
                 "reason": "too_few_sentences",
-                "value": 1
+                "value": 2
               }
             },
             {
-              "text_preview": "List 5 tips for effective job hunting.\n1. Research job sites and networking opportunities \n2. Polish your resume and showcase your skills and achievements\n3. Prepare for potential interviews by practi",
+              "text_preview": "Categorize the following article as science fiction or fantasy\nThe story follows the life of a young man called Max as he travels through space and time to strange planets, searching for a way to save",
               "reason": {
                 "filter": "c4",
                 "reason": "too_few_sentences",
-                "value": 1
+                "value": 2
               }
             },
             {
-              "text_preview": "Generate an appropriate response to this message:\n\n\"I'm feeling stuck with my project and I don't know what to do next\"\nMaybe it would be helpful to take a step back and try to think about what needs ",
+              "text_preview": "Create a coda for this song.\nVerse 1:\nI used to be so free, my soul untethered\nBut now it's all so clear, I'm lost in this weather\nNever thought I'd be here, weighed down with fear\nVerse 2:\nLightning ",
               "reason": {
                 "filter": "c4",
                 "reason": "too_few_sentences",
@@ -398,49 +104,66 @@
         },
         "fineweb": {
           "total": 62,
-          "passed": 62,
-          "failed": 0,
-          "pass_rate": 1.0,
-          "sample_failed": []
+          "passed": 61,
+          "failed": 1,
+          "pass_rate": 0.9839,
+          "sample_failed": [
+            {
+              "text_preview": "1. What are the most popular men's fashion trends right now? \n2. How can men determine which styles are most flattering? \n3. What materials are considered to be the most fashionable for menswear?\n4. H",
+              "reason": {
+                "filter": "fineweb",
+                "reason": "list_document",
+                "value": 1.0
+              }
+            }
+          ]
         },
         "pii": {
-          "total": 62,
-          "passed": 62,
+          "total": 61,
+          "passed": 61,
           "failed": 0,
           "pass_rate": 1.0,
           "sample_failed": []
         }
       },
       "per_filter_pass_rate": {
-        "gopher_quality": 0.458,
-        "gopher_repetition": 0.1463,
-        "c4": 0.9254,
-        "fineweb": 1.0,
+        "gopher_quality": 0.447,
+        "gopher_repetition": 0.1566,
+        "c4": 0.8857,
+        "fineweb": 0.9839,
         "pii": 1.0
       },
       "pipeline_stats": {
         "total_in": 1000,
-        "total_out": 62,
-        "total_dropped": 938,
-        "overall_drop_rate": 0.938,
+        "total_out": 61,
+        "total_dropped": 939,
+        "overall_drop_rate": 0.939,
         "filters": [
           {
             "name": "gopher_quality",
             "docs_in": 1000,
-            "docs_out": 458,
-            "docs_dropped": 542,
-            "drop_rate": 0.542,
+            "docs_out": 447,
+            "docs_dropped": 553,
+            "drop_rate": 0.553,
             "sample_drops": [
               {
-                "text_preview": "What would be the best type of exercise for a person who has arthritis?\nFor someone with arthritis, the best type of exercise would be low-impact activities like yoga, swimming, or walking. These exer",
+                "text_preview": "Classify the following phrase \"I am so cold\":\nI am so cold\nThis phrase is an expression of discomfort.",
                 "reason": {
                   "filter": "gopher_quality",
                   "reason": "too_few_words",
-                  "value": 45
+                  "value": 19
                 }
               },
               {
-                "text_preview": "Convert the following binary code to ASCII characters.\n01110101 01100001 01110010 01101001 01110100\nThe ASCII characters for the binary code is: wast.",
+                "text_preview": "Make a list of 3 things to do to preserve the environment.\n- Reduce water and energy usage\n- Recycle waste\n- Plant trees and other plants to build green spaces",
+                "reason": {
+                  "filter": "gopher_quality",
+                  "reason": "too_few_words",
+                  "value": 31
+                }
+              },
+              {
+                "text_preview": "Transform the sentence so that it uses direct quotations.\nThe speaker said that education was important.\nThe speaker said, “Education is important.”",
                 "reason": {
                   "filter": "gopher_quality",
                   "reason": "too_few_words",
@@ -448,72 +171,64 @@
                 }
               },
               {
-                "text_preview": "Take this sentence and make it more descriptive: She was scared.\nShe was scared.\nShe was trembling with fear, her heart racing wildly and her breath coming in short, panicked gasps. She felt her palms",
+                "text_preview": "What is the primary benefit of using a relational database?\nThe primary benefit of using a relational database is the ability to make data more organized and easier to access, query, and analyse.",
                 "reason": {
                   "filter": "gopher_quality",
                   "reason": "too_few_words",
-                  "value": 48
+                  "value": 33
                 }
               },
               {
-                "text_preview": "Brainstorm 3 possible ideas to promote the following product\nNew motorized skateboard\n1. Offer a free trial for a limited time.\n2. Give away several skateboards in a raffle or sweepstakes.\n3. Host a p",
+                "text_preview": "Illustrate the given text with a drawing.\nLost in the woods, the brave prince searched for his way out.\n<noinput> \n\nThe instruction cannot be completed by a GPT model as it requires a visual output.",
                 "reason": {
                   "filter": "gopher_quality",
                   "reason": "too_few_words",
-                  "value": 44
-                }
-              },
-              {
-                "text_preview": "Rewrite the sentence using imperative mood.\nPlease pick up the book from the shelf.\nPick up the book from the shelf.",
-                "reason": {
-                  "filter": "gopher_quality",
-                  "reason": "too_few_words",
-                  "value": 21
+                  "value": 35
                 }
               }
             ]
           },
           {
             "name": "gopher_repetition",
-            "docs_in": 458,
-            "docs_out": 67,
-            "docs_dropped": 391,
-            "drop_rate": 0.8537,
+            "docs_in": 447,
+            "docs_out": 70,
+            "docs_dropped": 377,
+            "drop_rate": 0.8434,
             "sample_drops": [
               {
-                "text_preview": "Calculate the atomic mass for lithium.\nThe atomic mass for lithium is 6.941 u (units). This is determined from the number of protons and neutrons in the nucleus of a lithium atom, which is 3 protons a",
+                "text_preview": "Describe an example of a time you used influence in a positive way\nI recently had a team project at work where I had to influence my team members to complete the task in the most efficient way possibl",
                 "reason": {
                   "filter": "gopher_repetition",
                   "reason": "high_char_repetition",
-                  "value": 0.802675585284281
+                  "value": 0.32934131736526945
                 }
               },
               {
-                "text_preview": "Describe a picnic vacation where four people are travelling together.\nFour people are travelling together to a picnic vacation.\nThe four friends decided to take a picnic vacation to the countryside. T",
+                "text_preview": "Examine the differences between an LLC and a C-corporation.\nAn LLC and a C-corporation are two different legal structures used for businesses. \n\nLLCs are a type of pass-through entity, meaning that th",
                 "reason": {
                   "filter": "gopher_repetition",
                   "reason": "high_char_repetition",
-                  "value": 0.9508716323296355
+                  "value": 1.0
                 }
               },
               {
-                "text_preview": "Explain the concept of Big Data and what it means for companies and customers.\nBig Data is the massive volume of data that is generated from companies’ interactions with customers, both online and off",
+                "text_preview": "Generate a single sentence that summarizes the effects of the given policy.\nPolicy: Tax credits for businesses investing in renewable energy\nTax credits for businesses investing in renewable energy ha",
                 "reason": {
                   "filter": "gopher_repetition",
                   "reason": "high_char_repetition",
-                  "value": 0.2750809061488673
+                  "value": 1.0
                 }
               },
               {
-                "text_preview": "Analyze the given phrase in terms of its connotations.\nWild goose chase\nThe phrase \"wild goose chase\" is typically used to describe a futile and time-consuming endeavor. It can also connote a sense of",
+                "text_preview": "How can cities become more eco-friendly?\nCities can become more eco-friendly by encouraging public transportation, promoting green building standards and energy efficiency, implementing renewable ener",
                 "reason": {
                   "filter": "gopher_repetition",
                   "reason": "high_char_repetition",
-                  "value": 0.22321428571428573
+                  "value": 0.6451612903225806
                 }
               },
               {
-                "text_preview": "Calculate the length of the hypotenuse in the following triangle.\n![alt text](https://www.onlinemathlearning.com/image-files/triangle-hypotenuse-length.png \"Right Triangle\")\nThe length of the hypotenu",
+                "text_preview": "Outline the advantages of television advertising.\nThe advantages of television advertising include the ability to visually capture the attention of voters and to reach a wide audience in a relatively ",
                 "reason": {
                   "filter": "gopher_repetition",
                   "reason": "high_char_repetition",
@@ -524,29 +239,13 @@
           },
           {
             "name": "c4",
-            "docs_in": 67,
+            "docs_in": 70,
             "docs_out": 62,
-            "docs_dropped": 5,
-            "drop_rate": 0.0746,
+            "docs_dropped": 8,
+            "drop_rate": 0.1143,
             "sample_drops": [
               {
-                "text_preview": "Create a list of 5 books which are suitable as gifts for your best friend.\nOccasion: Birthday\n1. Harry Potter and the Philosopher’s Stone by J.K. Rowling\n2. The Catcher in the Rye by J.D. Salinger\n3. ",
-                "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 1
-                }
-              },
-              {
-                "text_preview": "List 5 tips for effective job hunting.\n1. Research job sites and networking opportunities \n2. Polish your resume and showcase your skills and achievements\n3. Prepare for potential interviews by practi",
-                "reason": {
-                  "filter": "c4",
-                  "reason": "too_few_sentences",
-                  "value": 1
-                }
-              },
-              {
-                "text_preview": "Generate an appropriate response to this message:\n\n\"I'm feeling stuck with my project and I don't know what to do next\"\nMaybe it would be helpful to take a step back and try to think about what needs ",
+                "text_preview": "Add a sentence to the end of the given paragraph to bring clarity to the argument.\nHumans have a limited capacity to concentrate and focus on intellectual tasks. This hinders our ability to acquire ne",
                 "reason": {
                   "filter": "c4",
                   "reason": "too_few_sentences",
@@ -554,15 +253,335 @@
                 }
               },
               {
-                "text_preview": "Create a social media post that discusses the importance of this topic.\nTopic: Climate Change\nClimate change is an urgent crisis that is affecting our planet and our lives. We must take action now to ",
+                "text_preview": "Categorize the following article as science fiction or fantasy\nThe story follows the life of a young man called Max as he travels through space and time to strange planets, searching for a way to save",
+                "reason": {
+                  "filter": "c4",
+                  "reason": "too_few_sentences",
+                  "value": 2
+                }
+              },
+              {
+                "text_preview": "Create a coda for this song.\nVerse 1:\nI used to be so free, my soul untethered\nBut now it's all so clear, I'm lost in this weather\nNever thought I'd be here, weighed down with fear\nVerse 2:\nLightning ",
+                "reason": {
+                  "filter": "c4",
+                  "reason": "too_few_sentences",
+                  "value": 2
+                }
+              },
+              {
+                "text_preview": "List the usage of the given tool\nGoogle Colab\nGoogle Colab is a free cloud service for machine-learning research and development. Some of its uses include: training and deploying machine learning mode",
+                "reason": {
+                  "filter": "c4",
+                  "reason": "too_few_sentences",
+                  "value": 2
+                }
+              },
+              {
+                "text_preview": "Provide a list of items that can be reused or recycled.\n1. Plastic bottles 2. Cardboard boxes 3. Aluminum cans 4. Newspapers 5. Glass jars 6. Clothing 7. Furniture 8. Bicycles 9. Computers 10. Printer",
                 "reason": {
                   "filter": "c4",
                   "reason": "too_few_sentences",
                   "value": 1
                 }
+              }
+            ]
+          },
+          {
+            "name": "fineweb",
+            "docs_in": 62,
+            "docs_out": 61,
+            "docs_dropped": 1,
+            "drop_rate": 0.0161,
+            "sample_drops": [
+              {
+                "text_preview": "1. What are the most popular men's fashion trends right now? \n2. How can men determine which styles are most flattering? \n3. What materials are considered to be the most fashionable for menswear?\n4. H",
+                "reason": {
+                  "filter": "fineweb",
+                  "reason": "list_document",
+                  "value": 1.0
+                }
+              }
+            ]
+          },
+          {
+            "name": "pii",
+            "docs_in": 61,
+            "docs_out": 61,
+            "docs_dropped": 0,
+            "drop_rate": 0.0,
+            "sample_drops": []
+          }
+        ]
+      }
+    },
+    "Alpaca Cleaned": {
+      "num_docs": 1000,
+      "overall_pass_rate": 0.035,
+      "per_filter": {
+        "gopher_quality": {
+          "total": 1000,
+          "passed": 596,
+          "failed": 404,
+          "pass_rate": 0.596,
+          "sample_failed": [
+            {
+              "text_preview": "Evaluate this sentence for spelling and grammar mistakes\nHe finnished his meal and left the resturant\nThere are two spelling errors in the sentence. The corrected sentence should be: \"He finished his ",
+              "reason": {
+                "filter": "gopher_quality",
+                "reason": "too_few_words",
+                "value": 37
+              }
+            },
+            {
+              "text_preview": "What is the capital of France?\nThe capital city of France is Paris.",
+              "reason": {
+                "filter": "gopher_quality",
+                "reason": "too_few_words",
+                "value": 13
+              }
+            },
+            {
+              "text_preview": "Generate a list of ten items a person might need for a camping trip\nHere are ten items a person might need for a camping trip:\n\n1. Tent - to provide shelter and protection from the elements\n2. Sleepin",
+              "reason": {
+                "filter": "gopher_quality",
+                "reason": "low_terminal_punct",
+                "value": 0.08333333333333333
+              }
+            }
+          ]
+        },
+        "gopher_repetition": {
+          "total": 596,
+          "passed": 40,
+          "failed": 556,
+          "pass_rate": 0.0671,
+          "sample_failed": [
+            {
+              "text_preview": "Give three tips for staying healthy.\n1. Eat a balanced and nutritious diet: Make sure your meals are inclusive of a variety of fruits and vegetables, lean protein, whole grains, and healthy fats. This",
+              "reason": {
+                "filter": "gopher_repetition",
+                "reason": "high_char_repetition",
+                "value": 0.21491782553729458
+              }
+            },
+            {
+              "text_preview": "What are the three primary colors?\nThe three primary colors are red, blue, and yellow. These colors are called primary because they cannot be created by mixing other colors and all other colors can be",
+              "reason": {
+                "filter": "gopher_repetition",
+                "reason": "high_char_repetition",
+                "value": 1.0
+              }
+            },
+            {
+              "text_preview": "Describe the structure of an atom.\nAn atom is the basic building block of all matter and is made up of three types of particles: protons, neutrons, and electrons. The structure of an atom can be descr",
+              "reason": {
+                "filter": "gopher_repetition",
+                "reason": "high_char_repetition",
+                "value": 1.0
+              }
+            }
+          ]
+        },
+        "c4": {
+          "total": 40,
+          "passed": 36,
+          "failed": 4,
+          "pass_rate": 0.9,
+          "sample_failed": [
+            {
+              "text_preview": "Generate a poem that expresses joy.\nA burst of laughter, a sprinkle of cheer\nMoments of joy that we hold so dear\nA leap of faith, a smile so wide\nA feeling of warmth that blooms inside\n\nThe sun shinin",
+              "reason": {
+                "filter": "c4",
+                "reason": "too_few_sentences",
+                "value": 2
+              }
+            },
+            {
+              "text_preview": "Design a post for a social media account to promote the following product\nFresh fruit smoothie\n🍓🍌🍊Say hello to our freshly blended Fruit Smoothie!🍊🍌🍓 \n\nQuench your thirst and nourish your body with ou",
+              "reason": {
+                "filter": "c4",
+                "reason": "too_few_sentences",
+                "value": 2
+              }
+            },
+            {
+              "text_preview": "Name something you can do with paper.\nWith paper, you can write or draw on it, fold it to create origami art, use it to wrap gifts, create paper mache crafts, make paper airplanes, use it as a base fo",
+              "reason": {
+                "filter": "c4",
+                "reason": "too_few_sentences",
+                "value": 2
+              }
+            }
+          ]
+        },
+        "fineweb": {
+          "total": 36,
+          "passed": 35,
+          "failed": 1,
+          "pass_rate": 0.9722,
+          "sample_failed": [
+            {
+              "text_preview": "Generate a list of fashion trends for Spring 2021.\n1. Oversized Boyfriend Jackets: Pairing this trend with tailored pieces, such as trousers or a structured skirt, would give a chic well put-together ",
+              "reason": {
+                "filter": "fineweb",
+                "reason": "list_document",
+                "value": 0.9090909090909091
+              }
+            }
+          ]
+        },
+        "pii": {
+          "total": 35,
+          "passed": 35,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "sample_failed": []
+        }
+      },
+      "per_filter_pass_rate": {
+        "gopher_quality": 0.596,
+        "gopher_repetition": 0.0671,
+        "c4": 0.9,
+        "fineweb": 0.9722,
+        "pii": 1.0
+      },
+      "pipeline_stats": {
+        "total_in": 1000,
+        "total_out": 35,
+        "total_dropped": 965,
+        "overall_drop_rate": 0.965,
+        "filters": [
+          {
+            "name": "gopher_quality",
+            "docs_in": 1000,
+            "docs_out": 596,
+            "docs_dropped": 404,
+            "drop_rate": 0.404,
+            "sample_drops": [
+              {
+                "text_preview": "Evaluate this sentence for spelling and grammar mistakes\nHe finnished his meal and left the resturant\nThere are two spelling errors in the sentence. The corrected sentence should be: \"He finished his ",
+                "reason": {
+                  "filter": "gopher_quality",
+                  "reason": "too_few_words",
+                  "value": 37
+                }
               },
               {
-                "text_preview": "Write a rap verse about studying.\nUh, schoolwork's a drag but I got to bag it up / In the library quiet, cause I be feelin' stuck / Packing up all my books, searching through all the stacks / Triggeri",
+                "text_preview": "What is the capital of France?\nThe capital city of France is Paris.",
+                "reason": {
+                  "filter": "gopher_quality",
+                  "reason": "too_few_words",
+                  "value": 13
+                }
+              },
+              {
+                "text_preview": "Generate a list of ten items a person might need for a camping trip\nHere are ten items a person might need for a camping trip:\n\n1. Tent - to provide shelter and protection from the elements\n2. Sleepin",
+                "reason": {
+                  "filter": "gopher_quality",
+                  "reason": "low_terminal_punct",
+                  "value": 0.08333333333333333
+                }
+              },
+              {
+                "text_preview": "Classify the following into animals, plants, and minerals\nOak tree, copper ore, elephant\nAnimals: Elephant\nPlants: Oak tree\nMinerals: Copper ore",
+                "reason": {
+                  "filter": "gopher_quality",
+                  "reason": "too_few_words",
+                  "value": 21
+                }
+              },
+              {
+                "text_preview": "Refactor this code and add comments.\ndef factorialize(num):\n  factorial = 1\n  for i in range(1, num):\n    factorial *= i\n  \n  return factorial\n```\n# This is a function that calculates the factorial of",
+                "reason": {
+                  "filter": "gopher_quality",
+                  "reason": "low_terminal_punct",
+                  "value": 0.05555555555555555
+                }
+              }
+            ]
+          },
+          {
+            "name": "gopher_repetition",
+            "docs_in": 596,
+            "docs_out": 40,
+            "docs_dropped": 556,
+            "drop_rate": 0.9329,
+            "sample_drops": [
+              {
+                "text_preview": "Give three tips for staying healthy.\n1. Eat a balanced and nutritious diet: Make sure your meals are inclusive of a variety of fruits and vegetables, lean protein, whole grains, and healthy fats. This",
+                "reason": {
+                  "filter": "gopher_repetition",
+                  "reason": "high_char_repetition",
+                  "value": 0.21491782553729458
+                }
+              },
+              {
+                "text_preview": "What are the three primary colors?\nThe three primary colors are red, blue, and yellow. These colors are called primary because they cannot be created by mixing other colors and all other colors can be",
+                "reason": {
+                  "filter": "gopher_repetition",
+                  "reason": "high_char_repetition",
+                  "value": 1.0
+                }
+              },
+              {
+                "text_preview": "Describe the structure of an atom.\nAn atom is the basic building block of all matter and is made up of three types of particles: protons, neutrons, and electrons. The structure of an atom can be descr",
+                "reason": {
+                  "filter": "gopher_repetition",
+                  "reason": "high_char_repetition",
+                  "value": 1.0
+                }
+              },
+              {
+                "text_preview": "How can we reduce air pollution?\nThere are several ways to reduce air pollution, including:\n\n1. Reduce energy consumption: By conserving energy, we reduce the amount of pollution emitted from power pl",
+                "reason": {
+                  "filter": "gopher_repetition",
+                  "reason": "high_char_repetition",
+                  "value": 0.6708160442600276
+                }
+              },
+              {
+                "text_preview": "Pretend you are a project manager of a construction company. Describe a time when you had to make a difficult decision.\nI had to make a difficult decision when I was working as a project manager at a ",
+                "reason": {
+                  "filter": "gopher_repetition",
+                  "reason": "high_char_repetition",
+                  "value": 1.0
+                }
+              }
+            ]
+          },
+          {
+            "name": "c4",
+            "docs_in": 40,
+            "docs_out": 36,
+            "docs_dropped": 4,
+            "drop_rate": 0.1,
+            "sample_drops": [
+              {
+                "text_preview": "Generate a poem that expresses joy.\nA burst of laughter, a sprinkle of cheer\nMoments of joy that we hold so dear\nA leap of faith, a smile so wide\nA feeling of warmth that blooms inside\n\nThe sun shinin",
+                "reason": {
+                  "filter": "c4",
+                  "reason": "too_few_sentences",
+                  "value": 2
+                }
+              },
+              {
+                "text_preview": "Design a post for a social media account to promote the following product\nFresh fruit smoothie\n🍓🍌🍊Say hello to our freshly blended Fruit Smoothie!🍊🍌🍓 \n\nQuench your thirst and nourish your body with ou",
+                "reason": {
+                  "filter": "c4",
+                  "reason": "too_few_sentences",
+                  "value": 2
+                }
+              },
+              {
+                "text_preview": "Name something you can do with paper.\nWith paper, you can write or draw on it, fold it to create origami art, use it to wrap gifts, create paper mache crafts, make paper airplanes, use it as a base fo",
+                "reason": {
+                  "filter": "c4",
+                  "reason": "too_few_sentences",
+                  "value": 2
+                }
+              },
+              {
+                "text_preview": "Generate a list of items related to the topic given.\nScuba diving\n- Wetsuit\n- Dive mask\n- Snorkel\n- Fins\n- Buoyancy control device (BCD)\n- Regulator\n- Scuba tank\n- Dive computer\n- Dive weights\n- Dive ",
                 "reason": {
                   "filter": "c4",
                   "reason": "too_few_sentences",
@@ -573,16 +592,25 @@
           },
           {
             "name": "fineweb",
-            "docs_in": 62,
-            "docs_out": 62,
-            "docs_dropped": 0,
-            "drop_rate": 0.0,
-            "sample_drops": []
+            "docs_in": 36,
+            "docs_out": 35,
+            "docs_dropped": 1,
+            "drop_rate": 0.0278,
+            "sample_drops": [
+              {
+                "text_preview": "Generate a list of fashion trends for Spring 2021.\n1. Oversized Boyfriend Jackets: Pairing this trend with tailored pieces, such as trousers or a structured skirt, would give a chic well put-together ",
+                "reason": {
+                  "filter": "fineweb",
+                  "reason": "list_document",
+                  "value": 0.9090909090909091
+                }
+              }
+            ]
           },
           {
             "name": "pii",
-            "docs_in": 62,
-            "docs_out": 62,
+            "docs_in": 35,
+            "docs_out": 35,
             "docs_dropped": 0,
             "drop_rate": 0.0,
             "sample_drops": []
@@ -593,19 +621,19 @@
   },
   "discrimination": {
     "c4": {
-      "delta": 0.0167,
+      "delta": 0.0143,
       "verdict": "— No signal"
     },
     "fineweb": {
-      "delta": 0.0,
+      "delta": 0.0116,
       "verdict": "— No signal"
     },
     "gopher_quality": {
-      "delta": 0.527,
+      "delta": 0.149,
       "verdict": "✅ Discriminates"
     },
     "gopher_repetition": {
-      "delta": 0.0537,
+      "delta": 0.0895,
       "verdict": "✅ Discriminates"
     },
     "pii": {
