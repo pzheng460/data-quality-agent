@@ -158,22 +158,36 @@ class SFTRulesFilter(BaseFilter):
         self.min_words_after_refusal = min_words_after_refusal
         self.lang_mismatch_threshold = lang_mismatch_threshold
 
-    def _extract_fields(self, doc: dict) -> tuple[str, str]:
-        """Extract instruction and output from doc."""
+    def _extract_fields(self, doc: dict) -> tuple[str, str, bool]:
+        """Extract instruction and output from doc.
+
+        Returns:
+            (instruction, output, has_sft_fields) — has_sft_fields is False
+            when the doc has no recognizable instruction/output structure.
+        """
         instruction = doc.get(self.instruction_field, "") or ""
         output = doc.get(self.output_field, "") or ""
 
-        if instruction and output:
-            return instruction, output
+        if instruction or output:
+            return instruction, output, True
 
-        # Fallback: split merged text on first newline
-        text = self.get_text(doc)
-        if text:
-            parts = text.split("\n", 1)
-            instruction = parts[0].strip()
-            output = parts[1].strip() if len(parts) > 1 else ""
+        # Check common alternative field names before giving up
+        for ifield in ("prompt", "input", "question", "query", "human"):
+            val = doc.get(ifield, "")
+            if val:
+                instruction = val
+                break
+        for ofield in ("response", "answer", "reply", "assistant", "completion"):
+            val = doc.get(ofield, "")
+            if val:
+                output = val
+                break
 
-        return instruction, output
+        if instruction or output:
+            return instruction, output, True
+
+        # No SFT fields found — this is not SFT data
+        return "", "", False
 
     def _is_closed_form(self, instruction: str) -> bool:
         """Check if instruction expects a short/closed-form answer.
@@ -209,7 +223,12 @@ class SFTRulesFilter(BaseFilter):
 
     def filter(self, doc: dict) -> tuple[bool, dict]:
         """Return (keep, info) — stops at first failure."""
-        instruction, output = self._extract_fields(doc)
+        instruction, output, has_sft = self._extract_fields(doc)
+
+        # Skip non-SFT data entirely — rules are meaningless without
+        # instruction/output structure
+        if not has_sft:
+            return True, {"filter": self.name, "reason": "skipped_not_sft"}
 
         # Rule 1: empty_output
         if not output or not output.strip():
@@ -251,7 +270,12 @@ class SFTRulesFilter(BaseFilter):
 
     def filter_detailed(self, doc: dict) -> tuple[bool, list[dict]]:
         """Check all rules and return all failures."""
-        instruction, output = self._extract_fields(doc)
+        instruction, output, has_sft = self._extract_fields(doc)
+
+        # Skip non-SFT data entirely
+        if not has_sft:
+            return True, []
+
         failures: list[dict] = []
 
         # Rule 1: empty_output

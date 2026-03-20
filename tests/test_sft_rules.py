@@ -177,12 +177,13 @@ class TestSFTRulesFilter:
         keep, _ = f.filter(doc)
         assert keep
 
-    def test_text_field_fallback_empty_output(self):
+    def test_text_field_no_sft_fields_skipped(self):
+        """Non-SFT data (no instruction/output fields) should be skipped."""
         f = self._make_filter()
-        doc = {"text": "What is 2+2?"}  # No newline = no output part
+        doc = {"text": "What is 2+2?"}  # No SFT fields
         keep, info = f.filter(doc)
-        assert not keep
-        assert info["reason"] == "empty_output"
+        assert keep  # Skipped, not rejected
+        assert info.get("reason") == "skipped_not_sft"
 
     # --- registration ---
 
@@ -201,13 +202,13 @@ class TestSFTRulesFilter:
         keep, _ = f.filter(doc)
         assert keep
 
-    def test_pretrain_doc_single_line_flags_empty_output(self):
-        """Single-line pretrain data has no output after split — expected behavior."""
+    def test_pretrain_doc_skipped(self):
+        """Pure pretrain data (text only, no SFT fields) should be skipped."""
         f = self._make_filter()
         doc = {"text": "This is a normal article about science."}
         keep, info = f.filter(doc)
-        assert not keep
-        assert info["reason"] == "empty_output"
+        assert keep  # Skipped — not SFT data
+        assert info.get("reason") == "skipped_not_sft"
 
 
 class TestHelpers:
