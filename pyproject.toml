@@ -23,6 +23,9 @@ model = [
     "transformers>=4.30",
     "sentence-transformers>=2.2",
 ]
+bench = [
+    "datasets>=2.14",
+]
 
 [project.scripts]
 dq = "dq.cli:main"

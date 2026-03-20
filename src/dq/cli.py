@@ -170,6 +170,54 @@ def dedup(input_path: str, output_path: str, method: str, text_field: str):
     console.print(f"[green]Wrote {count} documents to {output_path}[/green]")
 
 
+@main.command()
+@click.option("-c", "--config", "config_path", type=click.Path(exists=True), help="Pipeline config YAML")
+@click.option("-n", "--num-samples", default=0, type=int, help="Samples per dataset (0 = all)")
+@click.option("--no-dedup", is_flag=True, default=True, help="Skip dedup (default: skip)")
+@click.option("--dedup", "no_dedup", flag_value=False, help="Enable dedup in benchmark")
+@click.option("--seed", default=42, type=int, help="Random seed for reproducibility")
+@click.option("-o", "--output", "output_dir", type=click.Path(), help="Directory to save reports")
+@click.option("--report-dir", type=click.Path(), help="Alias for -o (deprecated)")
+def bench(config_path: str | None, num_samples: int, no_dedup: bool, seed: int,
+          output_dir: str | None, report_dir: str | None):
+    """Run benchmark: compare Alpaca original vs cleaned filter pass rates."""
+    from dq.benchmark import run_benchmark
+    from dq.benchmark_report import (
+        benchmark_to_json,
+        benchmark_to_markdown,
+        print_benchmark_report,
+    )
+
+    # -o takes precedence over --report-dir
+    save_dir = output_dir or report_dir
+
+    n = num_samples if num_samples > 0 else None
+    samples_label = str(num_samples) if num_samples > 0 else "all"
+    console.print(f"[bold]Running benchmark with {samples_label} samples per dataset...[/bold]")
+    console.print(f"[dim]Config: {config_path or 'default'} | Dedup: {'off' if no_dedup else 'on'} | Seed: {seed}[/dim]")
+
+    try:
+        report = run_benchmark(
+            config_path=config_path,
+            n=n,
+            no_dedup=no_dedup,
+            seed=seed,
+        )
+    except ImportError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise SystemExit(1)
+    except Exception as e:
+        console.print(f"[red]Benchmark failed: {e}[/red]")
+        raise SystemExit(1)
+
+    print_benchmark_report(report, console=console)
+
+    if save_dir:
+        benchmark_to_json(report, path=Path(save_dir) / "benchmark.json")
+        benchmark_to_markdown(report, path=Path(save_dir) / "benchmark.md")
+        console.print(f"[green]Reports saved to {save_dir}/[/green]")
+
+
 def _print_stats_table(stats) -> None:
     """Print pipeline stats as a rich table."""
     table = Table(title="Pipeline Results")
