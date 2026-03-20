@@ -36,7 +36,39 @@
                 "value": 22
               }
             }
-          ]
+          ],
+          "rules": {
+            "min_words": {
+              "total": 1000,
+              "passed": 468,
+              "failed": 532,
+              "pass_rate": 0.468
+            },
+            "lines_end_punct": {
+              "total": 1000,
+              "passed": 935,
+              "failed": 65,
+              "pass_rate": 0.935
+            },
+            "stopwords": {
+              "total": 1000,
+              "passed": 985,
+              "failed": 15,
+              "pass_rate": 0.985
+            },
+            "alpha_ratio": {
+              "total": 1000,
+              "passed": 957,
+              "failed": 43,
+              "pass_rate": 0.957
+            },
+            "min_avg_word_len": {
+              "total": 1000,
+              "passed": 997,
+              "failed": 3,
+              "pass_rate": 0.997
+            }
+          }
         },
         "gopher_repetition": {
           "total": 447,
@@ -68,7 +100,45 @@
                 "value": 0.6451612903225806
               }
             }
-          ]
+          ],
+          "rules": {
+            "char_repetition": {
+              "total": 1000,
+              "passed": 446,
+              "failed": 554,
+              "pass_rate": 0.446
+            },
+            "top_3gram": {
+              "total": 1000,
+              "passed": 993,
+              "failed": 7,
+              "pass_rate": 0.993
+            },
+            "top_4gram": {
+              "total": 1000,
+              "passed": 990,
+              "failed": 10,
+              "pass_rate": 0.99
+            },
+            "dup_line_ratio": {
+              "total": 1000,
+              "passed": 987,
+              "failed": 13,
+              "pass_rate": 0.987
+            },
+            "top_2gram": {
+              "total": 1000,
+              "passed": 998,
+              "failed": 2,
+              "pass_rate": 0.998
+            },
+            "dup_para_ratio": {
+              "total": 1000,
+              "passed": 997,
+              "failed": 3,
+              "pass_rate": 0.997
+            }
+          }
         },
         "c4": {
           "total": 144,
@@ -100,7 +170,39 @@
                 "value": 2
               }
             }
-          ]
+          ],
+          "rules": {
+            "no_terminal_punct_lines": {
+              "total": 1000,
+              "passed": 583,
+              "failed": 417,
+              "pass_rate": 0.583
+            },
+            "min_sentences": {
+              "total": 1000,
+              "passed": 572,
+              "failed": 428,
+              "pass_rate": 0.572
+            },
+            "empty_after_line_filter": {
+              "total": 1000,
+              "passed": 961,
+              "failed": 39,
+              "pass_rate": 0.961
+            },
+            "javascript_lines": {
+              "total": 1000,
+              "passed": 996,
+              "failed": 4,
+              "pass_rate": 0.996
+            },
+            "lorem_ipsum": {
+              "total": 1000,
+              "passed": 999,
+              "failed": 1,
+              "pass_rate": 0.999
+            }
+          }
         },
         "fineweb": {
           "total": 134,
@@ -132,14 +234,35 @@
                 "value": 1.0
               }
             }
-          ]
+          ],
+          "rules": {
+            "list_line_ratio": {
+              "total": 1000,
+              "passed": 989,
+              "failed": 11,
+              "pass_rate": 0.989
+            },
+            "bad_line_breaks": {
+              "total": 1000,
+              "passed": 984,
+              "failed": 16,
+              "pass_rate": 0.984
+            },
+            "dup_line_ratio": {
+              "total": 1000,
+              "passed": 987,
+              "failed": 13,
+              "pass_rate": 0.987
+            }
+          }
         },
         "pii": {
           "total": 130,
           "passed": 130,
           "failed": 0,
           "pass_rate": 1.0,
-          "sample_failed": []
+          "sample_failed": [],
+          "rules": {}
         }
       },
       "per_filter_pass_rate": {
@@ -388,7 +511,39 @@
                 "value": 0.08333333333333333
               }
             }
-          ]
+          ],
+          "rules": {
+            "min_words": {
+              "total": 1000,
+              "passed": 624,
+              "failed": 376,
+              "pass_rate": 0.624
+            },
+            "lines_end_punct": {
+              "total": 1000,
+              "passed": 942,
+              "failed": 58,
+              "pass_rate": 0.942
+            },
+            "alpha_ratio": {
+              "total": 1000,
+              "passed": 960,
+              "failed": 40,
+              "pass_rate": 0.96
+            },
+            "min_avg_word_len": {
+              "total": 1000,
+              "passed": 997,
+              "failed": 3,
+              "pass_rate": 0.997
+            },
+            "stopwords": {
+              "total": 1000,
+              "passed": 996,
+              "failed": 4,
+              "pass_rate": 0.996
+            }
+          }
         },
         "gopher_repetition": {
           "total": 596,
@@ -420,7 +575,45 @@
                 "value": 0.6708160442600276
               }
             }
-          ]
+          ],
+          "rules": {
+            "char_repetition": {
+              "total": 1000,
+              "passed": 317,
+              "failed": 683,
+              "pass_rate": 0.317
+            },
+            "dup_line_ratio": {
+              "total": 1000,
+              "passed": 993,
+              "failed": 7,
+              "pass_rate": 0.993
+            },
+            "dup_para_ratio": {
+              "total": 1000,
+              "passed": 998,
+              "failed": 2,
+              "pass_rate": 0.998
+            },
+            "top_4gram": {
+              "total": 1000,
+              "passed": 996,
+              "failed": 4,
+              "pass_rate": 0.996
+            },
+            "top_2gram": {
+              "total": 1000,
+              "passed": 999,
+              "failed": 1,
+              "pass_rate": 0.999
+            },
+            "top_3gram": {
+              "total": 1000,
+              "passed": 999,
+              "failed": 1,
+              "pass_rate": 0.999
+            }
+          }
         },
         "c4": {
           "total": 115,
@@ -452,7 +645,39 @@
                 "value": 2
               }
             }
-          ]
+          ],
+          "rules": {
+            "no_terminal_punct_lines": {
+              "total": 1000,
+              "passed": 551,
+              "failed": 449,
+              "pass_rate": 0.551
+            },
+            "min_sentences": {
+              "total": 1000,
+              "passed": 735,
+              "failed": 265,
+              "pass_rate": 0.735
+            },
+            "empty_after_line_filter": {
+              "total": 1000,
+              "passed": 984,
+              "failed": 16,
+              "pass_rate": 0.984
+            },
+            "policy_lines": {
+              "total": 1000,
+              "passed": 999,
+              "failed": 1,
+              "pass_rate": 0.999
+            },
+            "javascript_lines": {
+              "total": 1000,
+              "passed": 996,
+              "failed": 4,
+              "pass_rate": 0.996
+            }
+          }
         },
         "fineweb": {
           "total": 109,
@@ -484,14 +709,42 @@
                 "value": 0.9090909090909091
               }
             }
-          ]
+          ],
+          "rules": {
+            "dup_line_ratio": {
+              "total": 1000,
+              "passed": 993,
+              "failed": 7,
+              "pass_rate": 0.993
+            },
+            "bad_line_breaks": {
+              "total": 1000,
+              "passed": 982,
+              "failed": 18,
+              "pass_rate": 0.982
+            },
+            "list_line_ratio": {
+              "total": 1000,
+              "passed": 978,
+              "failed": 22,
+              "pass_rate": 0.978
+            }
+          }
         },
         "pii": {
           "total": 105,
           "passed": 105,
           "failed": 0,
           "pass_rate": 1.0,
-          "sample_failed": []
+          "sample_failed": [],
+          "rules": {
+            "email": {
+              "total": 1000,
+              "passed": 999,
+              "failed": 1,
+              "pass_rate": 0.999
+            }
+          }
         }
       },
       "per_filter_pass_rate": {

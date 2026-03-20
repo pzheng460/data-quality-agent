@@ -4,11 +4,32 @@
 
 | Filter | Alpaca Original | Alpaca Cleaned | Δ | Verdict |
 |--------|--------|--------|--------|--------|
-| gopher_quality | 44.7% | 59.6% | +14.9% | ✅ Discriminates |
-| gopher_repetition | 32.2% | 19.3% | +12.9% | ✅ Discriminates |
-| c4 | 93.1% | 94.8% | +1.7% | — No signal |
-| fineweb | 97.0% | 96.3% | +0.7% | — No signal |
-| pii | 100.0% | 100.0% | +0.0% | — No signal |
+| **gopher_quality** | 44.7% | 59.6% | +14.9% | ✅ Discriminates |
+|   ├─ min_words | 46.8% | 62.4% | +15.6% | ✅ Discriminates |
+|   ├─ lines_end_punct | 93.5% | 94.2% | +0.7% | — No signal |
+|   ├─ stopwords | 98.5% | 99.6% | +1.1% | — No signal |
+|   ├─ alpha_ratio | 95.7% | 96.0% | +0.3% | — No signal |
+|   └─ min_avg_word_len | 99.7% | 99.7% | +0.0% | — No signal |
+| **gopher_repetition** | 32.2% | 19.3% | +12.9% | ✅ Discriminates |
+|   ├─ char_repetition | 44.6% | 31.7% | +12.9% | ✅ Discriminates |
+|   ├─ top_3gram | 99.3% | 99.9% | +0.6% | — No signal |
+|   ├─ top_4gram | 99.0% | 99.6% | +0.6% | — No signal |
+|   ├─ dup_line_ratio | 98.7% | 99.3% | +0.6% | — No signal |
+|   ├─ top_2gram | 99.8% | 99.9% | +0.1% | — No signal |
+|   └─ dup_para_ratio | 99.7% | 99.8% | +0.1% | — No signal |
+| **c4** | 93.1% | 94.8% | +1.7% | — No signal |
+|   ├─ no_terminal_punct_lines | 58.3% | 55.1% | +3.2% | ⚠️ Weak signal |
+|   ├─ min_sentences | 57.2% | 73.5% | +16.3% | ✅ Discriminates |
+|   ├─ empty_after_line_filter | 96.1% | 98.4% | +2.3% | ⚠️ Weak signal |
+|   ├─ javascript_lines | 99.6% | 99.6% | +0.0% | — No signal |
+|   ├─ lorem_ipsum | 99.9% | 100.0% | +0.1% | — No signal |
+|   └─ policy_lines | 100.0% | 99.9% | +0.1% | — No signal |
+| **fineweb** | 97.0% | 96.3% | +0.7% | — No signal |
+|   ├─ list_line_ratio | 98.9% | 97.8% | +1.1% | — No signal |
+|   ├─ bad_line_breaks | 98.4% | 98.2% | +0.2% | — No signal |
+|   └─ dup_line_ratio | 98.7% | 99.3% | +0.6% | — No signal |
+| **pii** | 100.0% | 100.0% | +0.0% | — No signal |
+|   └─ email | 100.0% | 99.9% | +0.1% | — No signal |
 | **Overall pipeline** | **13.0%** | **10.5%** | **+2.5%** | **⚠️ Weak signal** |
 
 ### Legend
