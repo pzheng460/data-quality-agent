@@ -170,20 +170,21 @@ class TestSFTRulesFilter:
 
     # --- text field fallback ---
 
-    def test_text_field_fallback(self):
-        """When no instruction/output fields, should split text on newline."""
+    def test_text_only_no_sft_fields(self):
+        """Text-only doc without SFT fields should be rejected."""
         f = self._make_filter()
         doc = {"text": "What is 2+2?\nThe answer is 4. That is the result of adding two and two."}
-        keep, _ = f.filter(doc)
-        assert keep
+        keep, info = f.filter(doc)
+        assert not keep
+        assert info["reason"] == "missing_sft_fields"
 
-    def test_text_field_no_sft_fields_skipped(self):
-        """Non-SFT data (no instruction/output fields) should be skipped."""
+    def test_text_field_no_sft_fields_rejected(self):
+        """Non-SFT data (no instruction/output fields) should be rejected."""
         f = self._make_filter()
         doc = {"text": "What is 2+2?"}  # No SFT fields
         keep, info = f.filter(doc)
-        assert keep  # Skipped, not rejected
-        assert info.get("reason") == "skipped_not_sft"
+        assert not keep
+        assert info["reason"] == "missing_sft_fields"
 
     # --- registration ---
 
@@ -194,21 +195,21 @@ class TestSFTRulesFilter:
 
     # --- works on pretrain data (mostly passes) ---
 
-    def test_pretrain_doc_with_newlines_passes(self):
-        """SFT rules on pretrain data with multiple lines should mostly pass."""
+    def test_pretrain_doc_with_newlines_rejected(self):
+        """Pretrain data (text only) should be rejected even with newlines."""
         f = self._make_filter()
         doc = {"text": "This is a normal article about science.\nIt has multiple sentences and plenty of content to analyze."}
-        # With text field fallback: first line = instruction, rest = output
-        keep, _ = f.filter(doc)
-        assert keep
+        keep, info = f.filter(doc)
+        assert not keep
+        assert info["reason"] == "missing_sft_fields"
 
-    def test_pretrain_doc_skipped(self):
-        """Pure pretrain data (text only, no SFT fields) should be skipped."""
+    def test_pretrain_doc_rejected(self):
+        """Pure pretrain data (text only, no SFT fields) should be rejected."""
         f = self._make_filter()
         doc = {"text": "This is a normal article about science."}
         keep, info = f.filter(doc)
-        assert keep  # Skipped — not SFT data
-        assert info.get("reason") == "skipped_not_sft"
+        assert not keep
+        assert info["reason"] == "missing_sft_fields"
 
 
 class TestHelpers:

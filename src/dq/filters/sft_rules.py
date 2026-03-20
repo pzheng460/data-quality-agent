@@ -225,10 +225,10 @@ class SFTRulesFilter(BaseFilter):
         """Return (keep, info) — stops at first failure."""
         instruction, output, has_sft = self._extract_fields(doc)
 
-        # Skip non-SFT data entirely — rules are meaningless without
-        # instruction/output structure
+        # Reject non-SFT data — no instruction/output structure means
+        # this data is not suitable for SFT training
         if not has_sft:
-            return True, {"filter": self.name, "reason": "skipped_not_sft"}
+            return False, {"filter": self.name, "reason": "missing_sft_fields"}
 
         # Rule 1: empty_output
         if not output or not output.strip():
@@ -272,9 +272,10 @@ class SFTRulesFilter(BaseFilter):
         """Check all rules and return all failures."""
         instruction, output, has_sft = self._extract_fields(doc)
 
-        # Skip non-SFT data entirely
+        # Reject non-SFT data
         if not has_sft:
-            return True, []
+            return False, [{"filter": self.name, "rule": "missing_sft_fields",
+                            "value": list(doc.keys()), "threshold": "instruction/output required"}]
 
         failures: list[dict] = []
 
