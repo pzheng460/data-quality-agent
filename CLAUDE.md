@@ -1,0 +1,127 @@
+# CLAUDE.md — dq (Training Data Quality Agent)
+
+## What is this?
+A Python CLI + library for detecting and filtering low-quality LLM training data. Implements methods from Gopher, C4, FineWeb, DCLM, DEITA, and contamination detection papers.
+
+## Quick Commands
+```bash
+uv sync                              # Install deps
+uv sync --extra model                # + model-based filters (torch, transformers)
+uv sync --extra bench                # + benchmark datasets (HuggingFace datasets)
+uv run pytest                        # Run all tests (140 tests, ~0.7s)
+uv run dq run input.jsonl -o out.jsonl       # Run pipeline
+uv run dq bench --no-dedup -n 1000           # Benchmark: Alpaca Original vs Cleaned
+uv run dq contamination input.jsonl --benchmarks mmlu,hellaswag  # Contamination check
+```
+
+## Architecture
+```
+src/dq/
+├── cli.py              # Click CLI: run, stats, report, dedup, bench, score, contamination
+├── pipeline.py         # Pipeline orchestrator — chains filters, tracks per-filter stats
+├── config.py           # PipelineConfig loaded from YAML (configs/*.yaml)
+├── report.py           # JSON + Markdown report generator
+├── benchmark.py        # Alpaca Original vs Cleaned comparison framework
+├── benchmark_report.py # Rich table + MD/JSON benchmark output
+├── filters/
+│   ├── base.py         # BaseFilter ABC: filter(doc) -> (keep: bool, info: dict)
+│   ├── gopher.py       # GopherQualityFilter + GopherRepetitionFilter
+│   ├── c4.py           # C4Filter
+│   ├── fineweb.py      # FineWebFilter
+│   ├── pii.py          # PIIFilter (detect/redact mode, CN phone/ID/bank)
+│   └── length.py       # LengthFilter
+├── dedup/
+│   ├── exact.py        # SHA256 exact dedup
+│   └── minhash.py      # MinHash LSH (datasketch, FineWeb params: 5-gram/112h/14×8)
+├── model_filters/      # Phase 2 — require `uv sync --extra model`
+│   ├── fasttext_quality.py  # DCLM-style fastText classifier
+│   ├── perplexity.py        # Small LM perplexity filter (Qwen2-0.5B)
+│   └── llm_scorer.py        # FineWeb-Edu quality scorer (0-5 scale)
+├── sft/                # Phase 2 — SFT-specific (DEITA paper)
+│   ├── complexity.py   # Instruction complexity scorer (LLM API)
+│   ├── quality.py      # Response quality scorer (LLM API)
+│   └── diversity.py    # Embedding diversity filter (batch, cosine sim)
+├── contamination/      # Phase 3
+│   ├── ngram.py        # 13-gram overlap against benchmark test sets (primary method)
+│   ├── min_k_prob.py   # Min-K% Prob black-box detection (needs model)
+│   ├── ts_guessing.py  # TS-Guessing for MCQ benchmarks (needs API)
+│   └── report.py       # ContaminationReport dataclass + rich output
+└── utils/
+    ├── io.py           # read_documents / write_documents (jsonl/parquet/csv)
+    ├── stats.py        # word_count, avg_word_len, char_repetition_ratio, etc. (CJK-aware)
+    └── tokenizer.py    # Simple tokenizer utilities
+```
+
+## Key Design Patterns
+
+### Filter Registry
+Filters self-register via `@register_filter("name")` decorator in `filters/base.py`. Pipeline looks up filters by name from YAML config.
+
+### BaseFilter Interface
+```python
+class BaseFilter(ABC):
+    def filter(self, doc: dict) -> tuple[bool, dict]:
+        """Returns (keep, info_dict). info_dict has filter name + reason on drop."""
+```
+
+### Pipeline Flow
+```
+Input docs → [filter1] → [filter2] → ... → [dedup] → Output docs
+                ↓              ↓
+           stats tracked   stats tracked
+```
+Each filter sees only docs that passed previous filters. Stats are per-filter.
+
+### Graceful Degradation
+Model filters (Phase 2/3) catch ImportError on missing deps → log warning → pass all docs through. Never crashes on missing optional packages.
+
+### Config-Driven
+Everything is threshold-configurable via YAML. Three presets: `default.yaml` (pre-training EN), `pretrain_zh.yaml` (pre-training CN), `sft.yaml` (SFT/instruction data).
+
+## Important Thresholds & Params
+- **char_repetition**: default 0.40 (was 0.20, raised because normal English text reaches ~0.39)
+- **MinHash LSH**: 5-gram, 112 perms, 14 bands × 8 rows → Jaccard ~0.75 (from FineWeb paper)
+- **N-gram contamination**: 13-gram, overlap threshold 0.8
+- **Gopher min_words**: 50 for pre-training, 10 for SFT
+- **SFT char_repetition**: disabled (1.0) — char n-gram method unsuited for short SFT data
+
+## Benchmark Findings
+Alpaca Original vs yahma/alpaca-cleaned (1000 samples, default config):
+- `gopher_quality`: Original 44.7% vs Cleaned 59.6% (+14.9%) ✅ — catches short/malformed text
+- `gopher_repetition`: reversed direction for SFT data — char n-gram not suitable
+- `c4/fineweb/pii`: no signal on SFT data (expected)
+- **Key insight**: Heuristic filters work for pre-training web data; SFT quality differences (hallucinations) need model-based evaluation (Phase 2)
+
+## Data Flow Notes
+- `tatsu-lab/stanford_alpaca` removed from HuggingFace — downloaded from GitHub raw URL, cached at `~/.cache/dq/alpaca_original.json`
+- `yahma/alpaca-cleaned` loaded via HuggingFace datasets
+- Alpaca fields merged: `instruction + "\n" + input + "\n" + output → text`
+
+## Testing
+```bash
+uv run pytest -q          # 140 tests, all mocked (no real models/APIs/downloads)
+uv run pytest -v -k gopher   # Run specific filter tests
+```
+Tests use fixtures in `tests/fixtures/` (sample_good.jsonl, sample_bad.jsonl, sample_sft.jsonl). Model/API tests fully mocked with unittest.mock.
+
+## Common Tasks
+
+### Add a new filter
+1. Create `src/dq/filters/my_filter.py`
+2. Subclass `BaseFilter`, implement `filter(self, doc) -> (bool, dict)`
+3. Decorate with `@register_filter("my_filter")`
+4. Import in `src/dq/filters/__init__.py`
+5. Add to config YAML under `pipeline.filters`
+6. Add tests in `tests/`
+
+### Change filter thresholds
+Edit `configs/*.yaml` — every numeric threshold is configurable. CLI: `dq run -c my_config.yaml`.
+
+### Run on Chinese data
+Use `configs/pretrain_zh.yaml` — CJK-aware word counting, Chinese punctuation, CN-specific PII patterns.
+
+## Dependencies
+- **Core**: click, pyyaml, datasketch, xxhash, regex, tqdm, rich
+- **Model** (optional): fasttext-wheel, transformers, sentence-transformers, torch, openai
+- **Bench** (optional): datasets (HuggingFace)
+- **Dev**: pytest, pyarrow

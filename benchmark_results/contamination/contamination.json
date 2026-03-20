@@ -1,0 +1,34 @@
+{
+  "dataset_name": "alpaca_sample",
+  "total_docs": 1000,
+  "contaminated_docs": 0,
+  "contamination_rate": 0.0,
+  "method": "ngram",
+  "per_benchmark": {
+    "mmlu": {
+      "benchmark_name": "mmlu",
+      "total_docs": 1000,
+      "contaminated_docs": 0,
+      "contamination_rate": 0.0,
+      "avg_overlap": 0.0,
+      "sample_contaminated": []
+    },
+    "hellaswag": {
+      "benchmark_name": "hellaswag",
+      "total_docs": 1000,
+      "contaminated_docs": 0,
+      "contamination_rate": 0.0,
+      "avg_overlap": 0.0,
+      "sample_contaminated": []
+    },
+    "arc": {
+      "benchmark_name": "arc",
+      "total_docs": 1000,
+      "contaminated_docs": 0,
+      "contamination_rate": 0.0,
+      "avg_overlap": 0.0,
+      "sample_contaminated": []
+    }
+  },
+  "sample_contaminated": []
+}
