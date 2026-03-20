@@ -23,7 +23,13 @@ pipeline:
         max_top_4gram: 0.16
         max_dup_line_ratio: 0.30
         max_dup_para_ratio: 0.30
-        max_char_repetition: 0.40
+        # Gopher Table A1: duplicate word n-gram character fraction
+        max_dup_5gram_frac: 0.15
+        max_dup_6gram_frac: 0.14
+        max_dup_7gram_frac: 0.13
+        max_dup_8gram_frac: 0.12
+        max_dup_9gram_frac: 0.11
+        max_dup_10gram_frac: 0.10
 
     - name: c4
       params:

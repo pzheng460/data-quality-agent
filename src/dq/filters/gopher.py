@@ -10,8 +10,8 @@ from dq.pipeline import register_filter
 from dq.utils.stats import (
     alpha_ratio,
     avg_word_length,
-    char_repetition_ratio,
     count_stopwords,
+    dup_ngram_char_frac,
     duplicate_line_ratio,
     duplicate_paragraph_ratio,
     get_words,
@@ -137,7 +137,15 @@ class GopherRepetitionFilter(BaseFilter):
         max_top_4gram: float = 0.16,
         max_dup_line_ratio: float = 0.30,
         max_dup_para_ratio: float = 0.30,
-        max_char_repetition: float = 0.40,
+        # Gopher Table A1: duplicate {n}-gram character fraction thresholds
+        max_dup_5gram_frac: float = 0.15,
+        max_dup_6gram_frac: float = 0.14,
+        max_dup_7gram_frac: float = 0.13,
+        max_dup_8gram_frac: float = 0.12,
+        max_dup_9gram_frac: float = 0.11,
+        max_dup_10gram_frac: float = 0.10,
+        # Deprecated: kept for config backward compat, no longer used in filtering
+        max_char_repetition: float = 1.0,
         **kwargs: Any,
     ) -> None:
         super().__init__(text_field=text_field, **kwargs)
@@ -146,13 +154,21 @@ class GopherRepetitionFilter(BaseFilter):
         self.max_top_4gram = max_top_4gram
         self.max_dup_line_ratio = max_dup_line_ratio
         self.max_dup_para_ratio = max_dup_para_ratio
-        self.max_char_repetition = max_char_repetition
+        self.dup_ngram_thresholds = [
+            (5, max_dup_5gram_frac),
+            (6, max_dup_6gram_frac),
+            (7, max_dup_7gram_frac),
+            (8, max_dup_8gram_frac),
+            (9, max_dup_9gram_frac),
+            (10, max_dup_10gram_frac),
+        ]
+        self.max_char_repetition = max_char_repetition  # deprecated, kept for compat
 
     def filter(self, doc: dict) -> tuple[bool, dict]:
         text = self.get_text(doc)
         words = get_words(text)
 
-        # Top n-gram checks
+        # Top n-gram checks (word-level: most frequent n-gram's char coverage)
         for n, threshold, label in [
             (2, self.max_top_2gram, "top_2gram"),
             (3, self.max_top_3gram, "top_3gram"),
@@ -172,10 +188,11 @@ class GopherRepetitionFilter(BaseFilter):
         if dpr > self.max_dup_para_ratio:
             return False, {"filter": self.name, "reason": "high_dup_para_ratio", "value": dpr}
 
-        # Character-level repetition
-        cr = char_repetition_ratio(text)
-        if cr > self.max_char_repetition:
-            return False, {"filter": self.name, "reason": "high_char_repetition", "value": cr}
+        # Duplicate word n-gram character fraction (Gopher Table A1)
+        for n, threshold in self.dup_ngram_thresholds:
+            frac = dup_ngram_char_frac(words, n)
+            if frac > threshold:
+                return False, {"filter": self.name, "reason": f"dup_{n}gram_frac", "value": frac}
 
         return True, {}
 
@@ -201,8 +218,10 @@ class GopherRepetitionFilter(BaseFilter):
         if dpr > self.max_dup_para_ratio:
             failures.append({"filter": self.name, "rule": "dup_para_ratio", "value": dpr, "threshold": self.max_dup_para_ratio})
 
-        cr = char_repetition_ratio(text)
-        if cr > self.max_char_repetition:
-            failures.append({"filter": self.name, "rule": "char_repetition", "value": cr, "threshold": self.max_char_repetition})
+        # Duplicate word n-gram character fraction (Gopher Table A1)
+        for n, threshold in self.dup_ngram_thresholds:
+            frac = dup_ngram_char_frac(words, n)
+            if frac > threshold:
+                failures.append({"filter": self.name, "rule": f"dup_{n}gram_frac", "value": frac, "threshold": threshold})
 
         return len(failures) == 0, failures

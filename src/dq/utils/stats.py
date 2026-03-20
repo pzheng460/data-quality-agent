@@ -141,10 +141,45 @@ def duplicate_paragraph_ratio(text: str) -> float:
 
 
 def char_repetition_ratio(text: str, n: int = 10) -> float:
-    """Fraction of characters in repeated n-grams (character level)."""
+    """DEPRECATED: old character-level n-gram implementation. Use dup_ngram_char_frac instead.
+
+    Kept for backward compat in tests. Do not use in filters.
+    """
     if len(text) < n:
         return 0.0
     grams = [text[i:i + n] for i in range(len(text) - n + 1)]
     counts = Counter(grams)
     repeated_chars = sum((c - 1) * n for c in counts.values() if c > 1)
     return min(repeated_chars / len(text), 1.0)
+
+
+def dup_ngram_char_frac(words: list[str], n: int) -> float:
+    """Gopher's duplicate word n-gram character fraction.
+
+    Walks through word n-grams sequentially. When a duplicate is found,
+    its character length is added to the count and the window skips past it.
+    Returns the fraction of total joined-text characters covered by duplicates.
+
+    This is the correct implementation per Gopher Table A1 and datatrove's
+    GopherRepetitionFilter.find_all_duplicate().
+    """
+    n_words = len(words)
+    if n_words < n:
+        return 0.0
+    total_chars = sum(len(w) for w in words)
+    if total_chars == 0:
+        return 0.0
+
+    unique: set[str] = set()
+    repeated_chars = 0
+    idx = 0
+    while idx <= n_words - n:
+        ngram = "".join(words[idx:idx + n])
+        if ngram in unique:
+            repeated_chars += len(ngram)
+            idx += n  # skip past duplicate
+        else:
+            unique.add(ngram)
+            idx += 1
+
+    return repeated_chars / total_chars

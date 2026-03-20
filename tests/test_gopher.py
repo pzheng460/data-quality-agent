@@ -70,9 +70,29 @@ class TestGopherRepetitionFilter:
         assert not keep
         assert info["reason"] == "high_dup_line_ratio"
 
-    def test_high_char_repetition(self):
-        f = GopherRepetitionFilter(max_char_repetition=0.10)
-        text = "abcdefghij" * 200
+    def test_high_dup_ngram_frac(self):
+        """Test Gopher's word-level duplicate n-gram detection."""
+        # Relax top n-gram and line/para thresholds so we specifically test dup n-gram
+        f = GopherRepetitionFilter(
+            max_top_2gram=1.0, max_top_3gram=1.0, max_top_4gram=1.0,
+            max_dup_line_ratio=1.0, max_dup_para_ratio=1.0,
+            max_dup_5gram_frac=0.05,
+        )
+        # Highly repetitive word sequence
+        text = " ".join(["the quick brown fox jumps"] * 50)
         keep, info = f.filter({"text": text})
         assert not keep
-        assert info["reason"] == "high_char_repetition"
+        assert "dup_5gram_frac" in info["reason"]
+
+    def test_low_dup_ngram_passes(self):
+        """Normal text should pass all dup n-gram checks."""
+        f = GopherRepetitionFilter()
+        text = (
+            "The study of natural language processing has evolved significantly. "
+            "Machine learning approaches have replaced many rule-based systems. "
+            "Deep neural networks particularly excel at understanding context. "
+            "Attention mechanisms revolutionized how models process sequences. "
+            "Transfer learning allows models to leverage pre-trained knowledge."
+        )
+        keep, _ = f.filter({"text": text})
+        assert keep

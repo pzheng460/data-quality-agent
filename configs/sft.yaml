@@ -32,7 +32,7 @@ pipeline:
         max_top_4gram: 0.20
         max_dup_line_ratio: 0.40
         max_dup_para_ratio: 0.40
-        max_char_repetition: 1.0  # Disabled for SFT — char n-gram repetition is designed for long pre-training docs
+        # char_repetition removed — was buggy (char-level instead of word-level)
 
     - name: fineweb
       params:
