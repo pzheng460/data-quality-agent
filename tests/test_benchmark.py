@@ -619,7 +619,7 @@ class TestBenchmarkReportWithLLMScores:
     def test_markdown_includes_llm_section(self):
         report = self._make_report_with_llm()
         md = benchmark_to_markdown(report)
-        assert "LLM Quality Scoring" in md
+        assert "LLM Binary Judge" in md
         assert "Complexity" in md
         assert "Quality" in md
 

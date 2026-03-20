@@ -648,7 +648,7 @@ class TestReportWithLLMScores:
         report = self._make_report_with_llm("sft")
         md = benchmark_to_markdown(report)
 
-        assert "Layer 2: LLM Quality Scoring" in md
+        assert "Layer 2: LLM Binary Judge" in md
         assert "Avg Complexity" in md
         assert "Avg Quality" in md
 
@@ -656,7 +656,7 @@ class TestReportWithLLMScores:
         report = self._make_report_with_llm("pretrain")
         md = benchmark_to_markdown(report)
 
-        assert "Layer 2: LLM Quality Scoring" in md
+        assert "Layer 2: LLM Binary Judge" in md
         assert "Avg Educational Value" in md
         assert "Avg Writing Quality" in md
 

@@ -1,4 +1,4 @@
-"""SFT-specific rule-based filter (Layer 1.5).
+"""SFT-specific rule-based filter (Layer 1).
 
 Catches common SFT data quality issues that don't require an LLM:
 - Empty outputs
@@ -72,7 +72,7 @@ def _simple_similarity(a: str, b: str) -> float:
 
 @register_filter("sft_rules")
 class SFTRulesFilter(BaseFilter):
-    """SFT-specific rule-based filter (Layer 1.5).
+    """SFT-specific rule-based filter (Layer 1).
 
     Checks for common SFT data quality issues without requiring an LLM.
     Works on docs with instruction/output fields OR merged text field.

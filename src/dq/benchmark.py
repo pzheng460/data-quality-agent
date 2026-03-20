@@ -1,8 +1,8 @@
 """Benchmark module: validate quality filters against real-world datasets.
 
 Two-layer benchmark:
-- Layer 1: Heuristic filters (Gopher/C4/FineWeb) — fast, no API cost
-- Layer 2: LLM scoring (opt-in) — data-type-aware quality assessment
+- Layer 1: Rule-based filters (pre-training: Gopher/C4/FineWeb; SFT: empty_output/ai_refusal/etc.) — fast, no API cost
+- Layer 2: LLM binary judge (opt-in) — data-type-aware binary classification (HIGH/LOW)
 """
 
 from __future__ import annotations
@@ -348,8 +348,8 @@ def run_benchmark(
     """Run the quality pipeline on each dataset and collect comparison stats.
 
     Two-layer approach:
-    - Layer 1: Heuristic filters (always runs)
-    - Layer 2: LLM scoring (opt-in, data-type-aware)
+    - Layer 1: Rule-based filters (always runs)
+    - Layer 2: LLM binary judge (opt-in, data-type-aware)
 
     For SFT data (auto-detected or specified), Layer 2 uses DEITA complexity
     and quality scoring. For pre-training data, it uses educational value and
@@ -487,7 +487,7 @@ def run_benchmark(
 
         report.rule_stats[ds_name] = ds_rule_stats
 
-    # Layer 2: LLM scoring (opt-in)
+    # Layer 2: LLM binary judge (opt-in)
     if sft_samples > 0:
         # Auto-detect data type from first dataset
         detected_type = data_type

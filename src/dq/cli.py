@@ -324,7 +324,7 @@ def contamination(input_path: str, benchmarks: str, benchmark_file: str | None,
 @click.option("--report-dir", type=click.Path(), help="Alias for -o (deprecated)")
 @click.option("--with-model-filters", is_flag=True, default=False, help="Enable model-based filters")
 @click.option("--check-contamination", is_flag=True, default=False, help="Run n-gram contamination check")
-@click.option("--with-llm-scoring", is_flag=True, default=False, help="Enable Layer 2 LLM quality scoring")
+@click.option("--with-llm-scoring", is_flag=True, default=False, help="Enable Layer 2 LLM binary judge")
 @click.option("--llm-samples", default=50, type=int, help="Docs to score per dataset for LLM scoring (default 50)")
 @click.option("--data-type", type=click.Choice(["sft", "pretrain", "auto"]), default="auto",
               help="Data type for LLM scoring (auto-detect by default)")
@@ -337,8 +337,8 @@ def bench(config_path: str | None, num_samples: int, no_dedup: bool, seed: int,
           data_type: str, api_url: str | None, api_key: str | None, llm_model: str | None):
     """Run benchmark: compare Alpaca original vs cleaned filter pass rates.
 
-    Layer 1 (default): Heuristic filters — fast, no API cost.
-    Layer 2 (--with-llm-scoring): LLM quality scoring — requires API key.
+    Layer 1 (default): Rule-based filters (pre-training + SFT) — fast, no API cost.
+    Layer 2 (--with-llm-scoring): LLM binary judge (HIGH/LOW) — requires API key.
     """
     if with_model_filters:
         import dq.model_filters  # noqa: F401

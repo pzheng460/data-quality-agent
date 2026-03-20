@@ -140,16 +140,16 @@ def print_benchmark_report(report: BenchmarkReport, console: Console | None = No
     # Layer 1: Heuristic filters
     if heuristic_filters:
         num_cols = len(ds_names) + 3  # Filter + datasets + Δ + Verdict
-        table.add_row(*([Text("Layer 1: Heuristic Filters", style="bold cyan")] + [""] * (num_cols - 1)))
+        table.add_row(*([Text("Layer 1: Pre-training Rules", style="bold cyan")] + [""] * (num_cols - 1)))
 
     for f in heuristic_filters:
         _add_filter_row(table, report, f, ds_names, discrimination)
 
-    # Layer 1.5: SFT Rules
+    # Layer 1: SFT Rules
     if sft_rule_filters:
         table.add_section()
         num_cols = len(ds_names) + 3
-        table.add_row(*([Text("Layer 1.5: SFT Rules", style="bold cyan")] + [""] * (num_cols - 1)))
+        table.add_row(*([Text("Layer 1: SFT Rules", style="bold cyan")] + [""] * (num_cols - 1)))
 
         for f in sft_rule_filters:
             _add_filter_row(table, report, f, ds_names, discrimination)
@@ -182,7 +182,7 @@ def print_benchmark_report(report: BenchmarkReport, console: Console | None = No
     # Show per-filter examples of docs that FAIL in original but PASS in cleaned
     _print_sample_failures(report, ds_names, all_filters, discrimination, console)
 
-    # Layer 2: LLM Quality Scoring
+    # Layer 2: LLM Binary Judge
     if report.llm_scoring_enabled:
         _print_llm_scores(report, ds_names, console)
 
@@ -240,7 +240,7 @@ def _print_llm_scores(
 
     console.print()
     console.print(
-        f"[bold]🤖 Layer 2: LLM Quality Scoring ({report.llm_samples} samples)[/bold]",
+        f"[bold]🤖 Layer 2: LLM Binary Judge ({report.llm_samples} samples)[/bold]",
         highlight=False,
     )
     console.print()
@@ -595,7 +595,7 @@ def _append_llm_scores_markdown(
     if not has_scores:
         return
 
-    lines.append(f"## Layer 2: LLM Quality Scoring ({report.llm_samples} samples)")
+    lines.append(f"## Layer 2: LLM Binary Judge ({report.llm_samples} samples)")
     lines.append("")
 
     # Determine data type
