@@ -207,6 +207,81 @@ def score(input_path: str, output_path: str, config_path: str | None, text_field
 
 
 @main.command()
+@click.argument("input_path", type=click.Path(exists=True))
+@click.option("--benchmarks", default="", help="Comma-separated benchmark names (mmlu,hellaswag,arc,truthfulqa,gsm8k,humaneval)")
+@click.option("--benchmark-file", type=click.Path(exists=True), help="Custom benchmark file (text/jsonl)")
+@click.option("--method", type=click.Choice(["ngram", "min-k-prob", "all"]), default="ngram", help="Detection method")
+@click.option("-n", "--ngram-size", default=13, type=int, help="N-gram size (default 13)")
+@click.option("-t", "--threshold", default=0.8, type=float, help="Contamination threshold")
+@click.option("--text-field", default="text", help="Field name containing text")
+@click.option("-o", "--output", "output_dir", type=click.Path(), help="Directory to save report")
+def contamination(input_path: str, benchmarks: str, benchmark_file: str | None,
+                  method: str, ngram_size: int, threshold: float, text_field: str,
+                  output_dir: str | None):
+    """Check dataset for benchmark contamination."""
+    from dq.contamination.ngram import NgramContaminationDetector, load_benchmark
+    from dq.contamination.report import ContaminationReport
+
+    docs = list(read_docs(input_path))
+    console.print(f"[bold]Checking {len(docs)} documents for contamination...[/bold]")
+
+    # Collect benchmark texts
+    benchmark_texts: dict[str, list[str]] = {}
+
+    if benchmark_file:
+        texts = load_benchmark(benchmark_file)
+        name = Path(benchmark_file).stem
+        benchmark_texts[name] = texts
+        console.print(f"  Loaded custom benchmark '{name}': {len(texts)} texts")
+
+    if benchmarks:
+        for bm_name in benchmarks.split(","):
+            bm_name = bm_name.strip()
+            if not bm_name:
+                continue
+            try:
+                texts = load_benchmark(bm_name)
+                benchmark_texts[bm_name] = texts
+                console.print(f"  Loaded benchmark '{bm_name}': {len(texts)} texts")
+            except (ImportError, ValueError) as e:
+                console.print(f"  [yellow]Skipping '{bm_name}': {e}[/yellow]")
+
+    if not benchmark_texts:
+        console.print("[red]No benchmarks loaded. Use --benchmarks or --benchmark-file.[/red]")
+        raise SystemExit(1)
+
+    # Run n-gram detection (primary method)
+    if method in ("ngram", "all"):
+        detector = NgramContaminationDetector(n=ngram_size, threshold=threshold)
+        report = detector.scan_dataset(
+            docs,
+            text_field=text_field,
+            benchmarks=benchmark_texts,
+            dataset_name=Path(input_path).stem,
+        )
+        report.print_rich(console=console)
+
+        if output_dir:
+            out = Path(output_dir)
+            report.to_json(out / "contamination.json")
+            report.to_markdown(out / "contamination.md")
+            console.print(f"[green]Reports saved to {output_dir}/[/green]")
+
+    # Run Min-K% Prob detection (secondary)
+    if method in ("min-k-prob", "all"):
+        from dq.contamination.min_k_prob import MinKProbDetector
+
+        mk_detector = MinKProbDetector()
+        if not mk_detector.available:
+            console.print("[yellow]Min-K% Prob: skipping (transformers not installed)[/yellow]")
+        else:
+            console.print("[bold]Running Min-K% Prob detection...[/bold]")
+            results = mk_detector.check_batch([d.get(text_field, "") for d in docs])
+            contaminated = sum(1 for r in results if r.is_contaminated)
+            console.print(f"  Min-K% Prob: {contaminated}/{len(results)} flagged as potentially memorized")
+
+
+@main.command()
 @click.option("-c", "--config", "config_path", type=click.Path(exists=True), help="Pipeline config YAML")
 @click.option("-n", "--num-samples", default=0, type=int, help="Samples per dataset (0 = all)")
 @click.option("--no-dedup", is_flag=True, default=True, help="Skip dedup (default: skip)")
@@ -215,8 +290,10 @@ def score(input_path: str, output_path: str, config_path: str | None, text_field
 @click.option("-o", "--output", "output_dir", type=click.Path(), help="Directory to save reports")
 @click.option("--report-dir", type=click.Path(), help="Alias for -o (deprecated)")
 @click.option("--with-model-filters", is_flag=True, default=False, help="Enable model-based filters")
+@click.option("--check-contamination", is_flag=True, default=False, help="Run n-gram contamination check")
 def bench(config_path: str | None, num_samples: int, no_dedup: bool, seed: int,
-          output_dir: str | None, report_dir: str | None, with_model_filters: bool):
+          output_dir: str | None, report_dir: str | None, with_model_filters: bool,
+          check_contamination: bool):
     """Run benchmark: compare Alpaca original vs cleaned filter pass rates."""
     if with_model_filters:
         import dq.model_filters  # noqa: F401
@@ -250,6 +327,30 @@ def bench(config_path: str | None, num_samples: int, no_dedup: bool, seed: int,
         raise SystemExit(1)
 
     print_benchmark_report(report, console=console)
+
+    # Optional contamination check
+    if check_contamination:
+        from dq.contamination.ngram import NgramContaminationDetector, load_benchmark as load_bm
+
+        console.print("[bold]Running contamination check (n-gram) against MMLU & HellaSwag...[/bold]")
+        bm_texts: dict[str, list[str]] = {}
+        for bm_name in ("mmlu", "hellaswag"):
+            try:
+                bm_texts[bm_name] = load_bm(bm_name)
+                console.print(f"  Loaded benchmark '{bm_name}': {len(bm_texts[bm_name])} texts")
+            except (ImportError, Exception) as e:
+                console.print(f"  [yellow]Skipping '{bm_name}': {e}[/yellow]")
+
+        if bm_texts:
+            detector = NgramContaminationDetector(n=13, threshold=0.8)
+            from dq.benchmark import load_alpaca_original, load_alpaca_cleaned
+            for ds_name, loader in [("Alpaca Original", load_alpaca_original), ("Alpaca Cleaned", load_alpaca_cleaned)]:
+                try:
+                    ds_docs = loader(n=n)
+                    cr = detector.scan_dataset(ds_docs, benchmarks=bm_texts, dataset_name=ds_name)
+                    cr.print_rich(console=console)
+                except Exception as e:
+                    console.print(f"  [yellow]Contamination check failed for {ds_name}: {e}[/yellow]")
 
     if save_dir:
         benchmark_to_json(report, path=Path(save_dir) / "benchmark.json")
