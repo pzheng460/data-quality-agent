@@ -545,9 +545,9 @@ class TestRunLLMScoring:
             data_type="pretrain",  # Force pretrain for Layer 1
         )
 
-        # Mock the scorers
-        with patch("dq.benchmark._score_sft_docs") as mock_sft:
-            mock_sft.return_value = {
+        # Mock the scorer
+        with patch("dq.benchmark._score_docs") as mock_score:
+            mock_score.return_value = {
                 "type": "sft",
                 "avg_complexity": 3.0,
                 "avg_quality": 4.0,

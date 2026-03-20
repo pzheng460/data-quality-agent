@@ -561,80 +561,60 @@ def run_llm_scoring(
 
         logger.info("LLM scoring '%s' (%d samples, type=%s)...", ds_name, len(sample_docs), data_type)
 
-        if data_type == "sft":
-            scores = _score_sft_docs(sample_docs, api_url, api_key, model, progress)
-        else:
-            scores = _score_pretrain_docs(sample_docs, api_url, api_key, model, progress)
+        scores = _score_docs(sample_docs, data_type, api_url, api_key, model, progress)
 
         report.datasets[ds_name].llm_scores = scores
 
     return report
 
 
-def _score_sft_docs(
+def _score_docs(
     docs: list[dict],
+    data_type: str,
     api_url: str | None = None,
     api_key: str | None = None,
     model: str | None = None,
     progress: bool = True,
 ) -> dict[str, Any]:
-    """Score SFT docs using LLM Binary Judge."""
+    """Score docs using unified LLM Binary Judge.
+
+    Args:
+        docs: List of documents to score.
+        data_type: Either "sft" or "pretrain".
+        api_url: OpenAI-compatible API URL.
+        api_key: API key.
+        model: Model name.
+        progress: Show progress bar.
+
+    Returns:
+        Dictionary with scoring results.
+    """
     try:
         from tqdm import tqdm
     except ImportError:
         def tqdm(iterable, **kwargs):  # type: ignore[misc]
             return iterable
 
-    from dq.judge import SFTQualityJudge
+    from dq.judge import LLMJudge
 
-    judge = SFTQualityJudge(api_url=api_url, api_key=api_key, model=model)
+    judge = LLMJudge(api_url=api_url, api_key=api_key, model=model)
 
-    scores = SFTScores()
+    # Create appropriate scores object based on data type
+    if data_type == "sft":
+        scores = SFTScores()
+        desc = "  SFT judging"
+    else:
+        scores = PretrainScores()
+        desc = "  Pretrain judging"
 
-    for doc in tqdm(docs, desc="  SFT judging", disable=not progress):
-        instruction, output = _extract_sft_fields(doc)
-
-        result = judge.judge_one(instruction, output)
-
-        if "error" in result:
-            scores.scoring_errors += 1
-        elif result["quality"] == "high":
-            scores.high_count += 1
+    for doc in tqdm(docs, desc=desc, disable=not progress):
+        # Use appropriate judge method based on data type
+        if data_type == "sft":
+            instruction, output = _extract_sft_fields(doc)
+            result = judge.judge_sft(instruction, output)
         else:
-            scores.low_count += 1
-            for rule in result.get("failed_rules", []):
-                scores.rule_fail_counts[rule] = scores.rule_fail_counts.get(rule, 0) + 1
-
-    scores.num_scored = len(docs)
-    total_judged = scores.high_count + scores.low_count
-    scores.high_rate = scores.high_count / total_judged if total_judged > 0 else 0.0
-
-    return scores.to_dict()
-
-
-def _score_pretrain_docs(
-    docs: list[dict],
-    api_url: str | None = None,
-    api_key: str | None = None,
-    model: str | None = None,
-    progress: bool = True,
-) -> dict[str, Any]:
-    """Score pre-training docs using LLM Binary Judge."""
-    try:
-        from tqdm import tqdm
-    except ImportError:
-        def tqdm(iterable, **kwargs):  # type: ignore[misc]
-            return iterable
-
-    from dq.judge import PretrainingQualityJudge
-
-    judge = PretrainingQualityJudge(api_url=api_url, api_key=api_key, model=model)
-
-    scores = PretrainScores()
-
-    for doc in tqdm(docs, desc="  Pretrain judging", disable=not progress):
-        text = doc.get("text", "")
-        result = judge.judge_one(text)
+            text = doc.get("text", "")
+            result = judge.judge_text(text)
 
         if "error" in result:
             scores.scoring_errors += 1

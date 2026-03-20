@@ -12,8 +12,7 @@ from dq.benchmark import (
     PretrainScores,
     SFTScores,
     _extract_sft_fields,
-    _score_pretrain_docs,
-    _score_sft_docs,
+    _score_docs,
     detect_data_type,
     run_benchmark,
     run_llm_scoring,
@@ -274,7 +273,7 @@ class TestScoreSFTDocs:
         ]
 
         with patch("dq.judge.get_client", return_value=mock_client):
-            result = _score_sft_docs(docs, api_key="test", progress=False)
+            result = _score_docs(docs, "sft", api_key="test", progress=False)
 
         assert result["type"] == "sft"
         assert result["high_count"] == 1
@@ -288,7 +287,7 @@ class TestScoreSFTDocs:
         docs = [{"instruction": "Q1", "output": "A1", "text": "Q1\nA1"}]
 
         with patch("dq.judge.get_client", return_value=mock_client):
-            result = _score_sft_docs(docs, api_key="test", progress=False)
+            result = _score_docs(docs, "sft", api_key="test", progress=False)
 
         assert result["scoring_errors"] > 0
 
@@ -334,7 +333,7 @@ class TestScorePretrainDocs:
         ]
 
         with patch("dq.judge.get_client", return_value=mock_client):
-            result = _score_pretrain_docs(docs, api_key="test", progress=False)
+            result = _score_docs(docs, "pretrain", api_key="test", progress=False)
 
         assert result["type"] == "pretrain"
         assert result["high_count"] == 1
@@ -348,7 +347,7 @@ class TestScorePretrainDocs:
         docs = [{"text": "Some text."}]
 
         with patch("dq.judge.get_client", return_value=mock_client):
-            result = _score_pretrain_docs(docs, api_key="test", progress=False)
+            result = _score_docs(docs, "pretrain", api_key="test", progress=False)
 
         assert result["scoring_errors"] > 0
 
