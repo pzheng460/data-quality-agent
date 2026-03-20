@@ -15,18 +15,19 @@ A Python CLI + library for detecting and filtering low-quality LLM training data
 - **Layer 1: Rule-based Filters** — deterministic, free, millisecond-level
   - Pre-training: Gopher quality/repetition, C4, FineWeb, PII, Length
   - SFT: `SFTRulesFilter` — empty_output, output_too_short (closed-form aware), instruction_copy, ai_refusal (hard/soft), language_mismatch, missing_sft_fields
-- **Layer 2: LLM Binary Judge** — HIGH/LOW classification via LLM API
-  - SFT: `SFTQualityJudge` (5 rules: instruction_following, factuality, completeness, format_compliance, harmlessness)
-  - Pretrain: `PretrainingQualityJudge` (3 rules: information_density, coherence, originality)
-- **Deprecated**: 1-6 scale scorers (complexity.py, quality.py, educational.py, writing_quality.py) — kept for backward compat
+- **Layer 2: Unified LLM Binary Judge** — `src/dq/judge.py` with data-driven rules (HIGH/LOW classification)
+  - SFT rules: instruction_following, factuality, completeness, format_compliance, harmlessness
+  - Pretrain rules: information_density, coherence, originality
+  - **Adding New Rules**: append to RULES list in judge.py — no code changes needed
+- **DEITA Fully Removed**: no DiversityFilter, no 1-6 scale scorers (complexity.py, quality.py, educational.py, writing_quality.py deleted)
 
 ### Filter Registry
-Filters self-register via `@register_filter("name")`. New filters MUST use this decorator.
+Filters self-register via `@register_filter("name")`. Auto-scan filter registration via `ensure_registered()` — no manual `__init__.py` imports needed. New filters MUST use this decorator.
 
 ### SFT Field Detection
 `sft_rules.py` auto-detects SFT fields: instruction/output, prompt/response, question/answer, query/reply, human/assistant, conversations (ShareGPT). If no SFT fields found → rejects with `missing_sft_fields`.
 
-`benchmark.py` SFT_FIELDS must stay in sync with sft_rules._extract_fields alternatives.
+`SFT_DETECT_FIELDS` single source of truth from `sft_rules.py` — imported by benchmark package. `filter()` delegates to `filter_detailed()` in sft_rules.
 
 ### Closed-form Task Awareness
 `output_too_short` uses regex to detect classification/extraction/factoid QA instructions (per InsTag taxonomy). Closed-form tasks have min_output_words=1 instead of 5.
@@ -58,7 +59,7 @@ SFT: Dolly 99.8%, Alpaca GPT-4 99.8%, No Robots 99.6%, GPT4All 99.7%, WizardLM 9
 uv sync                              # Install deps
 uv sync --extra model                # + model deps (torch, transformers)
 uv sync --extra bench                # + benchmark datasets
-uv run pytest                        # Run all tests (283 tests)
+uv run pytest                        # Run all tests (254 tests)
 uv run dq run input.jsonl -o out.jsonl
 uv run dq bench --no-dedup -n 1000
 uv run dq contamination input.jsonl --benchmarks mmlu,hellaswag
@@ -68,12 +69,15 @@ uv run dq contamination input.jsonl --benchmarks mmlu,hellaswag
 ```
 src/dq/
 ├── filters/sft_rules.py        # SFT rules (Layer 1)
-├── sft/llm_judge.py            # SFT Binary Judge (Layer 2)
-├── model_filters/llm_quality_judge.py  # Pretrain Binary Judge (Layer 2)
+├── judge.py                    # Unified LLM Binary Judge (Layer 2)
 ├── llm_client.py               # Shared LLM client
-├── benchmark.py                # Multi-dataset benchmark runner
+├── benchmark/                  # Multi-dataset benchmark runner (package)
+│   ├── runner.py               #   run_benchmark, run_llm_scoring
+│   ├── datasets.py             #   Dataset loading functions
+│   ├── types.py                #   BenchmarkReport, DatasetResult, etc.
+│   └── utils.py                #   detect_data_type, SFT_DETECT_FIELDS
 ├── benchmark_report.py         # Rich/Markdown/JSON report
-├── pipeline.py                 # Pipeline orchestrator + filter registry
+├── pipeline.py                 # Pipeline orchestrator + auto-scan filter registry
 └── config.py                   # YAML config loader
 ```
 

@@ -99,6 +99,8 @@ SFT filter auto-detects common field names: `instruction`/`output`, `prompt`/`re
 
 ## Layer 2: LLM Binary Judge
 
+**Unified LLM Judge** — Single data-driven judge that automatically detects data type and applies appropriate rules.
+
 Uses rule-based binary classification (HIGH/LOW) instead of absolute 1-6 scoring. Each document is evaluated against specific rules via LLM API.
 
 | Judge | Rules | Use Case |
@@ -107,19 +109,21 @@ Uses rule-based binary classification (HIGH/LOW) instead of absolute 1-6 scoring
 | Pretrain Judge | information_density, coherence, originality | Pre-training data |
 
 ```python
-from dq.sft.llm_judge import SFTQualityJudge
-from dq.model_filters.llm_quality_judge import PretrainingQualityJudge
+from dq.judge import LLMJudge
 
-# SFT
-judge = SFTQualityJudge()
-result = judge.judge_one("Explain quantum computing", "Quantum computing uses qubits...")
+# Unified judge — automatically detects SFT vs pretrain
+judge = LLMJudge()
+
+# SFT data (auto-detected)
+result = judge.judge_sft("Explain quantum computing", "Quantum computing uses qubits...")
 # {"quality": "high", "rules": {...}, "failed_rules": []}
 
-# Pretrain
-judge = PretrainingQualityJudge()
-result = judge.judge_one("Article about physics...")
+# Pretrain data
+result = judge.judge_text("Article about physics...")
 # {"quality": "low", "rules": {...}, "failed_rules": ["originality"]}
 ```
+
+**Adding New Rules**: Simply append to the RULES list in `src/dq/judge.py` — data-driven approach with no code changes needed.
 
 ## Contamination Detection
 
@@ -191,7 +195,7 @@ Pre-training data gets 0% on SFT rules (`missing_sft_fields`), confirming correc
 ## Development
 
 ```bash
-uv run pytest        # 283 tests
+uv run pytest        # 254 tests
 uv run pytest -v     # verbose
 ```
 
@@ -200,17 +204,24 @@ uv run pytest -v     # verbose
 ```
 src/dq/
 ├── cli.py                  # CLI entry point (click)
-├── pipeline.py             # Pipeline orchestrator + filter registry
+├── pipeline.py             # Pipeline orchestrator + auto-scan filter registry
 ├── config.py               # YAML-based config
-├── benchmark.py            # Multi-dataset benchmark runner
+├── judge.py                # Unified LLM Binary Judge (Layer 2)
+├── benchmark/              # Multi-dataset benchmark runner (package)
+│   ├── __init__.py         #   Backward-compatible re-exports
+│   ├── runner.py           #   run_benchmark, run_llm_scoring
+│   ├── datasets.py         #   Dataset loading functions
+│   ├── types.py            #   BenchmarkReport, DatasetResult, etc.
+│   └── utils.py            #   detect_data_type, _extract_sft_fields
 ├── benchmark_report.py     # Rich/Markdown/JSON report output
 ├── llm_client.py           # Shared OpenAI-compatible LLM client
 ├── report.py               # JSON + Markdown report generation
 ├── filters/                # Layer 1: Rule-based filters
+│   ├── __init__.py         #   Auto-scan filter registration
 │   ├── gopher.py           #   Gopher quality + repetition
 │   ├── c4.py               #   C4 filters
 │   ├── fineweb.py          #   FineWeb filters
-│   ├── sft_rules.py        #   SFT-specific rules
+│   ├── sft_rules.py        #   SFT-specific rules (filter() delegates to filter_detailed())
 │   ├── pii.py              #   PII detection/redaction
 │   └── length.py           #   Length filter
 ├── dedup/                  # Deduplication
@@ -218,25 +229,27 @@ src/dq/
 │   ├── minhash.py          #   MinHash LSH near-dedup
 │   └── semantic.py         #   Semantic dedup (stub)
 ├── model_filters/          # Model-based filters
-│   ├── llm_quality_judge.py  # Layer 2: Pretrain Binary Judge
 │   ├── fasttext_quality.py   # FastText quality classifier
 │   └── perplexity.py         # Perplexity filter
-├── sft/                    # SFT scoring
-│   ├── llm_judge.py        #   Layer 2: SFT Binary Judge
-│   ├── diversity.py        #   Embedding diversity filter
-│   ├── complexity.py       #   (deprecated) 1-6 complexity scorer
-│   ├── quality.py          #   (deprecated) 1-6 quality scorer
-│   ├── educational.py      #   (deprecated) educational value scorer
-│   └── writing_quality.py  #   (deprecated) writing quality scorer
-├── contamination/          # Contamination detection
+├── sft/                    # SFT-specific modules
+│   └── diversity.py        #   Embedding diversity filter
+├── contamination/          # Contamination detection (standalone analysis)
+│   ├── __init__.py         #   Standalone tool, not pipeline filter
 │   ├── ngram.py            #   N-gram overlap
 │   ├── min_k_prob.py       #   Min-K% Prob
-│   └── ts_guessing.py      #   TS-Guessing for MCQ
+│   ├── ts_guessing.py      #   TS-Guessing for MCQ
+│   └── report.py           #   Contamination reports
 └── utils/                  # Utilities
     ├── io.py               #   File I/O (JSONL/Parquet/CSV)
     ├── stats.py            #   Text statistics
     └── tokenizer.py        #   Tokenization
 ```
+
+**Architecture Notes**:
+- **Auto-scan filter registration**: `ensure_registered()` automatically discovers filters — no manual imports
+- **Single source of truth**: `SFT_DETECT_FIELDS` from `sft_rules.py` used throughout
+- **Unified judge**: `judge.py` replaces separate SFT/pretrain judges
+- **Dead code removed**: DEITA diversity filter, 1-6 scale scorers, llm_scorer.py
 
 ## References
 
