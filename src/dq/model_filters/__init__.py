@@ -6,11 +6,9 @@ Import triggers filter registration via @register_filter decorators.
 """
 
 from dq.model_filters.fasttext_quality import FastTextQualityFilter
-from dq.model_filters.llm_scorer import LLMQualityScorer
 from dq.model_filters.perplexity import PerplexityFilter
 
 __all__ = [
     "FastTextQualityFilter",
-    "LLMQualityScorer",
     "PerplexityFilter",
 ]
