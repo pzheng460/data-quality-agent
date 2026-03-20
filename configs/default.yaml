@@ -44,6 +44,31 @@ pipeline:
     - name: pii
       mode: redact
 
+    # --- Model-based filters (Phase 2) ---
+    # Uncomment to enable. Requires: uv sync --extra model
+
+    # - name: fasttext_quality
+    #   enabled: false
+    #   params:
+    #     model_path: ""           # Path to trained .bin model
+    #     threshold: 0.5
+    #     label: "__label__hq"
+
+    # - name: perplexity
+    #   enabled: false
+    #   params:
+    #     model_name: "Qwen/Qwen2-0.5B"
+    #     max_perplexity: 1000
+    #     min_perplexity: 5
+    #     device: "auto"
+
+    # - name: llm_quality
+    #   enabled: false
+    #   params:
+    #     model_name: "HuggingFaceFW/fineweb-edu-classifier"
+    #     threshold: 3.0
+    #     device: "auto"
+
   dedup:
     exact: true
     minhash:
