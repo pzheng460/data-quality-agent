@@ -25,16 +25,14 @@ A Python CLI + library for detecting and filtering low-quality LLM training data
 - **`gopher_repetition` direction reverses on SFT data**: Cleaned Alpaca has LOWER pass rate than original because cleaned responses are longer with more natural phrase repetition. This is expected behavior, not a bug.
 
 ### Redundancy Analysis (2026-03-20, revised)
-Only one truly redundant step identified:
-1. `length` filter is fully redundant with `gopher_quality.min_words` — can remove `length`
-
-The following were initially flagged but are NOT redundant — they are different methods:
+**No truly redundant steps.** Every filter serves an independent role:
+- `length`: universal baseline pre-filter (no paper affiliation). Needed when running C4/FineWeb without Gopher.
 - `char_repetition` vs `n-gram ratio`: character-level vs word-level, complementary
-- `fineweb.dup_line_ratio` vs `gopher_repetition.dup_line_ratio`: same metric name but from independent papers (Gopher 2021 vs FineWeb 2024), kept for method-level independence
+- `fineweb.dup_line_ratio` vs `gopher_repetition.dup_line_ratio`: same metric from independent papers (Gopher 2021 vs FineWeb 2024), kept for method-level independence
 - `max_symbol_ratio` vs `min_alpha_ratio`: different measurements (symbol words vs alphabetic chars)
-- Top 2/3/4-gram: multi-scale analysis at different granularities, all needed
+- Top 2/3/4-gram: multi-scale analysis at different granularities
 
-**Principle**: Each paper's filter suite (Gopher, C4, FineWeb) should remain self-contained. Users may run only one suite. Don't break method independence.
+**Principle**: Each paper's filter suite (Gopher, C4, FineWeb) should remain self-contained. Users may run any subset. Don't break method independence. `length` is the universal safety net.
 
 ### Benchmark Reference (2026-03-20, default config, 1000 samples)
 | Filter | Alpaca Original | Alpaca Cleaned | Δ |
