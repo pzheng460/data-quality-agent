@@ -2,7 +2,7 @@
 
 import json
 
-import dq.filters  # noqa: F401 — trigger registration
+from dq.filters import ensure_registered; ensure_registered()
 from dq.benchmark import BenchmarkReport, RuleStats, run_benchmark
 from dq.benchmark_report import benchmark_to_json, benchmark_to_markdown, print_benchmark_report
 from dq.filters.c4 import C4Filter

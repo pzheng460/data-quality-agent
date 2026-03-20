@@ -1,6 +1,6 @@
 """Tests for SFTRulesFilter (Layer 1)."""
 
-import dq.filters  # noqa: F401 — trigger filter registration
+from dq.filters import ensure_registered; ensure_registered()
 from dq.filters.sft_rules import SFTRulesFilter, _cjk_ratio, _simple_similarity
 
 

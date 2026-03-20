@@ -1,6 +1,6 @@
 """Tests for C4 filters."""
 
-import dq.filters  # noqa: F401
+from dq.filters import ensure_registered; ensure_registered()
 from dq.filters.c4 import C4Filter
 
 

@@ -4,7 +4,7 @@ import json
 import tempfile
 from pathlib import Path
 
-import dq.filters  # noqa: F401
+from dq.filters import ensure_registered; ensure_registered()
 from dq.config import PipelineConfig, FilterConfig
 from dq.pipeline import Pipeline, get_filter_class
 from dq.utils.io import read_jsonl, write_jsonl, read_docs, write_docs

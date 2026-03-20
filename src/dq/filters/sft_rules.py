@@ -22,6 +22,13 @@ from dq.filters.base import BaseFilter
 from dq.pipeline import register_filter
 from dq.utils.stats import word_count
 
+# Canonical SFT field names — used by both sft_rules and benchmark.py
+# to detect whether a dataset is SFT or pre-training.
+SFT_INSTRUCTION_FIELDS = {"instruction", "prompt", "input", "question", "query", "human"}
+SFT_OUTPUT_FIELDS = {"output", "response", "answer", "reply", "assistant", "completion"}
+SFT_CONVERSATION_FIELDS = {"conversations"}
+SFT_DETECT_FIELDS = SFT_INSTRUCTION_FIELDS | SFT_CONVERSATION_FIELDS
+
 # Default AI refusal patterns (case-insensitive prefix match)
 # These indicate the model refused to answer rather than providing content.
 DEFAULT_REFUSAL_PATTERNS = [
@@ -232,51 +239,17 @@ class SFTRulesFilter(BaseFilter):
         return False, ""
 
     def filter(self, doc: dict) -> tuple[bool, dict]:
-        """Return (keep, info) — stops at first failure."""
-        instruction, output, has_sft = self._extract_fields(doc)
-
-        # Reject non-SFT data — no instruction/output structure means
-        # this data is not suitable for SFT training
-        if not has_sft:
-            return False, {"filter": self.name, "reason": "missing_sft_fields"}
-
-        # Rule 1: empty_output
-        if not output or not output.strip():
-            return False, {"filter": self.name, "reason": "empty_output"}
-
-        # Rule 2: output_too_short (with closed-form awareness)
-        instr_wc = word_count(instruction)
-        out_wc = word_count(output)
-        is_closed = self._is_closed_form(instruction)
-        min_words = self.min_output_words_closed_form if is_closed else self.min_output_words
-        if (instr_wc >= self.min_instruction_words_for_short_check
-                and out_wc < min_words):
-            return False, {"filter": self.name, "reason": "output_too_short",
-                           "instruction_words": instr_wc, "output_words": out_wc,
-                           "closed_form": is_closed}
-
-        # Rule 3: instruction_copy
-        sim = _simple_similarity(instruction, output)
-        if sim > self.max_copy_similarity:
-            return False, {"filter": self.name, "reason": "instruction_copy",
-                           "similarity": round(sim, 3)}
-
-        # Rule 4: ai_refusal (with content-after-refusal check)
-        is_refusal, pattern = self._is_refusal(output)
-        if is_refusal:
-            return False, {"filter": self.name, "reason": "ai_refusal",
-                           "pattern": pattern}
-
-        # Rule 5: language_mismatch
-        instr_cjk = _cjk_ratio(instruction)
-        out_cjk = _cjk_ratio(output)
-        if (abs(instr_cjk - out_cjk) > self.lang_mismatch_threshold
-                and instruction and output):
-            return False, {"filter": self.name, "reason": "language_mismatch",
-                           "instruction_cjk": round(instr_cjk, 2),
-                           "output_cjk": round(out_cjk, 2)}
-
-        return True, {}
+        """Return (keep, info) — delegates to filter_detailed, returns first failure."""
+        keep, failures = self.filter_detailed(doc)
+        if keep:
+            return True, {}
+        if not failures:
+            return False, {"filter": self.name, "reason": "unknown"}
+        info = dict(failures[0])
+        # Normalize: filter_detailed uses "rule", filter() API uses "reason"
+        if "rule" in info and "reason" not in info:
+            info["reason"] = info["rule"]
+        return False, info
 
     def filter_detailed(self, doc: dict) -> tuple[bool, list[dict]]:
         """Check all rules and return all failures."""

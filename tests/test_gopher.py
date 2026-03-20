@@ -1,6 +1,6 @@
 """Tests for Gopher quality and repetition filters."""
 
-import dq.filters  # noqa: F401 — trigger registration
+from dq.filters import ensure_registered; ensure_registered()
 from dq.filters.gopher import GopherQualityFilter, GopherRepetitionFilter
 
 

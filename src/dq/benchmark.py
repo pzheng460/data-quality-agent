@@ -23,13 +23,8 @@ ALPACA_DATASET = "tatsu-lab/alpaca"
 ALPACA_ORIGINAL = "tatsu-lab/alpaca"
 ALPACA_CLEANED = "yahma/alpaca-cleaned"
 
-# SFT field detection heuristics
-# Must stay in sync with sft_rules.py _extract_fields() alternative field names
-SFT_FIELDS = {
-    "instruction", "conversations", "prompt", "question", "query",
-    "human", "input",  # instruction-side
-    "output", "response", "answer", "reply", "assistant", "completion",  # output-side
-}
+# Import canonical SFT field set from sft_rules — single source of truth
+from dq.filters.sft_rules import SFT_DETECT_FIELDS as SFT_FIELDS
 
 
 def _ensure_datasets():
@@ -374,7 +369,7 @@ def run_benchmark(
     Returns:
         BenchmarkReport with per-dataset, per-filter pass rates and optional LLM scores.
     """
-    import dq.filters  # noqa: F401 — trigger filter registration
+    from dq.filters import ensure_registered; ensure_registered()
     from dq.config import DedupConfig, PipelineConfig
     from dq.pipeline import Pipeline
 

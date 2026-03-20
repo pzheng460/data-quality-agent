@@ -40,7 +40,7 @@ def run(input_path: str, config_path: str | None, output_path: str, report_dir: 
         progress: bool, with_model_filters: bool, sample_size: int, seed: int):
     """Run full quality pipeline on input data."""
     # Import here to trigger filter registration
-    import dq.filters  # noqa: F401
+    from dq.filters import ensure_registered; ensure_registered()
     if with_model_filters:
         import dq.model_filters  # noqa: F401
     from dq.dedup import ExactDedup, MinHashDedup
@@ -141,7 +141,7 @@ def stats(input_path: str, text_field: str, sample_size: int, seed: int):
 def report(input_path: str, config_path: str | None, report_dir: str | None, progress: bool,
            sample_size: int, seed: int):
     """Dry-run: generate quality report without writing output."""
-    import dq.filters  # noqa: F401
+    from dq.filters import ensure_registered; ensure_registered()
     from dq.pipeline import Pipeline  # noqa: F811
     from dq.report import generate_report, stats_to_markdown
 
@@ -202,7 +202,7 @@ def dedup(input_path: str, output_path: str, method: str, text_field: str):
 @click.option("--progress/--no-progress", default=True, help="Show progress bar")
 def score(input_path: str, output_path: str, config_path: str | None, text_field: str, progress: bool):
     """Score documents without filtering — adds score fields to each doc."""
-    import dq.filters  # noqa: F401
+    from dq.filters import ensure_registered; ensure_registered()
     import dq.model_filters  # noqa: F401
     from dq.pipeline import Pipeline
 

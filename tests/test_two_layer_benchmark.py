@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import dq.filters  # noqa: F401 — trigger filter registration
+from dq.filters import ensure_registered; ensure_registered()
 from dq.benchmark import (
     BenchmarkReport,
     DatasetResult,
