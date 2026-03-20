@@ -36,6 +36,21 @@ uv run dq run data/train.jsonl -c configs/default.yaml -o clean.jsonl --with-mod
 
 # Score documents without filtering (adds _scores field)
 uv run dq score data/train.jsonl -o scored.jsonl
+
+# Check contamination against common benchmarks (requires `uv sync --extra bench`)
+uv run dq contamination data/train.jsonl --benchmarks mmlu,hellaswag,arc
+
+# Check against a custom benchmark file (fast, no extra deps)
+uv run dq contamination data/train.jsonl --benchmark-file my_test_set.jsonl
+
+# N-gram only (default, fast, no model needed)
+uv run dq contamination data/train.jsonl --benchmark-file test.jsonl --method ngram
+
+# Save contamination report
+uv run dq contamination data/train.jsonl --benchmark-file test.jsonl -o contamination_report/
+
+# Run benchmark with contamination check
+uv run dq bench --check-contamination
 ```
 
 ## Pipeline Filters
@@ -74,11 +89,18 @@ uv run dq score data/train.jsonl -o scored.jsonl
 | `QualityScorer` | Response quality scoring (1-6) via LLM API | DEITA |
 | `DiversityFilter` | Embedding-based near-duplicate removal (batch) | DEITA Repr Filter |
 
+### Phase 3: Contamination Detection
+
+| Method | Description | Source |
+|--------|-------------|--------|
+| `NgramContaminationDetector` | 13-gram overlap detection against benchmark test sets (fast, no model) | GPT-3 / Llama decontamination |
+| `MinKProbDetector` | Min-K% Prob — flags memorized text via token log-prob analysis | Shi et al., 2023 |
+| `TSGuessingDetector` | MCQ contamination — tests if model can guess answers from choices alone | Time Travel in LLMs |
+
 ### Not Yet Implemented
 
 - Language detection (fastText)
 - KL divergence filter
-- Contamination detection (13-gram, Min-K% Prob, TS-Guessing)
 - Semantic dedup (SemDeDup)
 
 ## Configuration
@@ -137,6 +159,45 @@ diversity = DiversityFilter(threshold=0.95)
 filtered = diversity.filter_batch(docs)
 ```
 
+## Phase 3: Contamination Detection
+
+Detect whether training data overlaps with benchmark test sets. The primary method (N-gram) is fast and needs no model; secondary methods need optional deps.
+
+```python
+from dq.contamination import NgramContaminationDetector, load_benchmark
+
+# Build detector and index
+detector = NgramContaminationDetector(n=13, threshold=0.8)
+benchmark_texts = load_benchmark("path/to/benchmark.jsonl")
+detector.build_index(benchmark_texts, benchmark_name="my_benchmark")
+
+# Check a single document
+result = detector.check_contamination("some training document text...")
+print(result.is_contaminated, result.overlap_ratio)
+
+# Scan full dataset against multiple benchmarks
+report = detector.scan_dataset(
+    docs=[{"text": "..."}],
+    benchmarks={"mmlu": mmlu_texts, "hellaswag": hellaswag_texts},
+    dataset_name="my_dataset",
+)
+report.print_rich()       # Rich table output
+report.to_json("out.json")
+report.to_markdown("out.md")
+
+# Min-K% Prob (requires transformers + torch)
+from dq.contamination import MinKProbDetector
+mk = MinKProbDetector(model_name="Qwen/Qwen2-0.5B", k_percent=20.0)
+result = mk.check_contamination("possibly memorized text")
+
+# TS-Guessing for MCQ (requires openai)
+from dq.contamination import TSGuessingDetector
+ts = TSGuessingDetector(model="gpt-4o-mini")
+report = ts.scan_mcq_dataset([
+    {"question": "Q", "choices": ["A", "B", "C", "D"], "correct_idx": 1},
+])
+```
+
 ## Development
 
 ```bash
@@ -159,7 +220,7 @@ src/dq/
 ├── dedup/           # Deduplication (exact, minhash, semantic*)
 ├── model_filters/   # Model-based filters (fastText, perplexity, LLM scorer)
 ├── sft/             # SFT scoring (DEITA complexity, quality, diversity)
-├── contamination/   # Contamination detection (Phase 2 stubs)
+├── contamination/   # Contamination detection (n-gram, Min-K%, TS-Guessing)
 └── utils/           # IO, stats, tokenizer utilities
 ```
 
