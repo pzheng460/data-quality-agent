@@ -490,8 +490,6 @@ def benchmark_to_json(report: BenchmarkReport, path: str | Path | None = None) -
                 stats_dict["exact_duplicates"] = s.dedup.exact_duplicates
                 stats_dict["duplicate_rate"] = round(s.dedup.duplicate_rate, 4)
             ds_data["dataset_stats"] = stats_dict
-        if dr.stats is not None:
-            ds_data["pipeline_stats"] = dr.stats.to_dict()
         if dr.llm_scores is not None:
             ds_data["llm_scores"] = dr.llm_scores
         data["datasets"][name] = ds_data

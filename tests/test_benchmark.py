@@ -124,7 +124,10 @@ pipeline:
             assert dr.num_docs == 10
             assert 0.0 <= dr.overall_pass_rate <= 1.0
             assert isinstance(dr.per_filter_pass_rate, dict)
-            assert dr.stats is not None
+            assert len(dr.per_filter) > 0
+            # All per-filter totals should equal num_docs (independent evaluation)
+            for fname, fr in dr.per_filter.items():
+                assert fr.total == 10
 
     def test_discrimination_scores(self):
         """Discrimination scores should be non-negative."""
@@ -506,7 +509,6 @@ class TestRunBenchmarkWithDataType:
         # Should have filter results
         for dr in report.datasets.values():
             assert len(dr.per_filter) > 0
-            assert dr.stats is not None
 
     def test_auto_detect_pretrain(self):
         """Auto-detect should classify text-only docs as pretrain."""

@@ -123,30 +123,93 @@ def run_benchmark(
 
         logger.info("Running pipeline on '%s' (%d docs, type=%s)...", ds_name, len(docs), ds_type)
         pipeline = Pipeline(config)
-        list(pipeline.run(iter(docs)))
 
-        stats = pipeline.stats
-
-        # Compute per-filter results with details
+        # Independent evaluation: run filter_detailed() on ALL docs for every filter
+        # This gives consistent per-filter and per-rule stats on the same total
+        num_docs = len(docs)
         per_filter: dict[str, FilterResult] = {}
         per_filter_pass_rate: dict[str, float] = {}
-        for fs in stats.filter_stats:
-            fr = FilterResult(
-                total=fs.docs_in,
-                passed=fs.docs_out,
-                failed=fs.docs_dropped,
-                pass_rate=fs.docs_out / fs.docs_in if fs.docs_in > 0 else 1.0,
-                sample_failed=fs.sample_drops[:5],
-            )
-            per_filter[fs.name] = fr
-            per_filter_pass_rate[fs.name] = fr.pass_rate
+        ds_rule_stats: dict[str, dict[str, RuleStats]] = {}
+        # Track per-filter failures (doc fails ANY rule in that filter)
+        filter_fail_counts: dict[str, int] = {}
+        filter_sample_drops: dict[str, list[dict]] = {}
 
-        overall = stats.total_out / stats.total_in if stats.total_in > 0 else 0.0
+        for f in pipeline.filters:
+            ds_rule_stats[f.name] = {}
+            filter_fail_counts[f.name] = 0
+            filter_sample_drops[f.name] = []
+
+        for doc in docs:
+            for f in pipeline.filters:
+                _keep, failures = f.filter_detailed(doc)
+                failed_rules = {fail["rule"] for fail in failures}
+
+                # Per-filter: count docs that fail this filter (any rule)
+                if not _keep:
+                    filter_fail_counts[f.name] += 1
+                    if len(filter_sample_drops[f.name]) < 5:
+                        text = doc.get("text", "")
+                        # Use first failure reason for sample drop
+                        reason = failures[0] if failures else {}
+                        filter_sample_drops[f.name].append({
+                            "text_preview": text[:200],
+                            "reason": {
+                                "filter": f.name,
+                                "reason": reason.get("rule", "unknown"),
+                                "value": reason.get("value", ""),
+                            },
+                        })
+
+                # Per-rule: track each rule independently
+                for fail in failures:
+                    rule = fail["rule"]
+                    if rule not in ds_rule_stats[f.name]:
+                        ds_rule_stats[f.name][rule] = RuleStats()
+                    ds_rule_stats[f.name][rule].failed += 1
+
+                for rule in ds_rule_stats[f.name]:
+                    if rule not in failed_rules:
+                        ds_rule_stats[f.name][rule].passed += 1
+
+        # Fix totals for rules discovered mid-way
+        for filter_name, rules in ds_rule_stats.items():
+            for rule_name, rs in rules.items():
+                rs.total = num_docs
+                rs.passed = rs.total - rs.failed
+                rs.pass_rate = rs.passed / rs.total if rs.total > 0 else 1.0
+
+        # Build per-filter results (independent, all docs)
+        overall_failed = 0
+        for f in pipeline.filters:
+            failed = filter_fail_counts[f.name]
+            passed = num_docs - failed
+            rate = passed / num_docs if num_docs > 0 else 1.0
+            fr = FilterResult(
+                total=num_docs,
+                passed=passed,
+                failed=failed,
+                pass_rate=rate,
+                sample_failed=filter_sample_drops[f.name],
+            )
+            per_filter[f.name] = fr
+            per_filter_pass_rate[f.name] = rate
+
+        # Overall: doc passes only if it passes ALL filters
+        docs_passing_all = 0
+        for doc in docs:
+            pass_all = True
+            for f in pipeline.filters:
+                keep, _ = f.filter_detailed(doc)
+                if not keep:
+                    pass_all = False
+                    break
+            if pass_all:
+                docs_passing_all += 1
+        overall = docs_passing_all / num_docs if num_docs > 0 else 0.0
 
         result = DatasetResult(
             name=ds_name,
-            num_docs=len(docs),
-            stats=stats,
+            num_docs=num_docs,
             per_filter=per_filter,
             per_filter_pass_rate=per_filter_pass_rate,
             overall_pass_rate=overall,
@@ -154,38 +217,6 @@ def run_benchmark(
             dataset_stats=ds_stats,
         )
         report.datasets[ds_name] = result
-
-        # Collect per-rule stats via filter_detailed() (independent evaluation)
-        ds_rule_stats: dict[str, dict[str, RuleStats]] = {}
-        for f in pipeline.filters:
-            ds_rule_stats[f.name] = {}
-
-        for doc in docs:
-            for f in pipeline.filters:
-                _keep, failures = f.filter_detailed(doc)
-                failed_rules = {fail["rule"] for fail in failures}
-                # Collect all rule names we've seen for this filter
-                for fail in failures:
-                    rule = fail["rule"]
-                    if rule not in ds_rule_stats[f.name]:
-                        ds_rule_stats[f.name][rule] = RuleStats()
-                    ds_rule_stats[f.name][rule].total += 1
-                    ds_rule_stats[f.name][rule].failed += 1
-
-                # Count passes for rules we've seen before but didn't fail this time
-                for rule, rs in ds_rule_stats[f.name].items():
-                    if rule not in failed_rules:
-                        rs.total += 1
-                        rs.passed += 1
-
-        # Fix totals: rules discovered mid-way need total = len(docs)
-        for filter_name, rules in ds_rule_stats.items():
-            for rule_name, rs in rules.items():
-                # Every doc was checked against every rule
-                rs.total = len(docs)
-                rs.passed = rs.total - rs.failed
-                rs.pass_rate = rs.passed / rs.total if rs.total > 0 else 1.0
-
         report.rule_stats[ds_name] = ds_rule_stats
 
     # Layer 2: LLM binary judge (opt-in)

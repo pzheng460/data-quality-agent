@@ -1,0 +1,212 @@
+{
+  "total_in": 10000,
+  "total_out": 8557,
+  "total_dropped": 1443,
+  "overall_drop_rate": 0.1443,
+  "filters": [
+    {
+      "name": "gopher_quality",
+      "docs_in": 10000,
+      "docs_out": 8679,
+      "docs_dropped": 1321,
+      "drop_rate": 0.1321,
+      "sample_drops": [
+        {
+          "text_preview": "5",
+          "reason": {
+            "filter": "gopher_quality",
+            "reason": "too_few_words",
+            "value": 1
+          }
+        },
+        {
+          "text_preview": "Rating: 4 out of 5 by 49 visitors\n\nYayoi inami\n\nDelicious Yayoi Inami scream from enjoyment during oral sex\n\nYayoi inami. Dirty Yayoi Inami blow a dick and fingers her accurate wet hole Yayoi inami. B",
+          "reason": {
+            "filter": "gopher_quality",
+            "reason": "low_terminal_punct",
+            "value": 0.0
+          }
+        },
+        {
+          "text_preview": "Karen Kamensek\n",
+          "reason": {
+            "filter": "gopher_quality",
+            "reason": "too_few_words",
+            "value": 2
+          }
+        },
+        {
+          "text_preview": "3162",
+          "reason": {
+            "filter": "gopher_quality",
+            "reason": "too_few_words",
+            "value": 1
+          }
+        },
+        {
+          "text_preview": "withholding order",
+          "reason": {
+            "filter": "gopher_quality",
+            "reason": "too_few_words",
+            "value": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "gopher_repetition",
+      "docs_in": 8679,
+      "docs_out": 8649,
+      "docs_dropped": 30,
+      "drop_rate": 0.0035,
+      "sample_drops": [
+        {
+          "text_preview": "Sex Tape 2014\n\nSex Tape 2014\n\nAction , Comedy ,When Jay (Jason Segel) and Annie (Cameron Diaz) first got together, their romantic connection was intense - but ten years and two kids later, the flame o",
+          "reason": {
+            "filter": "gopher_repetition",
+            "reason": "high_dup_line_ratio",
+            "value": 0.5
+          }
+        },
+        {
+          "text_preview": "I had an amazing and intensive time with Bianca. Thank you.\nstarstarstar starstar_border\nAmazing service, all services provided as advertised. Would definitely recommended and will see again.\nstarstar",
+          "reason": {
+            "filter": "gopher_repetition",
+            "reason": "high_dup_line_ratio",
+            "value": 0.3333
+          }
+        },
+        {
+          "text_preview": "Chat gratuit with Ninasa\nPictures lj webcam Ninasa\nPictures lj webcam Ninasa.\n\nHello! I'm Nina from Latvia. i'm smart,inteligent woman and we could have some nice time togather. But(!) this is my job ",
+          "reason": {
+            "filter": "gopher_repetition",
+            "reason": "high_dup_line_ratio",
+            "value": 0.4
+          }
+        },
+        {
+          "text_preview": "I am an open book so any questions you have feel free to ask! Want to meet girls and fuck them. Sensual sex with housewives\nBody: Slender\nMarital Status: Single\nName: mkmike87\nAge: 27\nHeight: 5' 3\"\nHa",
+          "reason": {
+            "filter": "gopher_repetition",
+            "reason": "high_dup_line_ratio",
+            "value": 0.3014
+          }
+        },
+        {
+          "text_preview": "Lena Paul\n\nLena Paul\n\nFresh-faced and voluptuous, webcam model Lena Paul and her natural 32DDD breasts bounced their way on to the adult film scene in 2016. This blonde, blue-eyed Floridian is so whol",
+          "reason": {
+            "filter": "gopher_repetition",
+            "reason": "high_dup_para_ratio",
+            "value": 0.5
+          }
+        }
+      ]
+    },
+    {
+      "name": "c4",
+      "docs_in": 8649,
+      "docs_out": 8599,
+      "docs_dropped": 50,
+      "drop_rate": 0.0058,
+      "sample_drops": [
+        {
+          "text_preview": "Nice to Nasty\n\nNice to Naughty\n\n“I know some people might not believe this coz they’re about to watch me fuck on-camera, but I indeed am a precious hotty. Or at least, I was. I have only had sex with ",
+          "reason": {
+            "filter": "c4",
+            "reason": "too_few_sentences",
+            "value": 2
+          }
+        },
+        {
+          "text_preview": "\nPASSIONAL Boutique no longer sells sexuality products in the store or on our website. As of September 2007, all of those items have moved to the brand new Sexploratorium store just a few doors down f",
+          "reason": {
+            "filter": "c4",
+            "reason": "too_few_sentences",
+            "value": 2
+          }
+        },
+        {
+          "text_preview": "Piss in his white panties\n\nClick to this video!\nGay guy sits half naked on the floor in front of the camera. He pees in his white panties…awesohorney house wifescat eating lesbiansgay farting porngay ",
+          "reason": {
+            "filter": "c4",
+            "reason": "too_few_sentences",
+            "value": 1
+          }
+        },
+        {
+          "text_preview": "Photo naked girl\n\niFor more tips on search\n\n  1. By placing a query in quotation marks \"naked girl\" you can find a complete match.\n  2. To exclude a word, you can simply add a dash in front of it. For",
+          "reason": {
+            "filter": "c4",
+            "reason": "too_few_sentences",
+            "value": 2
+          }
+        },
+        {
+          "text_preview": "PUMPS - Pumped Automatic Luv Pump - Black Powered Penis Pump - bedbuddies.com.au - Erotic Essentials For Your Pleasure\n\nPumped Automatic Luv Pump - Black Powered Penis Pump\n\nRegular price\n\nNOW ONLY $8",
+          "reason": {
+            "filter": "c4",
+            "reason": "too_few_sentences",
+            "value": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "fineweb",
+      "docs_in": 8599,
+      "docs_out": 8557,
+      "docs_dropped": 42,
+      "drop_rate": 0.0049,
+      "sample_drops": [
+        {
+          "text_preview": "03:39 Gays Jake and Scott ..\n04:07 CBT Monster Dicked S..\n05:02 Gay muscled jock dic..\n05:13 Hunky jock gets suck..\n05:00 Jock gets sucked at ..\n03:59 Derrek Diamonds endu..\n05:51 CBT, TT with Monster",
+          "reason": {
+            "filter": "fineweb",
+            "reason": "bad_line_breaks",
+            "value": 28.0
+          }
+        },
+        {
+          "text_preview": "tagErotic PoetryJack and Jill!\n\nJack and Jill!\n\n\nBut not to fetch no water!\nTo do what they thought they oughter!\n\nA place of real seclusion.\nAnd discovered no illusion!\n\nHer succulent pussy there!\nAn",
+          "reason": {
+            "filter": "fineweb",
+            "reason": "bad_line_breaks",
+            "value": 28.9286
+          }
+        },
+        {
+          "text_preview": "1. ensure you’re both for a passing fancy page. if your wanting to also think about hooking up, make certain the two of you are on similar page about what you are considering. what this means is being",
+          "reason": {
+            "filter": "fineweb",
+            "reason": "list_document",
+            "value": 1.0
+          }
+        },
+        {
+          "text_preview": "• BiographyThis black male actor appeared in 1 video scene, first appearing in Black Workout 12 around September 2014. Other actors co-starring alongside Nature include, among others, Ricky Parker. Na",
+          "reason": {
+            "filter": "fineweb",
+            "reason": "list_document",
+            "value": 1.0
+          }
+        },
+        {
+          "text_preview": "1. Prepare for the date. Haircut, shower, shave and cologne are a must! Don't overdo it on the cologne though. Most Latina woman like a little facial hair. Dress to impress! Guys, you are not gonna ge",
+          "reason": {
+            "filter": "fineweb",
+            "reason": "list_document",
+            "value": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "name": "pii",
+      "docs_in": 8557,
+      "docs_out": 8557,
+      "docs_dropped": 0,
+      "drop_rate": 0.0,
+      "sample_drops": []
+    }
+  ]
+}
