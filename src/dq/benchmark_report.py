@@ -134,12 +134,15 @@ def _print_single_dataset(report: BenchmarkReport, console: Console) -> None:
                     str(rs.total),
                 )
 
-    # Overall row
+    # Summary rows
     table.add_section()
+    avg_rate = sum(result.per_filter_pass_rate.values()) / len(result.per_filter_pass_rate) if result.per_filter_pass_rate else 0.0
+    table.add_row("Average (per filter)", f"{avg_rate:.1%}", "—", "—")
+    overall_failed = result.num_docs - int(result.overall_pass_rate * result.num_docs)
     table.add_row(
-        "Overall",
+        "Overall (pass all)",
         f"{result.overall_pass_rate:.1%}",
-        str(result.num_docs - int(result.overall_pass_rate * result.num_docs)),
+        str(overall_failed),
         str(result.num_docs),
         style="bold",
     )
@@ -568,9 +571,11 @@ def _markdown_single(report: BenchmarkReport) -> str:
     lines.append(f"| Total documents | {result.num_docs} |")
     total_passed = int(result.overall_pass_rate * result.num_docs)
     total_failed = result.num_docs - total_passed
-    lines.append(f"| Passed | {total_passed} |")
+    lines.append(f"| Passed (all filters) | {total_passed} |")
     lines.append(f"| Failed | {total_failed} |")
-    lines.append(f"| Overall pass rate | {result.overall_pass_rate:.1%} |")
+    avg_rate = sum(result.per_filter_pass_rate.values()) / len(result.per_filter_pass_rate) if result.per_filter_pass_rate else 0.0
+    lines.append(f"| Average pass rate (per filter) | {avg_rate:.1%} |")
+    lines.append(f"| Overall pass rate (pass all) | {result.overall_pass_rate:.1%} |")
     lines.append("")
 
     # Per-filter table
