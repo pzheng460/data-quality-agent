@@ -70,8 +70,7 @@ uv run dq bench --with-llm-scoring --llm-samples 50
 
 | Filter | Description | Source |
 |--------|-------------|--------|
-| `length` | Min/max word count | — |
-| `gopher_quality` | Word count, avg word length, symbol ratio, punctuation, stopwords, alpha ratio | Gopher (Rae et al., 2021) |
+| `gopher_quality` | Word count (min/max), avg word length, symbol ratio, punctuation, stopwords, alpha ratio | Gopher (Rae et al., 2021) |
 | `gopher_repetition` | Word-level duplicate n-gram fractions (5-10 gram), duplicate lines/paragraphs, top n-gram ratios | Gopher |
 | `c4` | Line-level cleaning (javascript/policy/no-punct removal), then sentence count check | C4 (Raffel et al., 2020) |
 | `fineweb` | List document detection, duplicate lines, bad line breaks | FineWeb (Penedo et al., 2024) |
@@ -222,8 +221,7 @@ src/dq/
 │   ├── c4.py               #   C4 filters
 │   ├── fineweb.py          #   FineWeb filters
 │   ├── sft_rules.py        #   SFT-specific rules (filter() delegates to filter_detailed())
-│   ├── pii.py              #   PII detection/redaction
-│   └── length.py           #   Length filter
+│   └── pii.py              #   PII detection/redaction
 ├── dedup/                  # Deduplication
 │   ├── exact.py            #   SHA256 exact dedup
 │   ├── minhash.py          #   MinHash LSH near-dedup

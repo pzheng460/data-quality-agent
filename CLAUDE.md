@@ -13,7 +13,7 @@ A Python CLI + library for detecting and filtering low-quality LLM training data
 
 ### Architecture (current)
 - **Layer 1: Rule-based Filters** — deterministic, free, millisecond-level
-  - Pre-training: Gopher quality/repetition, C4, FineWeb, PII, Length
+  - Pre-training: Gopher quality/repetition, C4, FineWeb, PII
   - SFT: `SFTRulesFilter` — empty_output, output_too_short (closed-form aware), instruction_copy, ai_refusal (hard/soft), language_mismatch, missing_sft_fields
 - **Layer 2: Unified LLM Binary Judge** — `src/dq/judge.py` with data-driven rules (HIGH/LOW classification)
   - SFT rules: instruction_following, factuality, completeness, format_compliance, harmlessness

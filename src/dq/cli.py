@@ -134,21 +134,21 @@ def stats(input_path: str, text_field: str, sample_size: int, seed: int):
 @main.command()
 @click.argument("input_path", type=click.Path(exists=True))
 @click.option("-c", "--config", "config_path", type=click.Path(exists=True), help="Pipeline config YAML")
-@click.option("--report-dir", type=click.Path(), help="Directory for report files")
+@click.option("-o", "--output", "report_dir", type=click.Path(), default="reports", help="Directory to save reports (default: reports/)")
 @click.option("--progress/--no-progress", default=True, help="Show progress bar")
 @click.option("-s", "--sample", "sample_size", type=int, default=0, help="Random sample N docs (0 = all)")
 @click.option("--seed", default=42, type=int, help="Random seed for sampling")
-def report(input_path: str, config_path: str | None, report_dir: str | None, progress: bool,
+def report(input_path: str, config_path: str | None, report_dir: str, progress: bool,
            sample_size: int, seed: int):
-    """Dry-run: generate quality report without writing output."""
+    """Dry-run: generate quality report and save to files."""
     from dq.filters import ensure_registered; ensure_registered()
     from dq.pipeline import Pipeline  # noqa: F811
-    from dq.report import generate_report, stats_to_markdown
+    from dq.report import generate_report
 
     config = _load_config(config_path)
     pipeline = Pipeline(config)
 
-    console.print(f"[bold]Dry-run report on[/bold] {input_path}")
+    console.print(f"[bold]Generating report for[/bold] {input_path}")
 
     if sample_size > 0:
         console.print(f"[dim]Sampling {sample_size} docs (seed={seed})...[/dim]")
@@ -157,13 +157,8 @@ def report(input_path: str, config_path: str | None, report_dir: str | None, pro
         docs = read_docs(input_path)
     pipeline_stats = pipeline.dry_run(docs, progress=progress)
 
-    _print_stats_table(pipeline_stats)
-
-    if report_dir:
-        generate_report(pipeline_stats, output_dir=report_dir)
-        console.print(f"[green]Report saved to {report_dir}/[/green]")
-    else:
-        console.print(stats_to_markdown(pipeline_stats))
+    generate_report(pipeline_stats, output_dir=report_dir)
+    console.print(f"[green]Report saved to {report_dir}/[/green]")
 
 
 @main.command()

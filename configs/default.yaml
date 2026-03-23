@@ -2,11 +2,6 @@ pipeline:
   text_field: "text"
 
   filters:
-    - name: length
-      params:
-        min_words: 50
-        max_words: 100000
-
     - name: gopher_quality
       params:
         min_avg_word_len: 3

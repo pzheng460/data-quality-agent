@@ -7,9 +7,20 @@ from typing import Any
 from dq.pipeline import PipelineStats
 
 
+def _round_floats(obj: Any, digits: int = 4) -> Any:
+    """Recursively round floats in nested dicts/lists."""
+    if isinstance(obj, float):
+        return round(obj, digits)
+    if isinstance(obj, dict):
+        return {k: _round_floats(v, digits) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_round_floats(v, digits) for v in obj]
+    return obj
+
+
 def stats_to_json(stats: PipelineStats, path: str | Path | None = None) -> str:
     """Convert pipeline stats to JSON string. Optionally write to file."""
-    data = stats.to_dict()
+    data = _round_floats(stats.to_dict())
     json_str = json.dumps(data, indent=2, ensure_ascii=False)
     if path:
         Path(path).write_text(json_str, encoding="utf-8")
@@ -55,8 +66,16 @@ def stats_to_markdown(stats: PipelineStats, path: str | Path | None = None) -> s
                 lines.append("")
                 for i, sample in enumerate(fs.sample_drops[:3], 1):
                     reason = sample.get("reason", {})
-                    preview = sample.get("text_preview", "")[:100]
-                    lines.append(f"**Sample {i}**: {reason}")
+                    preview = sample.get("text_preview", "")[:100].replace("\n", " ")
+                    if isinstance(reason, dict):
+                        reason_str = reason.get("reason", "unknown")
+                        value = reason.get("value", "")
+                        if isinstance(value, float):
+                            value = round(value, 4)
+                        reason_str = f"`{reason_str}` (value: {value})"
+                    else:
+                        reason_str = str(reason)
+                    lines.append(f"**Sample {i}**: {reason_str}")
                     lines.append(f"> {preview}...")
                     lines.append("")
 

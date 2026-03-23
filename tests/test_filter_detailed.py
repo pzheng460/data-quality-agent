@@ -8,7 +8,6 @@ from dq.benchmark_report import benchmark_to_json, benchmark_to_markdown, print_
 from dq.filters.c4 import C4Filter
 from dq.filters.fineweb import FineWebFilter
 from dq.filters.gopher import GopherQualityFilter, GopherRepetitionFilter
-from dq.filters.length import LengthFilter
 from dq.filters.pii import PIIFilter
 
 
@@ -40,19 +39,18 @@ def _make_bad_docs(n: int = 50) -> list[dict]:
 class TestBaseFilterDetailedDefault:
     """Test that BaseFilter.filter_detailed() default wraps filter()."""
 
-    def test_length_filter_default_compat(self):
-        """LengthFilter has its own filter_detailed, but verify it works."""
-        f = LengthFilter(min_words=50)
+    def test_gopher_quality_min_words_compat(self):
+        """GopherQualityFilter filter_detailed reports min_words failures."""
+        f = GopherQualityFilter(min_words=50, min_stopwords=0, min_lines_end_punct=0.0)
         doc = {"text": "short text"}
         keep, failures = f.filter_detailed(doc)
         assert not keep
-        assert len(failures) == 1
-        assert failures[0]["rule"] == "min_words"
+        assert any(fail["rule"] == "min_words" for fail in failures)
 
     def test_passing_doc_returns_empty_failures(self):
-        f = LengthFilter(min_words=1, max_words=100000)
-        doc = {"text": "This is a normal document with enough words."}
-        keep, failures = f.filter_detailed(doc)
+        f = GopherQualityFilter()
+        docs = _make_good_docs(1)
+        keep, failures = f.filter_detailed(docs[0])
         assert keep
         assert failures == []
 
@@ -194,23 +192,23 @@ class TestPIIFilterDetailed:
         assert failures == []
 
 
-class TestLengthFilterDetailed:
+class TestGopherQualityWordLimits:
+    """Word count limits are now handled by GopherQualityFilter."""
+
     def test_too_short(self):
-        f = LengthFilter(min_words=50)
+        f = GopherQualityFilter(min_words=50, min_stopwords=0, min_lines_end_punct=0.0)
         doc = {"text": "short"}
         keep, failures = f.filter_detailed(doc)
         assert not keep
-        assert len(failures) == 1
-        assert failures[0]["rule"] == "min_words"
-        assert failures[0]["threshold"] == 50
+        assert any(fail["rule"] == "min_words" for fail in failures)
+        assert any(fail["threshold"] == 50 for fail in failures if fail["rule"] == "min_words")
 
     def test_too_long(self):
-        f = LengthFilter(min_words=1, max_words=5)
+        f = GopherQualityFilter(min_words=1, max_words=5, min_stopwords=0, min_lines_end_punct=0.0)
         doc = {"text": "one two three four five six seven eight nine ten"}
         keep, failures = f.filter_detailed(doc)
         assert not keep
-        assert len(failures) == 1
-        assert failures[0]["rule"] == "max_words"
+        assert any(fail["rule"] == "max_words" for fail in failures)
 
 
 class TestBenchmarkRuleStats:
@@ -249,12 +247,12 @@ class TestBenchmarkRuleStats:
             no_dedup=True,
         )
 
-        # For length filter's min_words rule, good should pass more
-        good_length_rules = report.rule_stats.get("Good", {}).get("length", {})
-        bad_length_rules = report.rule_stats.get("Bad", {}).get("length", {})
+        # For gopher_quality's min_words rule, good should pass more
+        good_gopher_rules = report.rule_stats.get("Good", {}).get("gopher_quality", {})
+        bad_gopher_rules = report.rule_stats.get("Bad", {}).get("gopher_quality", {})
 
-        if "min_words" in good_length_rules and "min_words" in bad_length_rules:
-            assert good_length_rules["min_words"].pass_rate >= bad_length_rules["min_words"].pass_rate
+        if "min_words" in good_gopher_rules and "min_words" in bad_gopher_rules:
+            assert good_gopher_rules["min_words"].pass_rate >= bad_gopher_rules["min_words"].pass_rate
 
     def test_json_includes_rules(self):
         """JSON output should include per-rule breakdown."""

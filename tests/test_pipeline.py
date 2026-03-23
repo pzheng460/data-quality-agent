@@ -25,7 +25,7 @@ class TestConfig:
             "pipeline": {
                 "text_field": "content",
                 "filters": [
-                    {"name": "length", "params": {"min_words": 10}},
+                    {"name": "gopher_quality", "params": {"min_words": 10}},
                 ],
                 "dedup": {"exact": True},
             }
@@ -33,7 +33,7 @@ class TestConfig:
         config = PipelineConfig.from_dict(raw)
         assert config.text_field == "content"
         assert len(config.filters) == 1
-        assert config.filters[0].name == "length"
+        assert config.filters[0].name == "gopher_quality"
         assert config.filters[0].params["min_words"] == 10
 
     def test_from_yaml(self, tmp_path):
@@ -41,7 +41,7 @@ class TestConfig:
 pipeline:
   text_field: text
   filters:
-    - name: length
+    - name: gopher_quality
       params:
         min_words: 20
 """
@@ -53,7 +53,7 @@ pipeline:
 
 class TestFilterRegistry:
     def test_known_filters(self):
-        for name in ["gopher_quality", "gopher_repetition", "c4", "fineweb", "pii", "length"]:
+        for name in ["gopher_quality", "gopher_repetition", "c4", "fineweb", "pii"]:
             cls = get_filter_class(name)
             assert cls is not None
 
@@ -68,12 +68,12 @@ class TestPipeline:
         config = PipelineConfig(
             text_field="text",
             filters=[
-                FilterConfig("length", params={"min_words": 10, "max_words": 10000}),
+                FilterConfig("gopher_quality", params={"min_words": 10, "max_words": 10000, "min_stopwords": 0, "min_lines_end_punct": 0.0}),
             ],
         )
         pipeline = Pipeline(config)
         docs = [
-            {"text": "This is a document with enough words to pass the length filter easily and more."},
+            {"text": "This is a document with enough words to pass the filter easily and more."},
         ]
         result = list(pipeline.run(iter(docs)))
         assert len(result) == 1
@@ -84,7 +84,7 @@ class TestPipeline:
         config = PipelineConfig(
             text_field="text",
             filters=[
-                FilterConfig("length", params={"min_words": 50}),
+                FilterConfig("gopher_quality", params={"min_words": 50, "min_stopwords": 0, "min_lines_end_punct": 0.0}),
             ],
         )
         pipeline = Pipeline(config)
@@ -99,7 +99,7 @@ class TestPipeline:
     def test_dry_run(self):
         config = PipelineConfig(
             text_field="text",
-            filters=[FilterConfig("length", params={"min_words": 50})],
+            filters=[FilterConfig("gopher_quality", params={"min_words": 50, "min_stopwords": 0, "min_lines_end_punct": 0.0})],
         )
         pipeline = Pipeline(config)
         docs = [{"text": "short"}, {"text": " ".join(["word"] * 60) + "."}]
@@ -108,10 +108,10 @@ class TestPipeline:
         assert stats.total_out == 1
 
     def test_with_fixture_files(self):
-        """Run pipeline on good fixture file — all should pass length filter."""
+        """Run pipeline on good fixture file — all should pass gopher_quality filter."""
         config = PipelineConfig(
             text_field="text",
-            filters=[FilterConfig("length", params={"min_words": 10, "max_words": 100000})],
+            filters=[FilterConfig("gopher_quality", params={"min_words": 10, "max_words": 100000, "min_stopwords": 0, "min_lines_end_punct": 0.0})],
         )
         pipeline = Pipeline(config)
         docs = list(read_jsonl(FIXTURES_DIR / "sample_good.jsonl"))
