@@ -209,8 +209,8 @@ class TestBenchmarkReport:
         # Should not raise
         print_benchmark_report(report, console=test_console)
 
-    def test_rich_print_single_dataset_warning(self, capsys):
-        """With < 2 datasets, should print a warning, not crash."""
+    def test_rich_print_single_dataset_report(self, capsys):
+        """With a single dataset, should print a quality report, not a comparison."""
         from io import StringIO
 
         from rich.console import Console
@@ -224,7 +224,8 @@ class TestBenchmarkReport:
         )
         print_benchmark_report(report, console=test_console)
         output = buf.getvalue()
-        assert "at least 2 datasets" in output
+        assert "Data Quality Report: Only" in output
+        assert "Pass Rate" in output
 
 
 class TestMergeAlpacaFields:
@@ -630,3 +631,158 @@ class TestBenchmarkReportWithLLMScores:
         report = self._make_report_with_llm()
         test_console = Console(file=None, force_terminal=False, no_color=True, width=120)
         print_benchmark_report(report, console=test_console)
+
+
+class TestLoadHfDataset:
+    """Tests for load_hf_dataset with mocked HF datasets library."""
+
+    def test_load_hf_dataset_basic(self):
+        """load_hf_dataset should stream N docs from a HF dataset."""
+        from dq.benchmark.datasets import load_hf_dataset
+
+        fake_items = [{"text": f"Document number {i} with enough content."} for i in range(100)]
+
+        def fake_load_dataset(dataset_id, *, split, streaming, **kwargs):
+            return iter(fake_items)
+
+        with patch("dq.benchmark.datasets._ensure_datasets", return_value=fake_load_dataset):
+            docs = load_hf_dataset("fake/dataset", n=10)
+            assert len(docs) == 10
+            assert all("text" in d for d in docs)
+
+    def test_load_hf_dataset_custom_text_field(self):
+        """load_hf_dataset should respect custom text_field."""
+        from dq.benchmark.datasets import load_hf_dataset
+
+        fake_items = [{"content": f"Doc {i} text here."} for i in range(50)]
+
+        def fake_load_dataset(dataset_id, *, split, streaming, **kwargs):
+            return iter(fake_items)
+
+        with patch("dq.benchmark.datasets._ensure_datasets", return_value=fake_load_dataset):
+            docs = load_hf_dataset("fake/dataset", n=5, text_field="content")
+            assert len(docs) == 5
+            assert all(d["text"].startswith("Doc") for d in docs)
+
+    def test_load_hf_dataset_skips_empty(self):
+        """load_hf_dataset should skip items with empty text."""
+        from dq.benchmark.datasets import load_hf_dataset
+
+        fake_items = [{"text": ""}, {"text": "Valid document."}, {"text": ""}]
+
+        def fake_load_dataset(dataset_id, *, split, streaming, **kwargs):
+            return iter(fake_items)
+
+        with patch("dq.benchmark.datasets._ensure_datasets", return_value=fake_load_dataset):
+            docs = load_hf_dataset("fake/dataset", n=10)
+            assert len(docs) == 1
+            assert docs[0]["text"] == "Valid document."
+
+
+class TestSingleDatasetBenchmark:
+    """Tests for running benchmark with a single dataset (like dq bench file.jsonl)."""
+
+    def test_single_dataset_report(self):
+        """Single dataset should produce valid report with per-rule stats."""
+        report = run_benchmark(
+            datasets={"TestData": _make_good_docs(20)},
+            no_dedup=True,
+        )
+        assert "TestData" in report.datasets
+        assert len(report.datasets) == 1
+        result = report.datasets["TestData"]
+        assert result.overall_pass_rate > 0
+        assert len(result.per_filter) > 0
+
+    def test_single_dataset_has_rule_stats(self):
+        """Single dataset benchmark should still collect per-rule stats."""
+        report = run_benchmark(
+            datasets={"TestData": _make_good_docs(20)},
+            no_dedup=True,
+        )
+        assert "TestData" in report.rule_stats
+        rule_stats = report.rule_stats["TestData"]
+        # Should have at least gopher_quality rules
+        assert "gopher_quality" in rule_stats or len(rule_stats) > 0
+
+    def test_single_dataset_json_output(self):
+        """Single dataset report should produce valid JSON."""
+        report = run_benchmark(
+            datasets={"TestData": _make_good_docs(20)},
+            no_dedup=True,
+        )
+        json_str = benchmark_to_json(report)
+        data = json.loads(json_str)
+        assert "datasets" in data
+        assert "TestData" in data["datasets"]
+
+    def test_single_dataset_markdown_output(self):
+        """Single dataset report should produce valid Markdown."""
+        report = run_benchmark(
+            datasets={"TestData": _make_good_docs(20)},
+            no_dedup=True,
+        )
+        md = benchmark_to_markdown(report)
+        assert "TestData" in md
+        assert "Overall pass rate" in md
+
+
+class TestBenchCLI:
+    """Tests for the dq bench CLI command with custom input."""
+
+    def test_bench_with_local_file(self, tmp_path):
+        """dq bench should accept a local file as input."""
+        import json as json_mod
+        from click.testing import CliRunner
+        from dq.cli import main
+
+        # Create test JSONL file
+        data_file = tmp_path / "test.jsonl"
+        docs = _make_good_docs(10)
+        with open(data_file, "w") as f:
+            for doc in docs:
+                f.write(json_mod.dumps(doc) + "\n")
+
+        output_dir = tmp_path / "output"
+        runner = CliRunner()
+        result = runner.invoke(main, [
+            "bench", str(data_file), "-n", "10", "-o", str(output_dir),
+        ])
+        assert result.exit_code == 0
+        assert (output_dir / "benchmark.json").exists()
+        assert (output_dir / "benchmark.md").exists()
+
+    def test_bench_no_input_shows_usage(self):
+        """dq bench without input should show usage error."""
+        from click.testing import CliRunner
+        from dq.cli import main
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["bench"])
+        assert result.exit_code != 0
+        assert "Missing argument" in result.output
+
+    def test_bench_reports_saved_by_default(self, tmp_path):
+        """Reports should always be saved to output dir."""
+        import json as json_mod
+        from click.testing import CliRunner
+        from dq.cli import main
+
+        data_file = tmp_path / "test.jsonl"
+        docs = _make_good_docs(10)
+        with open(data_file, "w") as f:
+            for doc in docs:
+                f.write(json_mod.dumps(doc) + "\n")
+
+        output_dir = tmp_path / "reports"
+        runner = CliRunner()
+        result = runner.invoke(main, [
+            "bench", str(data_file), "-o", str(output_dir),
+        ])
+        assert result.exit_code == 0
+        assert (output_dir / "benchmark.json").exists()
+        assert (output_dir / "benchmark.md").exists()
+
+        # Verify JSON is valid
+        data = json_mod.loads((output_dir / "benchmark.json").read_text())
+        assert "datasets" in data

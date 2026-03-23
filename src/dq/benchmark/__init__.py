@@ -18,6 +18,7 @@ from .datasets import (
 
 # Dataset loading functions
 from .datasets import (
+    load_hf_dataset,
     load_fineweb_sample,
     load_alpaca_sample,
     load_alpaca_original,
@@ -39,6 +40,7 @@ from .types import (
     RuleStats,
     FilterResult,
     DatasetResult,
+    DatasetStats,
     BenchmarkReport,
     BenchmarkResult,  # Backward compat alias
 )
@@ -58,6 +60,7 @@ __all__ = [
     "ALPACA_ORIGINAL",
     "ALPACA_CLEANED",
     # Dataset functions
+    "load_hf_dataset",
     "load_fineweb_sample",
     "load_alpaca_sample",
     "load_alpaca_original",

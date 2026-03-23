@@ -77,6 +77,26 @@ class FilterResult:
 
 
 @dataclass
+class DedupStats:
+    """Deduplication statistics."""
+
+    exact_duplicates: int = 0
+    duplicate_rate: float = 0.0
+
+
+@dataclass
+class DatasetStats:
+    """Basic dataset statistics."""
+
+    avg_word_count: float = 0.0
+    min_word_count: int = 0
+    max_word_count: int = 0
+    avg_word_length: float = 0.0
+    fields: list[str] = field(default_factory=list)
+    dedup: DedupStats | None = None
+
+
+@dataclass
 class DatasetResult:
     """Benchmark results for a single dataset."""
 
@@ -88,6 +108,7 @@ class DatasetResult:
     overall_pass_rate: float = 0.0
     data_type: str = "pretrain"  # 'sft' or 'pretrain'
     llm_scores: dict[str, Any] | None = None  # SFTScores.to_dict() or PretrainScores.to_dict()
+    dataset_stats: DatasetStats | None = None  # Basic word count / field stats
 
 
 @dataclass

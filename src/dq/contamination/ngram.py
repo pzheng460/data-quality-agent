@@ -79,29 +79,42 @@ _BENCHMARK_CONFIGS: dict[str, dict] = {
 }
 
 
-def load_benchmark(name: str, split: str | None = None) -> list[str]:
-    """Load benchmark texts by name or from a file.
+def load_benchmark(name: str, split: str | None = None, text_field: str = "text", n: int = 0) -> list[str]:
+    """Load benchmark texts by name, file path, or HuggingFace dataset ID.
 
     Args:
-        name: Benchmark name (mmlu, hellaswag, arc, truthfulqa, gsm8k, humaneval)
-              or path to a text/jsonl file.
-        split: Override split (default from config).
+        name: One of:
+            - Built-in name (mmlu, hellaswag, arc, truthfulqa, gsm8k, humaneval)
+            - Local file path (text/jsonl)
+            - HuggingFace dataset ID (e.g. 'cais/mmlu', 'allenai/ai2_arc')
+        split: Override split (default: 'test' for built-in, 'train' for HF).
+        text_field: Text field name for HF datasets (default: 'text').
+        n: Max samples for HF datasets (0 = all).
 
     Returns:
         List of benchmark text strings.
     """
-    # Check if it's a file path
+    # 1. Local file
     path = Path(name)
     if path.exists():
         return _load_benchmark_file(path)
 
+    # 2. Built-in benchmark
     name_lower = name.lower()
-    if name_lower not in _BENCHMARK_CONFIGS:
-        raise ValueError(
-            f"Unknown benchmark: {name}. "
-            f"Available: {', '.join(_BENCHMARK_CONFIGS.keys())} or provide a file path."
-        )
+    if name_lower in _BENCHMARK_CONFIGS:
+        return _load_builtin_benchmark(name_lower, split)
 
+    # 3. HuggingFace dataset ID (contains '/')
+    if "/" in name:
+        return _load_hf_benchmark(name, split or "test", text_field, n)
+
+    raise ValueError(
+        f"Unknown benchmark: {name}. "
+        f"Available: {', '.join(_BENCHMARK_CONFIGS.keys())}, a HF dataset ID (org/name), or a local file path."
+    )
+
+def _load_builtin_benchmark(name: str, split: str | None = None) -> list[str]:
+    """Load a built-in benchmark by name."""
     try:
         from datasets import load_dataset
     except ImportError:
@@ -110,10 +123,10 @@ def load_benchmark(name: str, split: str | None = None) -> list[str]:
             "Install with: uv pip install 'dq[bench]'"
         )
 
-    cfg = _BENCHMARK_CONFIGS[name_lower]
+    cfg = _BENCHMARK_CONFIGS[name]
     ds_split = split or cfg["split"]
 
-    logger.info("Loading benchmark '%s' (split=%s)...", name_lower, ds_split)
+    logger.info("Loading benchmark '%s' (split=%s)...", name, ds_split)
 
     kwargs: dict = {"path": cfg["path"], "split": ds_split}
     if "name" in cfg:
@@ -128,7 +141,32 @@ def load_benchmark(name: str, split: str | None = None) -> list[str]:
         if parts:
             texts.append(" ".join(parts))
 
-    logger.info("Loaded %d texts from benchmark '%s'.", len(texts), name_lower)
+    logger.info("Loaded %d texts from benchmark '%s'.", len(texts), name)
+    return texts
+
+
+def _load_hf_benchmark(dataset_id: str, split: str, text_field: str, n: int) -> list[str]:
+    """Load benchmark texts from any HuggingFace dataset via streaming."""
+    try:
+        from datasets import load_dataset
+    except ImportError:
+        raise ImportError(
+            "The `datasets` library is required to load HF benchmarks. "
+            "Install with: uv pip install 'dq[bench]'"
+        )
+
+    logger.info("Loading HF benchmark '%s' (split=%s, streaming)...", dataset_id, split)
+    ds = load_dataset(dataset_id, split=split, streaming=True)
+
+    texts: list[str] = []
+    for item in ds:
+        text = item.get(text_field, "")
+        if text:
+            texts.append(str(text))
+        if n > 0 and len(texts) >= n:
+            break
+
+    logger.info("Loaded %d texts from HF benchmark '%s'.", len(texts), dataset_id)
     return texts
 
 

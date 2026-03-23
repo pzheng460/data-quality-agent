@@ -38,6 +38,54 @@ def _merge_alpaca_fields(item: dict) -> str:
     return "\n".join(p for p in parts if p.strip())
 
 
+def load_hf_dataset(
+    dataset_id: str,
+    n: int = 1000,
+    split: str = "train",
+    text_field: str = "text",
+    seed: int = 42,
+    config: str | None = None,
+) -> list[dict]:
+    """Load n samples from any HuggingFace dataset via streaming.
+
+    Args:
+        dataset_id: HuggingFace dataset ID (e.g. 'allenai/dolma3_mix-6T').
+        n: Number of samples to load.
+        split: Dataset split to use.
+        text_field: Field name containing text.
+        seed: Random seed for reproducibility.
+        config: Optional dataset config/subset name.
+
+    Returns:
+        List of dicts with 'text' field.
+    """
+    load_dataset = _ensure_datasets()
+
+    logger.info("Loading %s (%d samples, streaming)...", dataset_id, n)
+    kwargs: dict[str, Any] = {
+        "split": split,
+        "streaming": True,
+    }
+    if config:
+        kwargs["name"] = config
+
+    try:
+        ds = load_dataset(dataset_id, **kwargs)
+    except Exception as e:
+        raise RuntimeError(f"Failed to load dataset '{dataset_id}': {e}") from e
+
+    samples: list[dict] = []
+    for item in ds:
+        text = item.get(text_field, "")
+        if text:
+            samples.append({"text": text})
+        if len(samples) >= n:
+            break
+
+    logger.info("Loaded %d samples from %s.", len(samples), dataset_id)
+    return samples
+
+
 def load_fineweb_sample(n: int = 1000, seed: int = 42) -> list[dict]:
     """Load n random samples from FineWeb sample-10BT (high-quality pre-training data)."""
     load_dataset = _ensure_datasets()

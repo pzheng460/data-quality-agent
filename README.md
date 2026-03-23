@@ -1,68 +1,51 @@
 # dq — Training Data Quality Agent
 
-A Python CLI tool and library for detecting and filtering low-quality training data for LLM pre-training and SFT fine-tuning.
+A Python CLI for detecting low-quality LLM training data. Single command `dq bench` covers dataset statistics, rule-based quality filters, dedup detection, contamination check, and LLM-based quality assessment.
 
 ## Architecture
 
-**Two-layer quality evaluation:**
-
 - **Layer 1: Rule-based Filters** — deterministic, free, millisecond-level
-  - Pre-training rules: Gopher, C4, FineWeb heuristics + PII detection
-  - SFT rules: empty output, output too short (with closed-form task awareness), instruction copy, AI refusal (hard/soft distinction), language mismatch
+  - Pre-training: Gopher quality/repetition, C4, FineWeb, PII
+  - SFT: empty output, output too short, instruction copy, AI refusal, language mismatch
+  - Dedup: exact duplicate detection (SHA256)
 - **Layer 2: LLM Binary Judge** — semantic quality assessment via LLM API
-  - SFT Judge: instruction_following, factuality, completeness, format_compliance, harmlessness
-  - Pretrain Judge: information_density, coherence, originality
+  - SFT: instruction_following, factuality, completeness, format_compliance, harmlessness
+  - Pretrain: information_density, coherence, originality
+- **Contamination Detection** — n-gram overlap against benchmarks
 
 ## Installation
 
 ```bash
-uv sync
+uv sync                    # Core
+uv sync --extra bench      # + HuggingFace datasets
 ```
 
-For model-based filters (optional):
-```bash
-uv sync --extra model
-```
-
-For benchmark datasets (optional):
-```bash
-uv sync --extra bench
-```
-
-## Quick Start
+## Usage
 
 ```bash
-# Run default pipeline (pre-training data)
-uv run dq run data/train.jsonl -o data/train_clean.jsonl
+# Local file
+dq bench data.jsonl -n 1000
 
-# Run SFT pipeline
-uv run dq run data/sft.jsonl -c configs/sft.yaml -o data/sft_clean.jsonl
+# HuggingFace dataset (streaming, no full download)
+dq bench allenai/dolma3_mix-6T -n 10000
 
-# Chinese pre-training
-uv run dq run data/zh.jsonl -c configs/pretrain_zh.yaml -o data/zh_clean.jsonl
+# With contamination check (built-in benchmarks)
+dq bench data.jsonl --check-contamination mmlu,hellaswag
 
-# Show dataset statistics
-uv run dq stats data/train.jsonl
+# With contamination check (all built-in benchmarks)
+dq bench data.jsonl --check-contamination all
 
-# Dry-run report (no output file)
-uv run dq report data/train.jsonl
+# With contamination check (HuggingFace dataset as benchmark)
+dq bench data.jsonl --check-contamination cais/mmlu
 
-# Dedup only
-uv run dq dedup data/train.jsonl -o data/train_deduped.jsonl
+# With contamination check (local file as benchmark)
+dq bench data.jsonl --check-contamination /path/to/benchmark.jsonl
 
-# Random sample
-uv run dq sample data/huge.jsonl -n 5000 -o data/sample.jsonl
-
-# Score documents without filtering
-uv run dq score data/train.jsonl -o scored.jsonl
-
-# Check contamination against common benchmarks
-uv run dq contamination data/train.jsonl --benchmarks mmlu,hellaswag,arc
-
-# Run benchmark
-uv run dq bench
-uv run dq bench --with-llm-scoring --llm-samples 50
+# With Layer 2 LLM judge
+dq bench data.jsonl --with-llm-scoring --llm-samples 50
 ```
+
+Reports are saved to `reports/` by default (JSON + Markdown). Override with `-o`.
 
 ## Layer 1: Rule-based Filters
 
@@ -70,9 +53,9 @@ uv run dq bench --with-llm-scoring --llm-samples 50
 
 | Filter | Description | Source |
 |--------|-------------|--------|
-| `gopher_quality` | Word count (min/max), avg word length, symbol ratio, punctuation, stopwords, alpha ratio | Gopher (Rae et al., 2021) |
-| `gopher_repetition` | Word-level duplicate n-gram fractions (5-10 gram), duplicate lines/paragraphs, top n-gram ratios | Gopher |
-| `c4` | Line-level cleaning (javascript/policy/no-punct removal), then sentence count check | C4 (Raffel et al., 2020) |
+| `gopher_quality` | Word count, avg word length, symbol ratio, punctuation, stopwords, alpha ratio | Gopher (Rae et al., 2021) |
+| `gopher_repetition` | Duplicate n-gram fractions (5-10 gram), duplicate lines/paragraphs, top n-gram ratios | Gopher |
+| `c4` | Line-level cleaning (javascript/policy/no-punct removal), sentence count check | C4 (Raffel et al., 2020) |
 | `fineweb` | List document detection, duplicate lines, bad line breaks | FineWeb (Penedo et al., 2024) |
 | `pii` | Email, IP, CN phone, CN ID card, bank card detection/redaction | — |
 
@@ -82,78 +65,47 @@ uv run dq bench --with-llm-scoring --llm-samples 50
 |------|-------------|
 | `missing_sft_fields` | Rejects data without instruction/output structure |
 | `empty_output` | Empty response |
-| `output_too_short` | Response too short for instruction length (with closed-form task awareness per InsTag) |
+| `output_too_short` | Response too short (with closed-form task awareness per InsTag) |
 | `instruction_copy` | Response copies the instruction |
-| `ai_refusal` | Hard refusal ("I cannot") always rejects; soft refusal ("As an AI...") only if < 50 words |
+| `ai_refusal` | Hard refusal always rejects; soft refusal only if < 50 words |
 | `language_mismatch` | Instruction and response in different languages |
 
-SFT filter auto-detects common field names: `instruction`/`output`, `prompt`/`response`, `question`/`answer`, `conversations` (ShareGPT format).
-
-### Deduplication
-
-| Method | Description |
-|--------|-------------|
-| Exact (SHA256) | Hash-based exact duplicate removal |
-| MinHash LSH | Near-duplicate detection (5-gram, 112 perms, 14×8 bands, ~0.75 Jaccard) |
+Auto-detects SFT field names: `instruction`/`output`, `prompt`/`response`, `question`/`answer`, `conversations` (ShareGPT).
 
 ## Layer 2: LLM Binary Judge
 
-**Unified LLM Judge** — Single data-driven judge that automatically detects data type and applies appropriate rules.
-
-Uses rule-based binary classification (HIGH/LOW) instead of absolute 1-6 scoring. Each document is evaluated against specific rules via LLM API.
-
-| Judge | Rules | Use Case |
-|-------|-------|----------|
-| SFT Judge | instruction_following, factuality, completeness, format_compliance, harmlessness | SFT data |
-| Pretrain Judge | information_density, coherence, originality | Pre-training data |
+Data-driven binary classification (HIGH/LOW) via LLM API. Auto-detects data type and applies appropriate rules.
 
 ```python
 from dq.judge import LLMJudge
 
-# Unified judge — automatically detects SFT vs pretrain
 judge = LLMJudge()
-
-# SFT data (auto-detected)
 result = judge.judge_sft("Explain quantum computing", "Quantum computing uses qubits...")
 # {"quality": "high", "rules": {...}, "failed_rules": []}
-
-# Pretrain data
-result = judge.judge_text("Article about physics...")
-# {"quality": "low", "rules": {...}, "failed_rules": ["originality"]}
 ```
 
-**Adding New Rules**: Simply append to the RULES list in `src/dq/judge.py` — data-driven approach with no code changes needed.
+Requires env vars: `DQ_API_BASE_URL`, `DQ_API_KEY`, `DQ_MODEL`.
 
 ## Contamination Detection
 
-| Method | Description | Source |
-|--------|-------------|--------|
-| N-gram | 13-gram overlap detection (fast, no model needed) | GPT-3 / Llama decontamination |
-| Min-K% Prob | Token log-prob analysis for memorization detection | Shi et al., 2023 |
-| TS-Guessing | MCQ contamination via choice-only guessing | Time Travel in LLMs |
-
-## Model-Based Filters (Optional)
-
-Require `uv sync --extra model`. Gracefully skip if dependencies missing.
-
-| Filter | Description | Source |
-|--------|-------------|--------|
-| `fasttext_quality` | Binary quality classifier | DCLM (Li et al., 2024) |
-| `perplexity` | Small LM perplexity filter | CCNet / Llama 3 |
+N-gram overlap detection against benchmark datasets. Supports:
+- Built-in benchmarks: mmlu, hellaswag, arc, truthfulqa, gsm8k, humaneval
+- Any HuggingFace dataset ID (e.g. `cais/mmlu`)
+- Local files (text/jsonl)
 
 ## Configuration
 
 YAML config files in `configs/`:
 
-- `configs/default.yaml` — Standard English pre-training
+- `configs/default.yaml` — English pre-training
 - `configs/pretrain_zh.yaml` — Chinese pre-training (CJK-aware)
-- `configs/sft.yaml` — SFT data (SFT rules + PII only, no pre-training heuristics)
+- `configs/sft.yaml` — SFT data (SFT rules + PII only)
 
-## Benchmark Results
+## Benchmark Results (Layer 1, 1000 samples)
 
-### Layer 1: Pre-training Rules (1000 samples each)
+**Pre-training:**
 
-| Dataset | PASS Rate |
+| Dataset | Pass Rate |
 |---------|:---------:|
 | TinyStories | 99.4% |
 | OpenWebText | 94.1% |
@@ -163,101 +115,67 @@ YAML config files in `configs/`:
 | C4 | 86.6% |
 | Wikitext-103 | 47.4% |
 
-### Layer 1: SFT Rules (1000 samples each)
+**SFT:**
 
-| Dataset | PASS Rate |
+| Dataset | Pass Rate |
 |---------|:---------:|
 | Dolly | 99.8% |
 | Alpaca GPT-4 | 99.8% |
 | No Robots | 99.6% |
-| Alpaca Orig | 99.6% |
-| UltraChat | 99.3% |
 | GPT4All | 99.7% |
 | WizardLM | 98.3% |
 | OpenOrca | 95.0% |
 
-Pre-training data gets 0% on SFT rules (`missing_sft_fields`), confirming correct rejection.
-
 ## Supported Formats
 
-- JSONL (`.jsonl`) — default
-- Parquet (`.parquet`)
-- CSV (`.csv`)
-
-## Chinese Text Support
-
-- CJK characters treated as individual words
-- Chinese punctuation recognized (`。！？；`)
-- PII: CN phone numbers, ID cards, bank cards
-- Tuned thresholds in `pretrain_zh.yaml`
+JSONL (`.jsonl`), Parquet (`.parquet`), CSV (`.csv`)
 
 ## Development
 
 ```bash
-uv run pytest        # 254 tests
-uv run pytest -v     # verbose
+uv run pytest          # Run all tests
 ```
 
 ## Project Structure
 
 ```
 src/dq/
-├── cli.py                  # CLI entry point (click)
-├── pipeline.py             # Pipeline orchestrator + auto-scan filter registry
-├── config.py               # YAML-based config
-├── judge.py                # Unified LLM Binary Judge (Layer 2)
-├── benchmark/              # Multi-dataset benchmark runner (package)
-│   ├── __init__.py         #   Backward-compatible re-exports
+├── cli.py                  # CLI — single `dq bench` command
+├── pipeline.py             # Pipeline orchestrator + filter registry
+├── config.py               # YAML config loader
+├── judge.py                # LLM Binary Judge (Layer 2)
+├── llm_client.py           # Shared OpenAI-compatible client
+├── benchmark/              # Benchmark runner
 │   ├── runner.py           #   run_benchmark, run_llm_scoring
-│   ├── datasets.py         #   Dataset loading functions
+│   ├── datasets.py         #   Dataset loading (local + HuggingFace)
 │   ├── types.py            #   BenchmarkReport, DatasetResult, etc.
-│   └── utils.py            #   detect_data_type, _extract_sft_fields
-├── benchmark_report.py     # Rich/Markdown/JSON report output
-├── llm_client.py           # Shared OpenAI-compatible LLM client
-├── report.py               # JSON + Markdown report generation
+│   └── utils.py            #   detect_data_type, SFT field extraction
+├── benchmark_report.py     # Report output (Rich/Markdown/JSON)
 ├── filters/                # Layer 1: Rule-based filters
-│   ├── __init__.py         #   Auto-scan filter registration
 │   ├── gopher.py           #   Gopher quality + repetition
 │   ├── c4.py               #   C4 filters
 │   ├── fineweb.py          #   FineWeb filters
-│   ├── sft_rules.py        #   SFT-specific rules (filter() delegates to filter_detailed())
+│   ├── sft_rules.py        #   SFT rules
 │   └── pii.py              #   PII detection/redaction
-├── dedup/                  # Deduplication
+├── dedup/                  # Deduplication (used in bench stats)
 │   ├── exact.py            #   SHA256 exact dedup
-│   ├── minhash.py          #   MinHash LSH near-dedup
-│   └── semantic.py         #   Semantic dedup (stub)
-├── model_filters/          # Model-based filters
-│   ├── fasttext_quality.py   # FastText quality classifier
-│   └── perplexity.py         # Perplexity filter
-├── sft/                    # SFT-specific modules
-│   └── diversity.py        #   Embedding diversity filter
-├── contamination/          # Contamination detection (standalone analysis)
-│   ├── __init__.py         #   Standalone tool, not pipeline filter
-│   ├── ngram.py            #   N-gram overlap
-│   ├── min_k_prob.py       #   Min-K% Prob
-│   ├── ts_guessing.py      #   TS-Guessing for MCQ
-│   └── report.py           #   Contamination reports
+│   └── minhash.py          #   MinHash LSH near-dedup
+├── contamination/          # Contamination detection
+│   ├── ngram.py            #   N-gram overlap (built-in + HF + local)
+│   └── report.py           #   Reports
 └── utils/                  # Utilities
-    ├── io.py               #   File I/O (JSONL/Parquet/CSV)
+    ├── io.py               #   File I/O
     ├── stats.py            #   Text statistics
     └── tokenizer.py        #   Tokenization
 ```
-
-**Architecture Notes**:
-- **Auto-scan filter registration**: `ensure_registered()` automatically discovers filters — no manual imports
-- **Single source of truth**: `SFT_DETECT_FIELDS` from `sft_rules.py` used throughout
-- **Unified judge**: `judge.py` replaces separate SFT/pretrain judges
-- **Dead code removed**: DEITA diversity filter, 1-6 scale scorers, llm_scorer.py
 
 ## References
 
 - Gopher (Rae et al., 2021) — Pre-training quality/repetition heuristics
 - C4 (Raffel et al., 2020) — Line-level cleaning + sentence filtering
 - FineWeb (Penedo et al., 2024) — Web-scale dedup and filtering
-- DEITA (Liu et al., 2024) — Automatic data selection for instruction tuning
-- AlpaGasus (Chen et al., 2023) — LLM-based SFT data filtering
 - InsTag (Lu et al., 2023) — Instruction tagging (open-ended vs closed-form)
-- FineWeb-Edu (Lozhkov et al., 2024) — Educational quality classification
+- AlpaGasus (Chen et al., 2023) — LLM-based SFT data filtering
 
 ## License
 

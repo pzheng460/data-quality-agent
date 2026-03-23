@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .datasets import load_alpaca_original, load_alpaca_cleaned
-from .types import BenchmarkReport, DatasetResult, FilterResult, RuleStats, SFTScores, PretrainScores
+from .types import BenchmarkReport, DatasetResult, DatasetStats, DedupStats, FilterResult, RuleStats, SFTScores, PretrainScores
 from .utils import detect_data_type, _extract_sft_fields
 
 logger = logging.getLogger(__name__)
@@ -99,6 +99,28 @@ def run_benchmark(
         # Use appropriate config
         config = sft_config if ds_type == "sft" else pretrain_config
 
+        # Compute basic dataset stats
+        from dq.utils.stats import word_count as wc_fn, avg_word_length as awl_fn
+        from dq.dedup.exact import ExactDedup
+        word_counts = [wc_fn(d.get("text", "")) for d in docs]
+
+        # Exact dedup detection (lightweight, no filtering)
+        exact = ExactDedup(text_field="text")
+        list(exact.dedup(docs))  # consume to compute stats
+        dedup_info = DedupStats(
+            exact_duplicates=exact.duplicate_docs,
+            duplicate_rate=exact.duplicate_docs / exact.total_docs if exact.total_docs > 0 else 0.0,
+        )
+
+        ds_stats = DatasetStats(
+            avg_word_count=sum(word_counts) / len(word_counts) if word_counts else 0.0,
+            min_word_count=min(word_counts) if word_counts else 0,
+            max_word_count=max(word_counts) if word_counts else 0,
+            avg_word_length=sum(awl_fn(d.get("text", "")) for d in docs) / len(docs) if docs else 0.0,
+            fields=list(docs[0].keys()) if docs else [],
+            dedup=dedup_info,
+        )
+
         logger.info("Running pipeline on '%s' (%d docs, type=%s)...", ds_name, len(docs), ds_type)
         pipeline = Pipeline(config)
         list(pipeline.run(iter(docs)))
@@ -129,6 +151,7 @@ def run_benchmark(
             per_filter_pass_rate=per_filter_pass_rate,
             overall_pass_rate=overall,
             data_type=ds_type,
+            dataset_stats=ds_stats,
         )
         report.datasets[ds_name] = result
 

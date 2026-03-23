@@ -1,7 +1,7 @@
 """Pipeline orchestrator that chains filters and tracks stats."""
 
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+from typing import Iterator
 
 from dq.config import PipelineConfig
 from dq.filters.base import BaseFilter
