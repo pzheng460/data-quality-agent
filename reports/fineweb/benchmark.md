@@ -20,9 +20,10 @@
 | Metric | Value |
 |--------|-------|
 | Total documents | 1000 |
-| Passed | 908 |
+| Passed (all filters) | 908 |
 | Failed | 92 |
-| Overall pass rate | 90.8% |
+| Average pass rate (per filter) | 98.0% |
+| Overall pass rate (pass all) | 90.8% |
 
 ## Per-Filter Statistics
 

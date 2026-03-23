@@ -1,0 +1,217 @@
+{
+  "config_path": null,
+  "num_samples": 1000,
+  "llm_scoring_enabled": false,
+  "llm_samples": 0,
+  "datasets": {
+    "wikitext": {
+      "num_docs": 1000,
+      "overall_pass_rate": 0.474,
+      "data_type": "pretrain",
+      "per_filter": {
+        "gopher_quality": {
+          "total": 1000,
+          "passed": 509,
+          "failed": 491,
+          "pass_rate": 0.509,
+          "sample_failed": [
+            {
+              "text_preview": " = Valkyria Chronicles III = \n",
+              "reason": {
+                "filter": "gopher_quality",
+                "reason": "min_words",
+                "value": 5
+              }
+            },
+            {
+              "text_preview": " = = Gameplay = = \n",
+              "reason": {
+                "filter": "gopher_quality",
+                "reason": "min_words",
+                "value": 5
+              }
+            },
+            {
+              "text_preview": " = = Plot = = \n",
+              "reason": {
+                "filter": "gopher_quality",
+                "reason": "min_words",
+                "value": 5
+              }
+            }
+          ],
+          "rules": {
+            "min_words": {
+              "total": 1000,
+              "passed": 555,
+              "failed": 445,
+              "pass_rate": 0.555
+            },
+            "lines_end_punct": {
+              "total": 1000,
+              "passed": 579,
+              "failed": 421,
+              "pass_rate": 0.579
+            },
+            "stopwords": {
+              "total": 1000,
+              "passed": 690,
+              "failed": 310,
+              "pass_rate": 0.69
+            },
+            "min_avg_word_len": {
+              "total": 1000,
+              "passed": 823,
+              "failed": 177,
+              "pass_rate": 0.823
+            },
+            "alpha_ratio": {
+              "total": 1000,
+              "passed": 766,
+              "failed": 234,
+              "pass_rate": 0.766
+            }
+          }
+        },
+        "gopher_repetition": {
+          "total": 1000,
+          "passed": 673,
+          "failed": 327,
+          "pass_rate": 0.673,
+          "sample_failed": [
+            {
+              "text_preview": " = Valkyria Chronicles III = \n",
+              "reason": {
+                "filter": "gopher_repetition",
+                "reason": "top_2gram",
+                "value": 0.25
+              }
+            },
+            {
+              "text_preview": " = = Gameplay = = \n",
+              "reason": {
+                "filter": "gopher_repetition",
+                "reason": "top_2gram",
+                "value": 0.5
+              }
+            },
+            {
+              "text_preview": " = = Plot = = \n",
+              "reason": {
+                "filter": "gopher_repetition",
+                "reason": "top_2gram",
+                "value": 0.5
+              }
+            }
+          ],
+          "rules": {
+            "top_2gram": {
+              "total": 1000,
+              "passed": 734,
+              "failed": 266,
+              "pass_rate": 0.734
+            },
+            "top_3gram": {
+              "total": 1000,
+              "passed": 734,
+              "failed": 266,
+              "pass_rate": 0.734
+            },
+            "top_4gram": {
+              "total": 1000,
+              "passed": 712,
+              "failed": 288,
+              "pass_rate": 0.712
+            },
+            "dup_9gram_frac": {
+              "total": 1000,
+              "passed": 999,
+              "failed": 1,
+              "pass_rate": 0.999
+            }
+          }
+        },
+        "c4": {
+          "total": 1000,
+          "passed": 517,
+          "failed": 483,
+          "pass_rate": 0.517,
+          "sample_failed": [
+            {
+              "text_preview": " = Valkyria Chronicles III = \n",
+              "reason": {
+                "filter": "c4",
+                "reason": "empty_after_line_filter",
+                "value": "no_terminal_punct(1)"
+              }
+            },
+            {
+              "text_preview": " = = Gameplay = = \n",
+              "reason": {
+                "filter": "c4",
+                "reason": "empty_after_line_filter",
+                "value": "no_terminal_punct(1)"
+              }
+            },
+            {
+              "text_preview": " = = Plot = = \n",
+              "reason": {
+                "filter": "c4",
+                "reason": "empty_after_line_filter",
+                "value": "no_terminal_punct(1)"
+              }
+            }
+          ],
+          "rules": {
+            "empty_after_line_filter": {
+              "total": 1000,
+              "passed": 614,
+              "failed": 386,
+              "pass_rate": 0.614
+            },
+            "min_sentences": {
+              "total": 1000,
+              "passed": 903,
+              "failed": 97,
+              "pass_rate": 0.903
+            }
+          }
+        },
+        "fineweb": {
+          "total": 1000,
+          "passed": 1000,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "sample_failed": [],
+          "rules": {}
+        },
+        "pii": {
+          "total": 1000,
+          "passed": 1000,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "sample_failed": [],
+          "rules": {}
+        }
+      },
+      "per_filter_pass_rate": {
+        "gopher_quality": 0.509,
+        "gopher_repetition": 0.673,
+        "c4": 0.517,
+        "fineweb": 1.0,
+        "pii": 1.0
+      },
+      "dataset_stats": {
+        "avg_word_count": 88.0,
+        "min_word_count": 2,
+        "max_word_count": 542,
+        "avg_word_length": 3.9,
+        "fields": [
+          "text"
+        ],
+        "exact_duplicates": 15,
+        "duplicate_rate": 0.015
+      }
+    }
+  }
+}

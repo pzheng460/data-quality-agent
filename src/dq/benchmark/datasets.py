@@ -79,6 +79,18 @@ def load_hf_dataset(
         text = item.get(text_field, "")
         if text:
             samples.append({"text": text})
+        else:
+            # No text field — keep all original fields and synthesize 'text'
+            # by joining all string values (for SFT datasets like Dolly)
+            doc: dict[str, Any] = {}
+            text_parts: list[str] = []
+            for k, v in item.items():
+                if isinstance(v, str) and v.strip():
+                    doc[k] = v
+                    text_parts.append(v)
+            if text_parts:
+                doc["text"] = "\n".join(text_parts)
+                samples.append(doc)
         if len(samples) >= n:
             break
 

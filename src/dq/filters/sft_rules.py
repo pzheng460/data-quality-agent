@@ -175,30 +175,32 @@ class SFTRulesFilter(BaseFilter):
         instruction = doc.get(self.instruction_field, "") or ""
         output = doc.get(self.output_field, "") or ""
 
-        if instruction or output:
-            return instruction, output, True
-
         # Handle conversations format (ShareGPT/WizardLM)
-        convs = doc.get("conversations", [])
-        if convs and isinstance(convs, list) and len(convs) >= 1:
-            first = convs[0] if isinstance(convs[0], dict) else {}
-            instruction = first.get("value", "") or first.get("content", "")
-            if len(convs) >= 2:
-                second = convs[1] if isinstance(convs[1], dict) else {}
-                output = second.get("value", "") or second.get("content", "")
-            return instruction, output, True
+        if not instruction and not output:
+            convs = doc.get("conversations", [])
+            if convs and isinstance(convs, list) and len(convs) >= 1:
+                first = convs[0] if isinstance(convs[0], dict) else {}
+                instruction = first.get("value", "") or first.get("content", "")
+                if len(convs) >= 2:
+                    second = convs[1] if isinstance(convs[1], dict) else {}
+                    output = second.get("value", "") or second.get("content", "")
+                return instruction, output, True
 
-        # Check common alternative field names before giving up
-        for ifield in ("prompt", "input", "question", "query", "human"):
-            val = doc.get(ifield, "")
-            if val:
-                instruction = val
-                break
-        for ofield in ("response", "answer", "reply", "assistant", "completion"):
-            val = doc.get(ofield, "")
-            if val:
-                output = val
-                break
+        # Fill missing instruction from alternative field names
+        if not instruction:
+            for ifield in ("prompt", "input", "question", "query", "human"):
+                val = doc.get(ifield, "")
+                if val:
+                    instruction = val
+                    break
+
+        # Fill missing output from alternative field names
+        if not output:
+            for ofield in ("response", "answer", "reply", "assistant", "completion"):
+                val = doc.get(ofield, "")
+                if val:
+                    output = val
+                    break
 
         if instruction or output:
             return instruction, output, True

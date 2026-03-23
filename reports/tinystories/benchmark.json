@@ -1,0 +1,141 @@
+{
+  "config_path": null,
+  "num_samples": 1000,
+  "llm_scoring_enabled": false,
+  "llm_samples": 0,
+  "datasets": {
+    "TinyStories": {
+      "num_docs": 1000,
+      "overall_pass_rate": 0.994,
+      "data_type": "pretrain",
+      "per_filter": {
+        "gopher_quality": {
+          "total": 1000,
+          "passed": 996,
+          "failed": 4,
+          "pass_rate": 0.996,
+          "sample_failed": [
+            {
+              "text_preview": "Once upon a time there was a mom and a child who liked to go for walks together. One day, when they stepped outside, the mom pointed to the sky and said to the child, \"Look, can you see the sun up the",
+              "reason": {
+                "filter": "gopher_quality",
+                "reason": "lines_end_punct",
+                "value": 0.0
+              }
+            },
+            {
+              "text_preview": "Once upon a time, there was a little girl named Lily. She wanted to go on a trip with her family, so she packed her luggage. Her mom said, \"Lily, don't forget to pack your favorite dress.\" \n\nLily repl",
+              "reason": {
+                "filter": "gopher_quality",
+                "reason": "lines_end_punct",
+                "value": 0.0
+              }
+            },
+            {
+              "text_preview": "Once upon a time, there was a little girl named Lily. She loved to bake cookies with her mom. One day, Lily's mom said, \"Lily, let's bake some cookies today!\" Lily was so happy and said, \"Yay! I love ",
+              "reason": {
+                "filter": "gopher_quality",
+                "reason": "lines_end_punct",
+                "value": 0.0
+              }
+            }
+          ],
+          "rules": {
+            "lines_end_punct": {
+              "total": 1000,
+              "passed": 996,
+              "failed": 4,
+              "pass_rate": 0.996
+            }
+          }
+        },
+        "gopher_repetition": {
+          "total": 1000,
+          "passed": 998,
+          "failed": 2,
+          "pass_rate": 0.998,
+          "sample_failed": [
+            {
+              "text_preview": "Sara was a smart girl who liked to read books and learn new things. She had many books in her room, but she wanted more. She asked her mom and dad to buy her more books, but they said no. They said sh",
+              "reason": {
+                "filter": "gopher_repetition",
+                "reason": "dup_5gram_frac",
+                "value": 0.16050137572607764
+              }
+            },
+            {
+              "text_preview": "Tom and Sue are twins. They like to play with their toys and talk to each other. Sometimes they repeat what the other one says, like a game.\n\nOne day, they find a big balloon in the closet. It is red ",
+              "reason": {
+                "filter": "gopher_repetition",
+                "reason": "dup_5gram_frac",
+                "value": 0.22388859132297803
+              }
+            }
+          ],
+          "rules": {
+            "dup_5gram_frac": {
+              "total": 1000,
+              "passed": 998,
+              "failed": 2,
+              "pass_rate": 0.998
+            },
+            "dup_6gram_frac": {
+              "total": 1000,
+              "passed": 999,
+              "failed": 1,
+              "pass_rate": 0.999
+            },
+            "dup_10gram_frac": {
+              "total": 1000,
+              "passed": 999,
+              "failed": 1,
+              "pass_rate": 0.999
+            }
+          }
+        },
+        "c4": {
+          "total": 1000,
+          "passed": 1000,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "sample_failed": [],
+          "rules": {}
+        },
+        "fineweb": {
+          "total": 1000,
+          "passed": 1000,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "sample_failed": [],
+          "rules": {}
+        },
+        "pii": {
+          "total": 1000,
+          "passed": 1000,
+          "failed": 0,
+          "pass_rate": 1.0,
+          "sample_failed": [],
+          "rules": {}
+        }
+      },
+      "per_filter_pass_rate": {
+        "gopher_quality": 0.996,
+        "gopher_repetition": 0.998,
+        "c4": 1.0,
+        "fineweb": 1.0,
+        "pii": 1.0
+      },
+      "dataset_stats": {
+        "avg_word_count": 183.8,
+        "min_word_count": 61,
+        "max_word_count": 837,
+        "avg_word_length": 4.12,
+        "fields": [
+          "text"
+        ],
+        "exact_duplicates": 0,
+        "duplicate_rate": 0.0
+      }
+    }
+  }
+}

@@ -1,0 +1,293 @@
+{
+  "config_path": null,
+  "num_samples": 1000,
+  "llm_scoring_enabled": false,
+  "llm_samples": 0,
+  "datasets": {
+    "openwebtext": {
+      "num_docs": 1000,
+      "overall_pass_rate": 0.907,
+      "data_type": "pretrain",
+      "per_filter": {
+        "gopher_quality": {
+          "total": 1000,
+          "passed": 979,
+          "failed": 21,
+          "pass_rate": 0.979,
+          "sample_failed": [
+            {
+              "text_preview": "Get cool in-game extras with amiibo accessories! Just tap to score new characters, game modes, or other perks.\n\nOne amiibo may work with multiple games. You might get new outfits, power-ups, or other ",
+              "reason": {
+                "filter": "gopher_quality",
+                "reason": "lines_end_punct",
+                "value": 0.07692307692307693
+              }
+            },
+            {
+              "text_preview": "No. 1 - Retired for Billy Martin Earle Combs 1929-1935 George Selkirk 1934 Roy Johnson 1936 Frank Crosetti 1937-1944 Tuck Stainback 1944 George Stirnweiss 1945-1950 BILLY MARTIN 1951-1957 Bobby Richar",
+              "reason": {
+                "filter": "gopher_quality",
+                "reason": "lines_end_punct",
+                "value": 0.0
+              }
+            },
+            {
+              "text_preview": "At the sacred convocation of Concordia Lutheran Seminary, Edmonton (25 May), and the Call Service of Concordia Lutheran Theological Seminary, St. Catharines (27 May), the following placements were ann",
+              "reason": {
+                "filter": "gopher_quality",
+                "reason": "lines_end_punct",
+                "value": 0.058823529411764705
+              }
+            }
+          ],
+          "rules": {
+            "lines_end_punct": {
+              "total": 1000,
+              "passed": 981,
+              "failed": 19,
+              "pass_rate": 0.981
+            },
+            "alpha_ratio": {
+              "total": 1000,
+              "passed": 997,
+              "failed": 3,
+              "pass_rate": 0.997
+            }
+          }
+        },
+        "gopher_repetition": {
+          "total": 1000,
+          "passed": 977,
+          "failed": 23,
+          "pass_rate": 0.977,
+          "sample_failed": [
+            {
+              "text_preview": "Today, Toyota announced changes in executives’ areas of responsibility, as well as personnel changes at the sub-executive managerial level. The most important change by far is the appointment of Akio ",
+              "reason": {
+                "filter": "gopher_repetition",
+                "reason": "dup_5gram_frac",
+                "value": 0.1749605055292259
+              }
+            },
+            {
+              "text_preview": "EU politics: renewing the wedding vows 19/01/2015\n\nFollow @eureferendum\n\nJean-Claude Juncker says he is prepared to examine the UK's demands on how the EU should change – or so we are told by caveat: ",
+              "reason": {
+                "filter": "gopher_repetition",
+                "reason": "dup_5gram_frac",
+                "value": 0.42162709575784857
+              }
+            },
+            {
+              "text_preview": "If you live abroad and are requesting an ITIN for a foreign child who has been adopted or legally placed in your home pending adoption, remember to include a copy of the legal documents evidencing you",
+              "reason": {
+                "filter": "gopher_repetition",
+                "reason": "dup_line_ratio",
+                "value": 1.0
+              }
+            }
+          ],
+          "rules": {
+            "dup_5gram_frac": {
+              "total": 1000,
+              "passed": 983,
+              "failed": 17,
+              "pass_rate": 0.983
+            },
+            "dup_6gram_frac": {
+              "total": 1000,
+              "passed": 983,
+              "failed": 17,
+              "pass_rate": 0.983
+            },
+            "dup_7gram_frac": {
+              "total": 1000,
+              "passed": 985,
+              "failed": 15,
+              "pass_rate": 0.985
+            },
+            "dup_8gram_frac": {
+              "total": 1000,
+              "passed": 985,
+              "failed": 15,
+              "pass_rate": 0.985
+            },
+            "dup_9gram_frac": {
+              "total": 1000,
+              "passed": 984,
+              "failed": 16,
+              "pass_rate": 0.984
+            },
+            "dup_10gram_frac": {
+              "total": 1000,
+              "passed": 984,
+              "failed": 16,
+              "pass_rate": 0.984
+            },
+            "dup_line_ratio": {
+              "total": 1000,
+              "passed": 995,
+              "failed": 5,
+              "pass_rate": 0.995
+            },
+            "dup_para_ratio": {
+              "total": 1000,
+              "passed": 995,
+              "failed": 5,
+              "pass_rate": 0.995
+            }
+          }
+        },
+        "c4": {
+          "total": 1000,
+          "passed": 976,
+          "failed": 24,
+          "pass_rate": 0.976,
+          "sample_failed": [
+            {
+              "text_preview": "No. 1 - Retired for Billy Martin Earle Combs 1929-1935 George Selkirk 1934 Roy Johnson 1936 Frank Crosetti 1937-1944 Tuck Stainback 1944 George Stirnweiss 1945-1950 BILLY MARTIN 1951-1957 Bobby Richar",
+              "reason": {
+                "filter": "c4",
+                "reason": "empty_after_line_filter",
+                "value": "no_terminal_punct(2)"
+              }
+            },
+            {
+              "text_preview": "Caution: JavaScript execution is disabled in your browser or for this website. You may not be able to answer all questions in this survey. Please, verify your browser parameters.\n\ngovTogether Feedback",
+              "reason": {
+                "filter": "c4",
+                "reason": "empty_after_line_filter",
+                "value": "javascript(1), no_terminal_punct(1)"
+              }
+            },
+            {
+              "text_preview": "Lea Michele broke the news on Monday that she would be appearing on the seventh and final season of FX’s Sons of Amarchy by excitedly tweeting, “I’ll be appearing on an episode of my favorite show @So",
+              "reason": {
+                "filter": "c4",
+                "reason": "min_sentences",
+                "value": "sentences=2 after removing no_terminal_punct_removed(4)"
+              }
+            }
+          ],
+          "rules": {
+            "empty_after_line_filter": {
+              "total": 1000,
+              "passed": 983,
+              "failed": 17,
+              "pass_rate": 0.983
+            },
+            "min_sentences": {
+              "total": 1000,
+              "passed": 993,
+              "failed": 7,
+              "pass_rate": 0.993
+            }
+          }
+        },
+        "fineweb": {
+          "total": 1000,
+          "passed": 995,
+          "failed": 5,
+          "pass_rate": 0.995,
+          "sample_failed": [
+            {
+              "text_preview": "If you live abroad and are requesting an ITIN for a foreign child who has been adopted or legally placed in your home pending adoption, remember to include a copy of the legal documents evidencing you",
+              "reason": {
+                "filter": "fineweb",
+                "reason": "dup_line_ratio",
+                "value": 1.0
+              }
+            },
+            {
+              "text_preview": "It was Dec. 1, 2013. With the score at 7-7 in the second quarter, the Philadelphia Eagles marched to the Arizona Cardinals’ 6-yard line. It was at this moment when Chip Kelly unveiled a surprising wri",
+              "reason": {
+                "filter": "fineweb",
+                "reason": "dup_line_ratio",
+                "value": 0.36
+              }
+            },
+            {
+              "text_preview": "Document number: N2271=07-0131 Date: 2007-04-27 Reply to: Paul Pedriana\n\nElectronic Arts\n\nppedriana at ea.com\n\nEASTL -- Electronic Arts Standard Template Library\n\nPaul Pedriana\n\nElectronic Arts\n\nppedr",
+              "reason": {
+                "filter": "fineweb",
+                "reason": "dup_line_ratio",
+                "value": 0.44417670682730925
+              }
+            }
+          ],
+          "rules": {
+            "dup_line_ratio": {
+              "total": 1000,
+              "passed": 995,
+              "failed": 5,
+              "pass_rate": 0.995
+            }
+          }
+        },
+        "pii": {
+          "total": 1000,
+          "passed": 954,
+          "failed": 46,
+          "pass_rate": 0.954,
+          "sample_failed": [
+            {
+              "text_preview": "He was a few blocks from home, waiting for a bus in the cold, checking emails on his phone, when Coun. Matthew Green was stopped and questioned for several minutes by a Hamilton Police officer who see",
+              "reason": {
+                "filter": "pii",
+                "reason": "email",
+                "value": 1
+              }
+            },
+            {
+              "text_preview": "It’s a well-kept secret, but 95% of the climate models we are told prove the link between human CO₂ emissions and catastrophic global warming have been found, after nearly two decades of temperature s",
+              "reason": {
+                "filter": "pii",
+                "reason": "email",
+                "value": 1
+              }
+            },
+            {
+              "text_preview": "Two of the three investigations into the actions of Salt Lake City Police officers Detective Jeff Payne and Lt. James Tracy following Payne’s arrest of University of Utah Health nurse Alex Wubbels hav",
+              "reason": {
+                "filter": "pii",
+                "reason": "email",
+                "value": 1
+              }
+            }
+          ],
+          "rules": {
+            "email": {
+              "total": 1000,
+              "passed": 955,
+              "failed": 45,
+              "pass_rate": 0.955
+            },
+            "bank_card": {
+              "total": 1000,
+              "passed": 999,
+              "failed": 1,
+              "pass_rate": 0.999
+            }
+          }
+        }
+      },
+      "per_filter_pass_rate": {
+        "gopher_quality": 0.979,
+        "gopher_repetition": 0.977,
+        "c4": 0.976,
+        "fineweb": 0.995,
+        "pii": 0.954
+      },
+      "dataset_stats": {
+        "avg_word_count": 822.2,
+        "min_word_count": 128,
+        "max_word_count": 14787,
+        "avg_word_length": 4.98,
+        "fields": [
+          "text"
+        ],
+        "exact_duplicates": 0,
+        "duplicate_rate": 0.0
+      }
+    }
+  }
+}

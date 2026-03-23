@@ -1,0 +1,90 @@
+{
+  "config_path": null,
+  "num_samples": 1000,
+  "llm_scoring_enabled": false,
+  "llm_samples": 0,
+  "datasets": {
+    "databricks-dolly-15k": {
+      "num_docs": 1000,
+      "overall_pass_rate": 0.997,
+      "data_type": "sft",
+      "per_filter": {
+        "sft_rules": {
+          "total": 1000,
+          "passed": 998,
+          "failed": 2,
+          "pass_rate": 0.998,
+          "sample_failed": [
+            {
+              "text_preview": "Classify each of the following as either titles by J.K. Rowling or Suzanne Collins: Harry Potter and the Sorcerer's Stone, The Ickabog, Fantastic Beasts and Where to Find Them, The Cuckoo's Calling, H",
+              "reason": {
+                "filter": "sft_rules",
+                "reason": "instruction_copy",
+                "value": 0.805
+              }
+            },
+            {
+              "text_preview": "Which films contain Tom Cruise and which do not contain Tom Cruise: \"Trading Places\", \"Risky Business\", \"The Hunt for Red October\", \"Top Gun\", \"The Hangover\", \"Born on the 4th of July\", \"Saving Privat",
+              "reason": {
+                "filter": "sft_rules",
+                "reason": "instruction_copy",
+                "value": 0.881
+              }
+            }
+          ],
+          "rules": {
+            "instruction_copy": {
+              "total": 1000,
+              "passed": 998,
+              "failed": 2,
+              "pass_rate": 0.998
+            }
+          }
+        },
+        "pii": {
+          "total": 1000,
+          "passed": 999,
+          "failed": 1,
+          "pass_rate": 0.999,
+          "sample_failed": [
+            {
+              "text_preview": "What is the format of an email?\nEmails contain a username, the @ symbol, and a website domain. The website domain must contain a \".\" (dot), where the left and right side of the dot are nonempty. For e",
+              "reason": {
+                "filter": "pii",
+                "reason": "email",
+                "value": 1
+              }
+            }
+          ],
+          "rules": {
+            "email": {
+              "total": 1000,
+              "passed": 999,
+              "failed": 1,
+              "pass_rate": 0.999
+            }
+          }
+        }
+      },
+      "per_filter_pass_rate": {
+        "sft_rules": 0.998,
+        "pii": 0.999
+      },
+      "dataset_stats": {
+        "avg_word_count": 130.1,
+        "min_word_count": 7,
+        "max_word_count": 1971,
+        "avg_word_length": 5.14,
+        "fields": [
+          "instruction",
+          "context",
+          "response",
+          "category",
+          "text"
+        ],
+        "exact_duplicates": 0,
+        "duplicate_rate": 0.0
+      }
+    }
+  }
+}
