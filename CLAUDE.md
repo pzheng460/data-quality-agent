@@ -5,7 +5,7 @@ A Python CLI for detecting low-quality LLM training data. Single command `dq ben
 
 ## ⚠️ Mandatory Rules
 1. **Every significant change must be committed and pushed** — `git add -A && git commit -m "..." && git push`
-2. **Update both README.md AND CLAUDE.md** when changing architecture, adding features, or modifying filters/configs
+2. **Update both README.md, README_CN.md AND CLAUDE.md** when changing architecture, adding features, or modifying filters/configs
 3. **Run `uv run pytest` before every commit** — never push broken tests
 4. **Read the Permanent Memory section below** before starting work
 
