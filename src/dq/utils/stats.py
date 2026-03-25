@@ -34,9 +34,12 @@ def _get_spacy_tokenizer():
     return load_word_tokenizer(Languages.english)
 
 
+@lru_cache(maxsize=8)
 def tokenize_words(text: str) -> list[str]:
     """Tokenize text into words using spacy (matching datatrove).
 
+    LRU cache avoids redundant tokenization when multiple filters
+    process the same document (e.g. gopher_quality → gopher_repetition).
     Falls back to str.split() if spacy is unavailable.
     """
     try:
