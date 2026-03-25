@@ -28,6 +28,7 @@ model = [
 ]
 bench = [
     "datasets>=2.14",
+    "zstandard>=0.18",
 ]
 
 [project.scripts]

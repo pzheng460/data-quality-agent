@@ -1,10 +1,74 @@
-"""Document statistics utilities."""
+"""Document statistics utilities.
+
+All word-level computations are aligned with datatrove's reference implementation
+(HuggingFace) to ensure consistent filter results.
+"""
 
 import re
 from collections import Counter
+from functools import lru_cache
+
+# ── spacy tokenizer (matching datatrove's SpaCyTokenizer) ──────────
+
+_PUNCTUATION_SET: set[str] | None = None
 
 
-# Regex for CJK characters (Chinese, Japanese, Korean)
+def _get_punctuation_set() -> set[str]:
+    """Lazy-load datatrove's PUNCTUATION_SET for non-symbol word filtering."""
+    global _PUNCTUATION_SET
+    if _PUNCTUATION_SET is None:
+        from datatrove.pipeline.filters.gopher_quality_filter import PUNCTUATION_SET
+        _PUNCTUATION_SET = PUNCTUATION_SET
+    return _PUNCTUATION_SET
+
+
+@lru_cache(maxsize=1)
+def _get_spacy_tokenizer():
+    """Load spacy tokenizer (same as datatrove uses for English)."""
+    import importlib.metadata  # noqa: F401 — needed by datatrove internals
+    from datatrove.utils.word_tokenizers import load_word_tokenizer
+    from datatrove.utils.typeshelper import Languages
+    return load_word_tokenizer(Languages.english)
+
+
+def tokenize_words(text: str) -> list[str]:
+    """Tokenize text into words using spacy (matching datatrove).
+
+    Falls back to str.split() if spacy is unavailable.
+    """
+    try:
+        tok = _get_spacy_tokenizer()
+        return tok.word_tokenize(text)
+    except Exception:
+        return text.split()
+
+
+def split_sentences(text: str) -> list[str]:
+    """Split text into sentences using spacy (matching datatrove's C4 filter).
+
+    When C4's split_paragraph=True, it uses span_tokenize on each line.
+    """
+    try:
+        tok = _get_spacy_tokenizer()
+        spans = tok.span_tokenize(text)
+        if not spans:
+            return [text] if text.strip() else []
+        parts = []
+        start = 0
+        for _, end in spans:
+            parts.append(text[start:end])
+            start = end
+        if start < len(text):
+            parts.append(text[start:])
+        return [p for p in parts if p.strip()]
+    except Exception:
+        # Fallback to regex
+        import re as _re
+        return _re.findall(r"[^.!?。！？]*[.!?。！？]", text) or ([text] if text.strip() else [])
+
+
+# ── CJK utilities ──────────────────────────────────────────────────
+
 _CJK_RE = re.compile(
     r"[\u4e00-\u9fff\u3400-\u4dbf\u2e80-\u2eff\u3000-\u303f"
     r"\uf900-\ufaff\U00020000-\U0002a6df\U0002a700-\U0002b73f]"
@@ -23,56 +87,79 @@ def is_cjk_heavy(text: str, threshold: float = 0.3) -> bool:
 
 
 def get_words(text: str) -> list[str]:
-    """Split text into words. For CJK-heavy text, each CJK char is a word."""
+    """Split text into words using spacy tokenizer (matching datatrove).
+
+    For CJK-heavy text, each CJK char is a word (unchanged).
+    """
     if is_cjk_heavy(text):
-        # For CJK text: split CJK chars individually, keep non-CJK words
         words = []
         for segment in re.split(r"(\s+)", text):
             segment = segment.strip()
             if not segment:
                 continue
             if _CJK_RE.search(segment):
-                # Extract individual CJK chars and non-CJK tokens
                 tokens = re.findall(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]|[a-zA-Z]+", segment)
                 words.extend(tokens)
             else:
                 words.append(segment)
         return words
-    return text.split()
+    return tokenize_words(text)
 
+
+def get_non_symbol_words(words: list[str]) -> list[str]:
+    """Filter out pure-punctuation tokens (matching datatrove's non_symbol_words).
+
+    A word is a symbol if ALL its characters are in PUNCTUATION_SET.
+    """
+    punct = _get_punctuation_set()
+    return [w for w in words if any(ch not in punct for ch in w)]
+
+
+# ── Word-level statistics ──────────────────────────────────────────
 
 def word_count(text: str) -> int:
-    """Count words in text."""
-    return len(get_words(text))
+    """Count non-symbol words in text (matching datatrove)."""
+    words = get_words(text)
+    return len(get_non_symbol_words(words))
 
 
 def avg_word_length(text: str) -> float:
-    """Average word length."""
+    """Average word length of non-symbol words (matching datatrove)."""
     words = get_words(text)
-    if not words:
+    non_symbol = get_non_symbol_words(words)
+    if not non_symbol:
         return 0.0
-    return sum(len(w) for w in words) / len(words)
+    return sum(len(w) for w in non_symbol) / len(non_symbol)
 
 
 def alpha_ratio(text: str) -> float:
-    """Ratio of alphabetic (or CJK) characters to total characters."""
-    if not text:
-        return 0.0
-    alpha_count = sum(1 for c in text if c.isalpha())
-    total = len(text.replace(" ", "").replace("\n", "").replace("\t", ""))
-    if total == 0:
-        return 0.0
-    return alpha_count / total
+    """Fraction of words containing at least one alphabetic character (matching datatrove).
 
-
-def symbol_word_ratio(text: str) -> float:
-    """Ratio of symbol-heavy tokens to total words."""
+    datatrove: sum(any(c.isalpha() for c in w) for w in words) / n_words
+    """
     words = get_words(text)
     if not words:
         return 0.0
-    symbols = {"#", "...", "…"}
-    count = sum(1 for w in words if w in symbols)
-    return count / len(words)
+    alpha_words = sum(1 for w in words if any(c.isalpha() for c in w))
+    return alpha_words / len(words)
+
+
+def symbol_word_ratio(text: str) -> tuple[float, float]:
+    """Ratio of # symbols and ellipsis to total words (matching datatrove).
+
+    datatrove checks these SEPARATELY:
+      - text.count("#") / n_words
+      - (text.count("...") + text.count("…")) / n_words
+
+    Returns (hash_ratio, ellipsis_ratio).
+    """
+    words = get_words(text)
+    n_words = len(words)
+    if n_words == 0:
+        return 0.0, 0.0
+    hash_ratio = text.count("#") / n_words
+    ellipsis_ratio = (text.count("...") + text.count("…")) / n_words
+    return hash_ratio, ellipsis_ratio
 
 
 def lines_ending_with_punct(text: str) -> float:
@@ -85,22 +172,23 @@ def lines_ending_with_punct(text: str) -> float:
     return count / len(lines)
 
 
-def count_stopwords(text: str) -> int:
-    """Count English stopwords in text."""
-    _stopwords = {
-        "the", "be", "to", "of", "and", "a", "in", "that", "have", "i",
-        "it", "for", "not", "on", "with", "he", "as", "you", "do", "at",
-        "this", "but", "his", "by", "from", "they", "we", "say", "her",
-        "she", "or", "an", "will", "my", "one", "all", "would", "there",
-        "their", "what", "so", "up", "out", "if", "about", "who", "get",
-        "which", "go", "me", "when", "make", "can", "like", "time", "no",
-        "just", "him", "know", "take", "people", "into", "year", "your",
-        "good", "some", "could", "them", "see", "other", "than", "then",
-        "now", "look", "only", "come", "its", "over", "think", "also",
-    }
-    words = text.lower().split()
-    return sum(1 for w in words if w in _stopwords)
+# Gopher default stop words (matching datatrove exactly)
+GOPHER_STOP_WORDS = frozenset({"the", "be", "to", "of", "and", "that", "have", "with"})
 
+
+def count_stopwords(text: str, stop_words: frozenset[str] | None = None) -> int:
+    """Count unique stop words present in text (matching datatrove).
+
+    datatrove: len(stop_words.intersection(set(words)))
+    Uses set intersection — counts unique stop word types, not occurrences.
+    """
+    if stop_words is None:
+        stop_words = GOPHER_STOP_WORDS
+    words = get_words(text)
+    return len(stop_words.intersection(set(words)))
+
+
+# ── N-gram and repetition statistics ───────────────────────────────
 
 def ngram_counts(words: list[str], n: int) -> Counter:
     """Count n-grams in a list of words."""
@@ -110,33 +198,61 @@ def ngram_counts(words: list[str], n: int) -> Counter:
     return Counter(grams)
 
 
-def top_ngram_ratio(words: list[str], n: int) -> float:
-    """Ratio of the most frequent n-gram count to total n-grams."""
-    counts = ngram_counts(words, n)
-    if not counts:
+def top_ngram_ratio(words: list[str], n: int, text: str) -> float:
+    """Character coverage of the most frequent n-gram / len(text) (matching datatrove).
+
+    datatrove: find_top_duplicate(get_n_grams(words, n)) / len(text)
+    where get_n_grams returns space-joined strings,
+    and find_top_duplicate returns len(top_ngram_string) * count.
+    """
+    if len(words) < n or not text:
         return 0.0
-    total = sum(counts.values())
-    top = counts.most_common(1)[0][1]
-    return top / total
+    # Build space-joined n-grams (matching datatrove's get_n_grams)
+    ngrams = [" ".join(words[i:i + n]) for i in range(len(words) - n + 1)]
+    if not ngrams:
+        return 0.0
+    # find_top_duplicate: count occurrences, return len(top) * count
+    counter = Counter(ngrams)
+    top_ngram, top_count = counter.most_common(1)[0]
+    top_char_length = len(top_ngram) * top_count
+    return top_char_length / len(text)
 
 
 def duplicate_line_ratio(text: str) -> float:
-    """Fraction of duplicate lines (by count, not unique)."""
-    lines = [l.strip() for l in text.split("\n") if l.strip()]
+    """Fraction of duplicate lines (matching datatrove's find_duplicates).
+
+    datatrove counts only subsequent occurrences as duplicates
+    (first seen = not duplicate). Returns dup_count / total_lines.
+    """
+    lines = text.splitlines()
     if not lines:
         return 0.0
-    counts = Counter(lines)
-    dup_count = sum(c for c in counts.values() if c > 1)
+    seen: set[str] = set()
+    dup_count = 0
+    for line in lines:
+        if line in seen:
+            dup_count += 1
+        else:
+            seen.add(line)
     return dup_count / len(lines)
 
 
 def duplicate_paragraph_ratio(text: str) -> float:
-    """Fraction of duplicate paragraphs."""
-    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+    """Fraction of duplicate paragraphs (matching datatrove's find_duplicates).
+
+    datatrove splits on paragraph_exp (r"\\n{2,}") then uses find_duplicates.
+    """
+    paragraphs = re.split(r"\n{2,}", text.strip())
+    paragraphs = [p for p in paragraphs if p]
     if not paragraphs:
         return 0.0
-    counts = Counter(paragraphs)
-    dup_count = sum(c for c in counts.values() if c > 1)
+    seen: set[str] = set()
+    dup_count = 0
+    for p in paragraphs:
+        if p in seen:
+            dup_count += 1
+        else:
+            seen.add(p)
     return dup_count / len(paragraphs)
 
 
@@ -153,21 +269,19 @@ def char_repetition_ratio(text: str, n: int = 10) -> float:
     return min(repeated_chars / len(text), 1.0)
 
 
-def dup_ngram_char_frac(words: list[str], n: int) -> float:
-    """Gopher's duplicate word n-gram character fraction.
+def dup_ngram_char_frac(words: list[str], n: int, text: str) -> float:
+    """Gopher's duplicate word n-gram character fraction (matching datatrove).
 
-    Walks through word n-grams sequentially. When a duplicate is found,
-    its character length is added to the count and the window skips past it.
-    Returns the fraction of total joined-text characters covered by duplicates.
+    datatrove's find_all_duplicate: walks word n-grams, counts duplicate char
+    coverage, divides by len(text) (full text including spaces).
 
-    This is the correct implementation per Gopher Table A1 and datatrove's
-    GopherRepetitionFilter.find_all_duplicate().
+    Args:
+        words: Tokenized word list.
+        n: N-gram size.
+        text: Original text (used as denominator for char fraction).
     """
     n_words = len(words)
-    if n_words < n:
-        return 0.0
-    total_chars = sum(len(w) for w in words)
-    if total_chars == 0:
+    if n_words < n or not text:
         return 0.0
 
     unique: set[str] = set()
@@ -182,4 +296,4 @@ def dup_ngram_char_frac(words: list[str], n: int) -> float:
             unique.add(ngram)
             idx += 1
 
-    return repeated_chars / total_chars
+    return repeated_chars / len(text)

@@ -1,6 +1,7 @@
 """Gopher quality and repetition filters.
 
 Implements all rules from the Gopher paper (Rae et al., 2021).
+Aligned with datatrove's reference implementation.
 """
 
 from typing import Any
@@ -19,12 +20,13 @@ from dq.utils.stats import (
     symbol_word_ratio,
     top_ngram_ratio,
     word_count,
+    GOPHER_STOP_WORDS,
 )
 
 
 @register_filter("gopher_quality")
 class GopherQualityFilter(BaseFilter):
-    """Gopher paper quality heuristics.
+    """Gopher paper quality heuristics (aligned with datatrove).
 
     Checks word count, average word length, symbol ratio,
     terminal punctuation ratio, stopword count, and alpha ratio.
@@ -68,9 +70,12 @@ class GopherQualityFilter(BaseFilter):
         if awl > self.max_avg_word_len:
             return False, {"filter": self.name, "reason": "avg_word_len_too_long", "value": awl}
 
-        sr = symbol_word_ratio(text)
-        if sr > self.max_symbol_ratio:
-            return False, {"filter": self.name, "reason": "high_symbol_ratio", "value": sr}
+        # Symbol ratio: check # and ... separately (matching datatrove)
+        hash_ratio, ellipsis_ratio = symbol_word_ratio(text)
+        if hash_ratio > self.max_symbol_ratio:
+            return False, {"filter": self.name, "reason": "high_hash_ratio", "value": hash_ratio}
+        if ellipsis_ratio > self.max_symbol_ratio:
+            return False, {"filter": self.name, "reason": "high_ellipsis_ratio", "value": ellipsis_ratio}
 
         lep = lines_ending_with_punct(text)
         if lep < self.min_lines_end_punct:
@@ -102,9 +107,11 @@ class GopherQualityFilter(BaseFilter):
         if awl > self.max_avg_word_len:
             failures.append({"filter": self.name, "rule": "max_avg_word_len", "value": awl, "threshold": self.max_avg_word_len})
 
-        sr = symbol_word_ratio(text)
-        if sr > self.max_symbol_ratio:
-            failures.append({"filter": self.name, "rule": "symbol_ratio", "value": sr, "threshold": self.max_symbol_ratio})
+        hash_ratio, ellipsis_ratio = symbol_word_ratio(text)
+        if hash_ratio > self.max_symbol_ratio:
+            failures.append({"filter": self.name, "rule": "hash_ratio", "value": hash_ratio, "threshold": self.max_symbol_ratio})
+        if ellipsis_ratio > self.max_symbol_ratio:
+            failures.append({"filter": self.name, "rule": "ellipsis_ratio", "value": ellipsis_ratio, "threshold": self.max_symbol_ratio})
 
         lep = lines_ending_with_punct(text)
         if lep < self.min_lines_end_punct:
@@ -123,10 +130,10 @@ class GopherQualityFilter(BaseFilter):
 
 @register_filter("gopher_repetition")
 class GopherRepetitionFilter(BaseFilter):
-    """Gopher paper repetition-based filters.
+    """Gopher paper repetition-based filters (aligned with datatrove).
 
     Checks top n-gram ratios, duplicate line/paragraph ratios,
-    and character-level repetition.
+    and duplicate n-gram character fractions.
     """
 
     def __init__(
@@ -168,29 +175,29 @@ class GopherRepetitionFilter(BaseFilter):
         text = self.get_text(doc)
         words = get_words(text)
 
-        # Top n-gram checks (word-level: most frequent n-gram's char coverage)
-        for n, threshold, label in [
-            (2, self.max_top_2gram, "top_2gram"),
-            (3, self.max_top_3gram, "top_3gram"),
-            (4, self.max_top_4gram, "top_4gram"),
-        ]:
-            ratio = top_ngram_ratio(words, n)
-            if ratio > threshold:
-                return False, {"filter": self.name, "reason": f"high_{label}", "value": ratio}
+        # Duplicate paragraph ratio (datatrove checks this first)
+        dpr = duplicate_paragraph_ratio(text)
+        if dpr > self.max_dup_para_ratio:
+            return False, {"filter": self.name, "reason": "high_dup_para_ratio", "value": dpr}
 
         # Duplicate line ratio
         dlr = duplicate_line_ratio(text)
         if dlr > self.max_dup_line_ratio:
             return False, {"filter": self.name, "reason": "high_dup_line_ratio", "value": dlr}
 
-        # Duplicate paragraph ratio
-        dpr = duplicate_paragraph_ratio(text)
-        if dpr > self.max_dup_para_ratio:
-            return False, {"filter": self.name, "reason": "high_dup_para_ratio", "value": dpr}
+        # Top n-gram checks (char coverage / len(text), matching datatrove)
+        for n, threshold, label in [
+            (2, self.max_top_2gram, "top_2gram"),
+            (3, self.max_top_3gram, "top_3gram"),
+            (4, self.max_top_4gram, "top_4gram"),
+        ]:
+            ratio = top_ngram_ratio(words, n, text)
+            if ratio > threshold:
+                return False, {"filter": self.name, "reason": f"high_{label}", "value": ratio}
 
         # Duplicate word n-gram character fraction (Gopher Table A1)
         for n, threshold in self.dup_ngram_thresholds:
-            frac = dup_ngram_char_frac(words, n)
+            frac = dup_ngram_char_frac(words, n, text)
             if frac > threshold:
                 return False, {"filter": self.name, "reason": f"dup_{n}gram_frac", "value": frac}
 
@@ -201,26 +208,25 @@ class GopherRepetitionFilter(BaseFilter):
         words = get_words(text)
         failures: list[dict] = []
 
-        for n, threshold, label in [
-            (2, self.max_top_2gram, "top_2gram"),
-            (3, self.max_top_3gram, "top_3gram"),
-            (4, self.max_top_4gram, "top_4gram"),
-        ]:
-            ratio = top_ngram_ratio(words, n)
-            if ratio > threshold:
-                failures.append({"filter": self.name, "rule": label, "value": ratio, "threshold": threshold})
+        dpr = duplicate_paragraph_ratio(text)
+        if dpr > self.max_dup_para_ratio:
+            failures.append({"filter": self.name, "rule": "dup_para_ratio", "value": dpr, "threshold": self.max_dup_para_ratio})
 
         dlr = duplicate_line_ratio(text)
         if dlr > self.max_dup_line_ratio:
             failures.append({"filter": self.name, "rule": "dup_line_ratio", "value": dlr, "threshold": self.max_dup_line_ratio})
 
-        dpr = duplicate_paragraph_ratio(text)
-        if dpr > self.max_dup_para_ratio:
-            failures.append({"filter": self.name, "rule": "dup_para_ratio", "value": dpr, "threshold": self.max_dup_para_ratio})
+        for n, threshold, label in [
+            (2, self.max_top_2gram, "top_2gram"),
+            (3, self.max_top_3gram, "top_3gram"),
+            (4, self.max_top_4gram, "top_4gram"),
+        ]:
+            ratio = top_ngram_ratio(words, n, text)
+            if ratio > threshold:
+                failures.append({"filter": self.name, "rule": label, "value": ratio, "threshold": threshold})
 
-        # Duplicate word n-gram character fraction (Gopher Table A1)
         for n, threshold in self.dup_ngram_thresholds:
-            frac = dup_ngram_char_frac(words, n)
+            frac = dup_ngram_char_frac(words, n, text)
             if frac > threshold:
                 failures.append({"filter": self.name, "rule": f"dup_{n}gram_frac", "value": frac, "threshold": threshold})
 

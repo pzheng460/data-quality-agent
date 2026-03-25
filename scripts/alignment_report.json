@@ -1,0 +1,38 @@
+{
+  "gopher_quality": {
+    "agreement_rate": 1.0,
+    "total": 1000,
+    "both_pass": 812,
+    "both_fail": 188,
+    "dq_only_pass": 0,
+    "dt_only_pass": 0,
+    "disagreements": []
+  },
+  "gopher_repetition": {
+    "agreement_rate": 1.0,
+    "total": 1000,
+    "both_pass": 932,
+    "both_fail": 68,
+    "dq_only_pass": 0,
+    "dt_only_pass": 0,
+    "disagreements": []
+  },
+  "c4": {
+    "agreement_rate": 1.0,
+    "total": 1000,
+    "both_pass": 839,
+    "both_fail": 161,
+    "dq_only_pass": 0,
+    "dt_only_pass": 0,
+    "disagreements": []
+  },
+  "fineweb": {
+    "agreement_rate": 1.0,
+    "total": 1000,
+    "both_pass": 997,
+    "both_fail": 3,
+    "dq_only_pass": 0,
+    "dt_only_pass": 0,
+    "disagreements": []
+  }
+}

@@ -37,10 +37,11 @@ pipeline:
 
     - name: fineweb
       params:
-        max_list_line_ratio: 0.90
-        max_dup_line_ratio: 0.30
-        min_avg_line_len: 30
-        max_short_line_count: 10
+        line_punct_thr: 0.12
+        short_line_thr: 0.67
+        short_line_length: 30
+        char_duplicates_ratio: 0.01
+        new_line_ratio: 0.3
 
     - name: pii
       mode: redact
