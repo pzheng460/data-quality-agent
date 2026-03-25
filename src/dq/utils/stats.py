@@ -221,10 +221,12 @@ def top_ngram_ratio(words: list[str], n: int, text: str) -> float:
 def duplicate_line_ratio(text: str) -> float:
     """Fraction of duplicate lines (matching datatrove's find_duplicates).
 
-    datatrove counts only subsequent occurrences as duplicates
-    (first seen = not duplicate). Returns dup_count / total_lines.
+    datatrove's _line_splitter uses regex r"\\n+" which merges consecutive
+    newlines (empty lines are excluded). Counts only subsequent occurrences
+    as duplicates (first seen = not duplicate).
     """
-    lines = text.splitlines()
+    lines = re.split(r"\n+", text)
+    lines = [l for l in lines if l]  # remove empty strings from split edges
     if not lines:
         return 0.0
     seen: set[str] = set()
