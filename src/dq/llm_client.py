@@ -1,6 +1,6 @@
 """Shared LLM client for all API-based modules.
 
-Provides a singleton OpenAI-compatible client configured via:
+Provides a singleton OpenAI-compatible client configured via (in priority order):
 1. Explicit params (api_url, api_key, model)
 2. YAML config (pipeline.llm section)
 3. Environment variables (DQ_API_BASE_URL, DQ_API_KEY, DQ_MODEL)
@@ -17,14 +17,33 @@ logger = logging.getLogger(__name__)
 
 _client_instance = None
 _default_model: str | None = None
+_yaml_config: dict[str, Any] | None = None
+
+
+def set_config_from_yaml(llm_config) -> None:
+    """Store LLM config loaded from YAML for later use.
+
+    Args:
+        llm_config: LLMConfig dataclass instance from config.py
+    """
+    global _yaml_config
+    _yaml_config = {
+        "api_url": llm_config.api_url,
+        "api_key": llm_config.api_key,
+        "model": llm_config.model,
+    }
 
 
 def get_llm_config() -> dict[str, str | None]:
-    """Get LLM config from environment variables."""
+    """Get LLM config from YAML → env vars (in priority order)."""
+    yaml_url = _yaml_config.get("api_url") if _yaml_config else None
+    yaml_key = _yaml_config.get("api_key") if _yaml_config else None
+    yaml_model = _yaml_config.get("model") if _yaml_config else None
+
     return {
-        "api_url": os.environ.get("DQ_API_BASE_URL") or os.environ.get("OPENAI_BASE_URL"),
-        "api_key": os.environ.get("DQ_API_KEY") or os.environ.get("OPENAI_API_KEY"),
-        "model": os.environ.get("DQ_MODEL"),
+        "api_url": yaml_url or os.environ.get("DQ_API_BASE_URL") or os.environ.get("OPENAI_BASE_URL"),
+        "api_key": yaml_key or os.environ.get("DQ_API_KEY") or os.environ.get("OPENAI_API_KEY"),
+        "model": yaml_model or os.environ.get("DQ_MODEL"),
     }
 
 
@@ -34,9 +53,7 @@ def get_client(
 ) -> Any:
     """Get or create a shared OpenAI client.
 
-    Args:
-        api_url: Override base URL. Falls back to env vars.
-        api_key: Override API key. Falls back to env vars.
+    Priority: explicit params > YAML config > env vars.
 
     Returns:
         openai.OpenAI client instance, or None if openai not installed.
@@ -54,10 +71,10 @@ def get_client(
     key = api_key or env["api_key"]
 
     if not key:
-        logger.warning("No API key configured. Set DQ_API_KEY or OPENAI_API_KEY env var.")
+        logger.warning("No API key configured. Set DQ_API_KEY or OPENAI_API_KEY env var, or add llm.api_key in YAML config.")
         return None
 
-    # Create new client if params differ or no client exists
+    # Reuse existing client if params match
     if _client_instance is not None:
         if (getattr(_client_instance, "_custom_url", None) == url and
                 getattr(_client_instance, "_custom_key", None) == key):
@@ -75,12 +92,13 @@ def get_client(
 
 
 def get_default_model() -> str:
-    """Get default model name from env or fallback."""
+    """Get default model name from explicit config / YAML / env / fallback."""
     env = get_llm_config()
     return env["model"] or "gpt-4o-mini"
 
 
 def reset_client():
-    """Reset the singleton client (for testing)."""
-    global _client_instance
+    """Reset the singleton client and YAML config (for testing)."""
+    global _client_instance, _yaml_config
     _client_instance = None
+    _yaml_config = None

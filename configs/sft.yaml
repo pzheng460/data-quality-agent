@@ -25,22 +25,12 @@ pipeline:
     - name: pii
       mode: detect  # Detect only — don't redact SFT data
 
-  # --- DEITA SFT scoring (Phase 2) ---
-  # These are scorers, not pipeline filters. Use `dq score` command
-  # or the Python API to apply DEITA scoring.
-  #
-  # deita:
-  #   complexity:
-  #     model: "gpt-4o-mini"
-  #     api_url: null              # Set for local vLLM endpoint
-  #     api_key: null              # Uses OPENAI_API_KEY env var if null
-  #   quality:
-  #     model: "gpt-4o-mini"
-  #     api_url: null
-  #     api_key: null
-  #   diversity:
-  #     model_name: "BAAI/bge-small-en-v1.5"
-  #     threshold: 0.95
+  # --- LLM Judge (Layer 2) ---
+  llm:
+    api_url: ~
+    api_key: ~
+    model: ~
+    samples: 50
 
   dedup:
     exact: true

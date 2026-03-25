@@ -47,6 +47,12 @@ pipeline:
     - name: pii
       mode: redact  # Redact Chinese PII (phone, ID card, bank card)
 
+  llm:
+    api_url: ~
+    api_key: ~
+    model: ~
+    samples: 50
+
   dedup:
     exact: true
     minhash:

@@ -17,6 +17,16 @@ class FilterConfig:
 
 
 @dataclass
+class LLMConfig:
+    """Configuration for LLM API (Layer 2 judge)."""
+
+    api_url: str | None = None
+    api_key: str | None = None
+    model: str | None = None
+    samples: int = 50
+
+
+@dataclass
 class DedupConfig:
     """Configuration for deduplication."""
 
@@ -37,6 +47,7 @@ class PipelineConfig:
     text_field: str = "text"
     filters: list[FilterConfig] = field(default_factory=list)
     dedup: DedupConfig = field(default_factory=DedupConfig)
+    llm: LLMConfig = field(default_factory=LLMConfig)
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> "PipelineConfig":
@@ -70,7 +81,15 @@ class PipelineConfig:
             minhash=dedup_raw.get("minhash", DedupConfig().minhash),
         )
 
-        return cls(text_field=text_field, filters=filters, dedup=dedup)
+        llm_raw = pipeline.get("llm", {})
+        llm = LLMConfig(
+            api_url=llm_raw.get("api_url"),
+            api_key=llm_raw.get("api_key"),
+            model=llm_raw.get("model"),
+            samples=llm_raw.get("samples", 50),
+        )
+
+        return cls(text_field=text_field, filters=filters, dedup=dedup, llm=llm)
 
     @classmethod
     def default(cls) -> "PipelineConfig":

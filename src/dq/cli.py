@@ -120,6 +120,13 @@ def bench(input_path: str, config_path: str | None, num_samples: int, no_dedup: 
         console.print(f"[dim]LLM scoring: enabled ({llm_samples} samples/dataset, type={data_type})[/dim]")
 
     try:
+        # Load config for LLM settings
+        pipeline_config = _load_config(config_path)
+
+        # Apply YAML LLM config to shared client (CLI args override)
+        from dq.llm_client import set_config_from_yaml
+        set_config_from_yaml(pipeline_config.llm)
+
         datasets = _load_input_datasets(
             input_path, num_samples, seed, split, text_field, hf_config,
         )
@@ -140,6 +147,8 @@ def bench(input_path: str, config_path: str | None, num_samples: int, no_dedup: 
         raise SystemExit(1)
 
     # Layer 2: LLM scoring
+    # Use YAML llm.samples as default, CLI --llm-samples overrides
+    effective_llm_samples = llm_samples if llm_samples != 50 else pipeline_config.llm.samples
     if with_llm_scoring:
         from dq.benchmark import run_llm_scoring
 
@@ -150,10 +159,10 @@ def bench(input_path: str, config_path: str | None, num_samples: int, no_dedup: 
             run_llm_scoring(
                 report=report,
                 datasets=datasets,
-                llm_samples=llm_samples,
+                llm_samples=effective_llm_samples,
                 data_type_override=data_type_override,
                 seed=seed,
-                api_url=api_url,
+                api_url=api_url,        # CLI override (or None → falls back to YAML/env)
                 api_key=api_key,
                 model=llm_model,
             )

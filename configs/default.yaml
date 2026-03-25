@@ -71,6 +71,16 @@ pipeline:
     #     threshold: 3.0
     #     device: "auto"
 
+  # --- LLM Judge (Layer 2) ---
+  # Used by: dq bench --with-llm-scoring
+  # CLI args (--api-url, --api-key, --model) override these values.
+  # Env vars (DQ_API_BASE_URL, DQ_API_KEY, DQ_MODEL) are also supported.
+  llm:
+    api_url: ~               # e.g. "https://api.openai.com/v1"
+    api_key: ~               # e.g. "sk-..."
+    model: ~                 # e.g. "gpt-4o-mini"
+    samples: 50              # docs to score per dataset
+
   dedup:
     exact: true
     minhash:
