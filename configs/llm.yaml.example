@@ -1,0 +1,8 @@
+# LLM API configuration for Layer 2 quality judge
+# Copy this file to llm.yaml and fill in your credentials:
+#   cp configs/llm.yaml.example configs/llm.yaml
+
+api_url: "https://api.openai.com/v1"    # OpenAI-compatible API endpoint
+api_key: "sk-your-api-key-here"          # API key
+model: "gpt-4o-mini"                     # Model name
+samples: 50                              # Docs to score per dataset

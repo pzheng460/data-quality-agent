@@ -16,14 +16,41 @@ class FilterConfig:
     enabled: bool = True
 
 
+_LLM_CONFIG_FILENAME = "llm.yaml"
+
+
 @dataclass
 class LLMConfig:
-    """Configuration for LLM API (Layer 2 judge)."""
+    """Configuration for LLM API (Layer 2 judge).
+
+    Loaded from configs/llm.yaml (gitignored) by default.
+    """
 
     api_url: str | None = None
     api_key: str | None = None
     model: str | None = None
     samples: int = 50
+
+    @classmethod
+    def from_file(cls, config_dir: Path | None = None) -> "LLMConfig":
+        """Load LLM config from llm.yaml in the config directory.
+
+        Args:
+            config_dir: Directory containing llm.yaml. Defaults to configs/ in project root.
+        """
+        if config_dir is None:
+            config_dir = Path(__file__).parent.parent.parent / "configs"
+        llm_path = config_dir / _LLM_CONFIG_FILENAME
+        if not llm_path.exists():
+            return cls()
+        with open(llm_path, "r", encoding="utf-8") as f:
+            raw = yaml.safe_load(f) or {}
+        return cls(
+            api_url=raw.get("api_url"),
+            api_key=raw.get("api_key"),
+            model=raw.get("model"),
+            samples=raw.get("samples", 50),
+        )
 
 
 @dataclass
@@ -51,13 +78,19 @@ class PipelineConfig:
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> "PipelineConfig":
-        """Load pipeline config from a YAML file."""
+        """Load pipeline config from a YAML file.
+
+        LLM config is loaded from configs/llm.yaml (same directory as the
+        pipeline config file). Pipeline YAML can override llm settings inline,
+        but the separate llm.yaml is the recommended approach for credentials.
+        """
+        path = Path(path)
         with open(path, "r", encoding="utf-8") as f:
             raw = yaml.safe_load(f)
-        return cls.from_dict(raw)
+        return cls.from_dict(raw, config_dir=path.parent)
 
     @classmethod
-    def from_dict(cls, raw: dict) -> "PipelineConfig":
+    def from_dict(cls, raw: dict, config_dir: Path | None = None) -> "PipelineConfig":
         """Build config from a dict (e.g. parsed YAML)."""
         pipeline = raw.get("pipeline", raw)
 
@@ -81,13 +114,19 @@ class PipelineConfig:
             minhash=dedup_raw.get("minhash", DedupConfig().minhash),
         )
 
+        # LLM config: load from llm.yaml, then override with inline pipeline.llm
+        llm = LLMConfig.from_file(config_dir)
         llm_raw = pipeline.get("llm", {})
-        llm = LLMConfig(
-            api_url=llm_raw.get("api_url"),
-            api_key=llm_raw.get("api_key"),
-            model=llm_raw.get("model"),
-            samples=llm_raw.get("samples", 50),
-        )
+        if llm_raw:
+            # Inline overrides (only non-None values)
+            if llm_raw.get("api_url"):
+                llm.api_url = llm_raw["api_url"]
+            if llm_raw.get("api_key"):
+                llm.api_key = llm_raw["api_key"]
+            if llm_raw.get("model"):
+                llm.model = llm_raw["model"]
+            if "samples" in llm_raw:
+                llm.samples = llm_raw["samples"]
 
         return cls(text_field=text_field, filters=filters, dedup=dedup, llm=llm)
 
@@ -104,4 +143,5 @@ class PipelineConfig:
                 FilterConfig("pii", params={"mode": "redact"}),
             ],
             dedup=DedupConfig(),
+            llm=LLMConfig.from_file(),
         )

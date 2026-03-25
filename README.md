@@ -155,7 +155,24 @@ result = judge.judge_sft("Explain quantum computing", "Quantum computing uses qu
 # {"quality": "high", "rules": {...}, "failed_rules": []}
 ```
 
-Requires env vars: `DQ_API_BASE_URL`, `DQ_API_KEY`, `DQ_MODEL`.
+### LLM Configuration
+
+Create `configs/llm.yaml` with your API credentials (this file is gitignored):
+
+```bash
+cp configs/llm.yaml.example configs/llm.yaml
+# Edit configs/llm.yaml with your credentials
+```
+
+```yaml
+# configs/llm.yaml
+api_url: "https://api.openai.com/v1"
+api_key: "sk-your-api-key"
+model: "gpt-4o-mini"
+samples: 50
+```
+
+Configuration priority: CLI args > `configs/llm.yaml` > env vars (`DQ_API_BASE_URL`, `DQ_API_KEY`, `DQ_MODEL`).
 
 ## Contamination Detection
 

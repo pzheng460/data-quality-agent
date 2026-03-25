@@ -155,7 +155,24 @@ result = judge.judge_sft("解释量子计算", "量子计算使用量子比特..
 # {"quality": "high", "rules": {...}, "failed_rules": []}
 ```
 
-需要环境变量：`DQ_API_BASE_URL`、`DQ_API_KEY`、`DQ_MODEL`。
+### LLM 配置
+
+创建 `configs/llm.yaml` 填入 API 凭证（此文件已被 gitignore）：
+
+```bash
+cp configs/llm.yaml.example configs/llm.yaml
+# 编辑 configs/llm.yaml 填入凭证
+```
+
+```yaml
+# configs/llm.yaml
+api_url: "https://api.openai.com/v1"
+api_key: "sk-your-api-key"
+model: "gpt-4o-mini"
+samples: 50
+```
+
+配置优先级：CLI 参数 > `configs/llm.yaml` > 环境变量（`DQ_API_BASE_URL`、`DQ_API_KEY`、`DQ_MODEL`）。
 
 ## 污染检测
 

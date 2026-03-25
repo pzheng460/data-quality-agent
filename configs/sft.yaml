@@ -26,11 +26,7 @@ pipeline:
       mode: detect  # Detect only — don't redact SFT data
 
   # --- LLM Judge (Layer 2) ---
-  llm:
-    api_url: ~
-    api_key: ~
-    model: ~
-    samples: 50
+  # Credentials loaded from configs/llm.yaml (gitignored).
 
   dedup:
     exact: true

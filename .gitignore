@@ -6,3 +6,6 @@ __pycache__/
 dist/
 build/
 .pytest_cache/
+
+# LLM credentials (use configs/llm.yaml.example as template)
+configs/llm.yaml
