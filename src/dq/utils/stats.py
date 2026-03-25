@@ -2,6 +2,9 @@
 
 All word-level computations are aligned with datatrove's reference implementation
 (HuggingFace) to ensure consistent filter results.
+
+Performance note: filters should call get_words() ONCE and pass the result
+to all stat functions that need words, to avoid redundant spacy tokenization.
 """
 
 import re
@@ -115,50 +118,47 @@ def get_non_symbol_words(words: list[str]) -> list[str]:
     return [w for w in words if any(ch not in punct for ch in w)]
 
 
-# ── Word-level statistics ──────────────────────────────────────────
+# ── Word-level statistics (accept pre-tokenized words) ─────────────
 
-def word_count(text: str) -> int:
-    """Count non-symbol words in text (matching datatrove)."""
-    words = get_words(text)
+def word_count(text: str | None = None, *, words: list[str] | None = None) -> int:
+    """Count non-symbol words (matching datatrove)."""
+    if words is None:
+        words = get_words(text)
     return len(get_non_symbol_words(words))
 
 
-def avg_word_length(text: str) -> float:
+def avg_word_length(text: str | None = None, *, words: list[str] | None = None) -> float:
     """Average word length of non-symbol words (matching datatrove)."""
-    words = get_words(text)
+    if words is None:
+        words = get_words(text)
     non_symbol = get_non_symbol_words(words)
     if not non_symbol:
         return 0.0
     return sum(len(w) for w in non_symbol) / len(non_symbol)
 
 
-def alpha_ratio(text: str) -> float:
-    """Fraction of words containing at least one alphabetic character (matching datatrove).
-
-    datatrove: sum(any(c.isalpha() for c in w) for w in words) / n_words
-    """
-    words = get_words(text)
+def alpha_ratio(text: str | None = None, *, words: list[str] | None = None) -> float:
+    """Fraction of words containing at least one alphabetic character (matching datatrove)."""
+    if words is None:
+        words = get_words(text)
     if not words:
         return 0.0
     alpha_words = sum(1 for w in words if any(c.isalpha() for c in w))
     return alpha_words / len(words)
 
 
-def symbol_word_ratio(text: str) -> tuple[float, float]:
+def symbol_word_ratio(text: str, *, words: list[str] | None = None) -> tuple[float, float]:
     """Ratio of # symbols and ellipsis to total words (matching datatrove).
-
-    datatrove checks these SEPARATELY:
-      - text.count("#") / n_words
-      - (text.count("...") + text.count("…")) / n_words
 
     Returns (hash_ratio, ellipsis_ratio).
     """
-    words = get_words(text)
+    if words is None:
+        words = get_words(text)
     n_words = len(words)
     if n_words == 0:
         return 0.0, 0.0
     hash_ratio = text.count("#") / n_words
-    ellipsis_ratio = (text.count("...") + text.count("…")) / n_words
+    ellipsis_ratio = (text.count("...") + text.count("\u2026")) / n_words
     return hash_ratio, ellipsis_ratio
 
 
@@ -167,7 +167,7 @@ def lines_ending_with_punct(text: str) -> float:
     lines = [l.strip() for l in text.split("\n") if l.strip()]
     if not lines:
         return 0.0
-    terminal = set(".!?。！？;；")
+    terminal = set(".!?\u3002\uff01\uff1f;\uff1b")
     count = sum(1 for l in lines if l and l[-1] in terminal)
     return count / len(lines)
 
@@ -176,15 +176,16 @@ def lines_ending_with_punct(text: str) -> float:
 GOPHER_STOP_WORDS = frozenset({"the", "be", "to", "of", "and", "that", "have", "with"})
 
 
-def count_stopwords(text: str, stop_words: frozenset[str] | None = None) -> int:
+def count_stopwords(text: str | None = None, stop_words: frozenset[str] | None = None,
+                    *, words: list[str] | None = None) -> int:
     """Count unique stop words present in text (matching datatrove).
 
-    datatrove: len(stop_words.intersection(set(words)))
     Uses set intersection — counts unique stop word types, not occurrences.
     """
     if stop_words is None:
         stop_words = GOPHER_STOP_WORDS
-    words = get_words(text)
+    if words is None:
+        words = get_words(text)
     return len(stop_words.intersection(set(words)))
 
 
@@ -199,19 +200,12 @@ def ngram_counts(words: list[str], n: int) -> Counter:
 
 
 def top_ngram_ratio(words: list[str], n: int, text: str) -> float:
-    """Character coverage of the most frequent n-gram / len(text) (matching datatrove).
-
-    datatrove: find_top_duplicate(get_n_grams(words, n)) / len(text)
-    where get_n_grams returns space-joined strings,
-    and find_top_duplicate returns len(top_ngram_string) * count.
-    """
+    """Character coverage of the most frequent n-gram / len(text) (matching datatrove)."""
     if len(words) < n or not text:
         return 0.0
-    # Build space-joined n-grams (matching datatrove's get_n_grams)
     ngrams = [" ".join(words[i:i + n]) for i in range(len(words) - n + 1)]
     if not ngrams:
         return 0.0
-    # find_top_duplicate: count occurrences, return len(top) * count
     counter = Counter(ngrams)
     top_ngram, top_count = counter.most_common(1)[0]
     top_char_length = len(top_ngram) * top_count
@@ -226,7 +220,7 @@ def duplicate_line_ratio(text: str) -> float:
     as duplicates (first seen = not duplicate).
     """
     lines = re.split(r"\n+", text)
-    lines = [l for l in lines if l]  # remove empty strings from split edges
+    lines = [l for l in lines if l]
     if not lines:
         return 0.0
     seen: set[str] = set()
@@ -276,11 +270,6 @@ def dup_ngram_char_frac(words: list[str], n: int, text: str) -> float:
 
     datatrove's find_all_duplicate: walks word n-grams, counts duplicate char
     coverage, divides by len(text) (full text including spaces).
-
-    Args:
-        words: Tokenized word list.
-        n: N-gram size.
-        text: Original text (used as denominator for char fraction).
     """
     n_words = len(words)
     if n_words < n or not text:
@@ -293,7 +282,7 @@ def dup_ngram_char_frac(words: list[str], n: int, text: str) -> float:
         ngram = "".join(words[idx:idx + n])
         if ngram in unique:
             repeated_chars += len(ngram)
-            idx += n  # skip past duplicate
+            idx += n
         else:
             unique.add(ngram)
             idx += 1
