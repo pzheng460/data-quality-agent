@@ -20,7 +20,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from dq.llm_client import get_client, get_default_model
+from dq.llm_client import get_client, get_default_model, get_backend
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +163,29 @@ class LLMJudge:
         """Get LLM client using shared infrastructure."""
         return get_client(api_url=self.api_url, api_key=self.api_key)
 
+    def _call_api(self, client, prompt: str, backend: str) -> str:
+        """Call LLM API and return response text. Supports anthropic and openai backends."""
+        # Detect backend from client class name.
+        # Only use Anthropic API if client is actually an Anthropic instance.
+        # MagicMock and OpenAI clients use the OpenAI chat.completions path.
+        client_type = type(client).__name__
+        if client_type == "Anthropic":
+            response = client.messages.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500,
+                temperature=0.0,
+            )
+            return response.content[0].text.strip()
+        else:
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500,
+                temperature=0.0,
+            )
+            return response.choices[0].message.content.strip()
+
     def _parse_response(self, response_text: str, expected_rules: list[str]) -> dict[str, dict[str, Any]]:
         """Parse rule results from LLM response."""
         # Try direct JSON
@@ -195,15 +218,11 @@ class LLMJudge:
                 "error": "No API client available",
             }
 
+        backend = get_backend()
+
         for attempt in range(self.max_retries):
             try:
-                response = client.chat.completions.create(
-                    model=self.model,
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=500,
-                    temperature=0.0,
-                )
-                text = response.choices[0].message.content.strip()
+                text = self._call_api(client, prompt, backend)
                 rules = self._parse_response(text, expected_rules)
 
                 failed = [r for r, v in rules.items() if not v.get("pass", False)]

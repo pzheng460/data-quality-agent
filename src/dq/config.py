@@ -24,12 +24,14 @@ class LLMConfig:
     """Configuration for LLM API (Layer 2 judge).
 
     Loaded from configs/llm.yaml (gitignored) by default.
+    Supports two backends: "anthropic" (default) and "openai".
     """
 
     api_url: str | None = None
     api_key: str | None = None
     model: str | None = None
     samples: int = 50
+    backend: str = "anthropic"  # "anthropic" or "openai"
 
     @classmethod
     def from_file(cls, config_dir: Path | None = None) -> "LLMConfig":
@@ -50,6 +52,7 @@ class LLMConfig:
             api_key=raw.get("api_key"),
             model=raw.get("model"),
             samples=raw.get("samples", 50),
+            backend=raw.get("backend", "anthropic"),
         )
 
 
@@ -127,6 +130,8 @@ class PipelineConfig:
                 llm.model = llm_raw["model"]
             if "samples" in llm_raw:
                 llm.samples = llm_raw["samples"]
+            if llm_raw.get("backend"):
+                llm.backend = llm_raw["backend"]
 
         return cls(text_field=text_field, filters=filters, dedup=dedup, llm=llm)
 
