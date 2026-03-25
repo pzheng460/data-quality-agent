@@ -260,13 +260,35 @@ def run_benchmark(
             all_word_counts.extend(r["word_counts"])
             total_awl += r["total_awl"]
 
-        # Dedup detection (lightweight hash-based, not worth parallelizing)
+        # Dedup detection (reports stats only, does not remove docs)
         from dq.dedup.exact import ExactDedup
-        exact = ExactDedup(text_field="text")
+        exact = ExactDedup(text_field=config.text_field)
         list(exact.dedup(docs))
+        exact_dups = exact.duplicate_docs
+        exact_rate = exact.duplicate_docs / exact.total_docs if exact.total_docs > 0 else 0.0
+
+        minhash_dups = 0
+        minhash_rate = 0.0
+        minhash_cfg = config.dedup.minhash
+        if minhash_cfg.get("enabled", False) and not no_dedup:
+            from dq.dedup.minhash import MinHashDedup
+            mh = MinHashDedup(
+                text_field=config.text_field,
+                num_perm=minhash_cfg.get("num_perm", 112),
+                bands=minhash_cfg.get("bands", 14),
+                rows=minhash_cfg.get("rows", 8),
+                ngram_size=minhash_cfg.get("ngram_size", 5),
+            )
+            list(mh.dedup(docs))
+            minhash_dups = mh.duplicate_docs
+            minhash_rate = mh.duplicate_docs / mh.total_docs if mh.total_docs > 0 else 0.0
+            logger.info("MinHash dedup: %d near-duplicates (%.1f%%)", minhash_dups, minhash_rate * 100)
+
         dedup_info = DedupStats(
-            exact_duplicates=exact.duplicate_docs,
-            duplicate_rate=exact.duplicate_docs / exact.total_docs if exact.total_docs > 0 else 0.0,
+            exact_duplicates=exact_dups,
+            duplicate_rate=exact_rate,
+            minhash_duplicates=minhash_dups,
+            minhash_rate=minhash_rate,
         )
 
         ds_stats = DatasetStats(

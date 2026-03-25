@@ -82,6 +82,8 @@ class DedupStats:
 
     exact_duplicates: int = 0
     duplicate_rate: float = 0.0
+    minhash_duplicates: int = 0
+    minhash_rate: float = 0.0
 
 
 @dataclass

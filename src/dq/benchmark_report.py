@@ -93,6 +93,9 @@ def _print_single_dataset(report: BenchmarkReport, console: Console) -> None:
         if ds.dedup:
             dup_style = "red" if ds.dedup.duplicate_rate > 0.05 else "dim"
             table.add_row("Exact duplicates", Text(f"{ds.dedup.exact_duplicates} ({ds.dedup.duplicate_rate:.1%})", style=dup_style))
+            if ds.dedup.minhash_duplicates > 0 or ds.dedup.minhash_rate > 0:
+                mh_style = "red" if ds.dedup.minhash_rate > 0.05 else "dim"
+                table.add_row("Near-duplicates (MinHash)", Text(f"{ds.dedup.minhash_duplicates} ({ds.dedup.minhash_rate:.1%})", style=mh_style))
         console.print(table)
         console.print()
 
@@ -492,6 +495,9 @@ def benchmark_to_json(report: BenchmarkReport, path: str | Path | None = None) -
             if s.dedup:
                 stats_dict["exact_duplicates"] = s.dedup.exact_duplicates
                 stats_dict["duplicate_rate"] = round(s.dedup.duplicate_rate, 4)
+                if s.dedup.minhash_duplicates > 0 or s.dedup.minhash_rate > 0:
+                    stats_dict["minhash_duplicates"] = s.dedup.minhash_duplicates
+                    stats_dict["minhash_rate"] = round(s.dedup.minhash_rate, 4)
             ds_data["dataset_stats"] = stats_dict
         if dr.llm_scores is not None:
             ds_data["llm_scores"] = dr.llm_scores
@@ -561,6 +567,8 @@ def _markdown_single(report: BenchmarkReport) -> str:
         lines.append(f"| Fields | {', '.join(ds.fields) if ds.fields else 'N/A'} |")
         if ds.dedup:
             lines.append(f"| Exact duplicates | {ds.dedup.exact_duplicates} ({ds.dedup.duplicate_rate:.1%}) |")
+            if ds.dedup.minhash_duplicates > 0 or ds.dedup.minhash_rate > 0:
+                lines.append(f"| Near-duplicates (MinHash) | {ds.dedup.minhash_duplicates} ({ds.dedup.minhash_rate:.1%}) |")
         lines.append("")
 
     # Overall stats

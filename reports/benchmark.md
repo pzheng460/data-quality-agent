@@ -1,4 +1,4 @@
-# Data Quality Report: fineweb
+# Data Quality Report: dolma3_mix-6T
 
 **Samples**: 1000
 
@@ -8,31 +8,32 @@
 |--------|-------|
 | Total documents | 1000 |
 | Data type | pretrain |
-| Avg word count | 510.9 |
-| Min word count | 31 |
-| Max word count | 19419 |
-| Avg word length | 4.94 |
+| Avg word count | 1675.2 |
+| Min word count | 1 |
+| Max word count | 32325 |
+| Avg word length | 4.42 |
 | Fields | text |
-| Exact duplicates | 0 (0.0%) |
+| Exact duplicates | 1 (0.1%) |
 
 ## Quality Summary
 
 | Metric | Value |
 |--------|-------|
 | Total documents | 1000 |
-| Passed | 908 |
-| Failed | 92 |
-| Overall pass rate | 90.8% |
+| Passed (all filters) | 690 |
+| Failed | 310 |
+| Average pass rate (per filter) | 87.2% |
+| Overall pass rate (pass all) | 69.0% |
 
 ## Per-Filter Statistics
 
 | Filter | Pass Rate | Failed | Total |
 |--------|-----------|--------|-------|
-| **gopher_quality** | 98.5% | 15 | 1000 |
-| **gopher_repetition** | 99.2% | 8 | 1000 |
-| **c4** | 97.1% | 29 | 1000 |
-| **fineweb** | 99.6% | 4 | 1000 |
-| **pii** | 95.4% | 46 | 1000 |
+| **gopher_quality** | 80.4% | 196 | 1000 |
+| **gopher_repetition** | 94.0% | 60 | 1000 |
+| **c4** | 89.2% | 108 | 1000 |
+| **fineweb** | 75.5% | 245 | 1000 |
+| **pii** | 96.9% | 31 | 1000 |
 
 ## Per-Rule Breakdown
 
@@ -40,95 +41,100 @@
 
 | Rule | Failed | Total | Fail Rate |
 |------|--------|-------|-----------|
-| min_words | 9 | 1000 | 0.90% |
-| lines_end_punct | 4 | 1000 | 0.40% |
-| alpha_ratio | 2 | 1000 | 0.20% |
+| lines_end_punct | 134 | 1000 | 13.40% |
+| alpha_ratio | 114 | 1000 | 11.40% |
+| stopwords | 70 | 1000 | 7.00% |
+| min_words | 69 | 1000 | 6.90% |
+| min_avg_word_len | 9 | 1000 | 0.90% |
+| max_avg_word_len | 2 | 1000 | 0.20% |
+| hash_ratio | 1 | 1000 | 0.10% |
 
 ### gopher_repetition
 
 | Rule | Failed | Total | Fail Rate |
 |------|--------|-------|-----------|
-| dup_5gram_frac | 3 | 1000 | 0.30% |
-| dup_10gram_frac | 2 | 1000 | 0.20% |
-| dup_6gram_frac | 2 | 1000 | 0.20% |
-| dup_7gram_frac | 2 | 1000 | 0.20% |
-| dup_9gram_frac | 1 | 1000 | 0.10% |
-| dup_line_ratio | 1 | 1000 | 0.10% |
+| top_2gram | 52 | 1000 | 5.20% |
+| top_3gram | 47 | 1000 | 4.70% |
+| top_4gram | 33 | 1000 | 3.30% |
+| dup_para_ratio | 1 | 1000 | 0.10% |
 
 ### c4
 
 | Rule | Failed | Total | Fail Rate |
 |------|--------|-------|-----------|
-| min_sentences | 29 | 1000 | 2.90% |
+| empty_after_line_filter | 88 | 1000 | 8.80% |
+| min_sentences | 20 | 1000 | 2.00% |
 
 ### fineweb
 
 | Rule | Failed | Total | Fail Rate |
 |------|--------|-------|-----------|
-| list_line_ratio | 2 | 1000 | 0.20% |
-| bad_line_breaks | 1 | 1000 | 0.10% |
-| dup_line_ratio | 1 | 1000 | 0.10% |
+| line_punct_ratio | 146 | 1000 | 14.60% |
+| short_line_ratio | 92 | 1000 | 9.20% |
+| char_dup_ratio | 83 | 1000 | 8.30% |
+| list_ratio | 13 | 1000 | 1.30% |
 
 ### pii
 
 | Rule | Failed | Total | Fail Rate |
 |------|--------|-------|-----------|
-| email | 45 | 1000 | 4.50% |
-| ip | 1 | 1000 | 0.10% |
+| email | 29 | 1000 | 2.90% |
+| ip | 2 | 1000 | 0.20% |
+| bank_card | 1 | 1000 | 0.10% |
 
 ## Sample Dropped Documents
 
 ### gopher_quality
 
-**Sample 1**: `min_words` (value: 49)
-> Subject: Binary updates all installed pkgs? To: None <tech-pkg@NetBSD.org> From: Mark Weinem <firstn...
+**Sample 1**: `min_words` (value: 1)
+> 5...
 
-**Sample 2**: `lines_end_punct` (value: 0.0909)
-> [amsat-bb] Re: Dish surface 'flatness' antonio at qualcomm.com Fri Jul 25 21:35:16 PDT 2008 At 03:00...
+**Sample 2**: `alpha_ratio` (value: 0.7918)
+> tagNovels and NovellasPleasant Street Ch. 07 Pt. 02-03  Pleasant Street Ch. 07 Pt. 02-03  byD.C. Roi...
 
 **Sample 3**: `lines_end_punct` (value: 0.0)
-> SCOTTSDALE -- The Arizona Fall League has long been recognized as Major League Baseball's "graduate"...
+> Rating: 4 out of 5 by 49 visitors  Yayoi inami  Delicious Yayoi Inami scream from enjoyment during o...
 
 ### gopher_repetition
 
-**Sample 1**: `dup_9gram_frac` (value: 0.1157)
-> Reprinted from the renowned Bach-Gesellschaft edition, this work features the complete Sonatas and P...
+**Sample 1**: `top_2gram` (value: 0.9333)
+> Karen Kamensek ...
 
-**Sample 2**: `dup_5gram_frac` (value: 0.1642)
-> Anaconda iSCSI Cleanup Improve anaconda's iSCSI support. This is a complete iscsi rewrite that also ...
+**Sample 2**: `top_2gram` (value: 1.0)
+> withholding order...
 
-**Sample 3**: `dup_7gram_frac` (value: 0.1381)
-> Post Number: 5136 |Posted on Saturday, February 16, 2008 - 3:42 pm: | It might be hard to tell on yo...
+**Sample 3**: `top_2gram` (value: 0.5455)
+> four + 13 =...
 
 ### c4
 
-**Sample 1**: `min_sentences` (value: sentences=2 after removing no_terminal_punct_removed(1))
-> The Net Neutrality repeal vote is coming. Tell these Dems to vote Yes. The House of Representatives ...
+**Sample 1**: `empty_after_line_filter` (value: no_terminal_punct(1))
+> 5...
 
-**Sample 2**: `min_sentences` (value: sentences=2 after removing no_terminal_punct_removed(9))
-> Under Armour® Camo Back Cap - Embroidered UA logo up front - UA wordmark on cap bill - Embroidered U...
+**Sample 2**: `empty_after_line_filter` (value: no_terminal_punct(6))
+> Rating: 4 out of 5 by 49 visitors  Yayoi inami  Delicious Yayoi Inami scream from enjoyment during o...
 
-**Sample 3**: `min_sentences` (value: sentences=2 after removing no_terminal_punct_removed(5))
-> Welcome to my official blog. I am a professional photographer based in London / Cape Town specialisi...
+**Sample 3**: `min_sentences` (value: sentences=1 after removing no_terminal_punct_removed(3))
+> Nice to Nasty  Nice to Naughty  “I know some people might not believe this coz they’re about to watc...
 
 ### fineweb
 
-**Sample 1**: `bad_line_breaks` (value: 28.8571)
-> You must be a registered member to view this page.| If you are already a member, sign in now. To reg...
+**Sample 1**: `line_punct_ratio` (value: 0.0)
+> 5...
 
-**Sample 2**: `list_line_ratio` (value: 1.0)
-> 33. Letter from Wash Swimmer, acting chief, to National Council, regarding Dawes Commission correspo...
+**Sample 2**: `line_punct_ratio` (value: 0.0)
+> Rating: 4 out of 5 by 49 visitors  Yayoi inami  Delicious Yayoi Inami scream from enjoyment during o...
 
-**Sample 3**: `list_line_ratio` (value: 0.95)
-> I love the buttery taste and the crunchiness of the coarse sugar and cornmeal in this tart. - 1/2 cu...
+**Sample 3**: `line_punct_ratio` (value: 0.0)
+> Karen Kamensek ...
 
 ### pii
 
 **Sample 1**: `email` (value: 1)
-> Exhibition will provide a meeting place for businesses interested in capitalizing on India's waste m...
+>  Submitted by: Chastity Novice's Keyholder  Recently you received a report from my husband under the...
 
-**Sample 2**: `email` (value: 2)
-> Subject: Binary updates all installed pkgs? To: None <tech-pkg@NetBSD.org> From: Mark Weinem <firstn...
+**Sample 2**: `email` (value: 1)
+> Aneros Progasm Prostate Massager  Aneros Progasm Prostate Massager  Precio habitual $59.99   • En st...
 
-**Sample 3**: `email` (value: 3)
-> |general shipping policy||shipping to a different address||international shipping||using the shoppin...
+**Sample 3**: `email` (value: 1)
+> Top Definition A town in Gippsland, Victoria, Australia. Where the water is horrible and lots of der...

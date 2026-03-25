@@ -102,14 +102,15 @@ C4 first removes problematic lines, then checks if the remaining document is val
 
 ### `fineweb` — Web Document Quality
 
-Source: FineWeb (Penedo et al., 2024)
+Source: FineWeb (Penedo et al., 2024). Aligned with datatrove's `FineWebQualityFilter`.
 
 | Rule | What It Checks | Default Threshold | Value |
 |------|----------------|-------------------|-------|
 | `empty_doc` | Document has no content | N/A | 0 |
-| `list_line_ratio` | Too many lines are bullet/numbered lists | 90% | List line fraction |
-| `dup_line_ratio` | Too many duplicate lines | 30% | Duplicate line fraction |
-| `bad_line_breaks` | Lines are too short on average (AND > 10 lines) | avg < 30 chars | Average line length |
+| `line_punct_ratio` | Too few lines end with terminal punctuation | 12% min | Line punct fraction |
+| `short_line_ratio` | Too many short lines (≤ 30 chars) | 67% max | Short line fraction |
+| `char_dup_ratio` | Too many duplicate lines by character coverage | 1% max | Char dup fraction |
+| `list_ratio` | Too many newlines relative to words (list-like) | 0.3 max | Newline / word count |
 
 ### `pii` — Personal Identifiable Information
 

@@ -102,14 +102,15 @@ C4 先移除有问题的行，再检查剩余文档是否有效。
 
 ### `fineweb` — 网页文档质量
 
-来源：FineWeb（Penedo et al., 2024）
+来源：FineWeb（Penedo et al., 2024）。已与 datatrove 的 `FineWebQualityFilter` 对齐。
 
 | 规则 | 检查内容 | 默认阈值 | 检测值 |
 |------|---------|----------|--------|
 | `empty_doc` | 文档无内容 | N/A | 0 |
-| `list_line_ratio` | 列表行过多 | 90% | 列表行比例 |
-| `dup_line_ratio` | 重复行过多 | 30% | 重复行比例 |
-| `bad_line_breaks` | 行平均过短（且 > 10 行） | 平均 < 30 字符 | 平均行长 |
+| `line_punct_ratio` | 以标点结尾的行过少 | 最低 12% | 行标点比例 |
+| `short_line_ratio` | 短行（≤ 30 字符）过多 | 最高 67% | 短行比例 |
+| `char_dup_ratio` | 重复行字符覆盖率过高 | 最高 1% | 字符重复比例 |
+| `list_ratio` | 换行符相对词数过多（列表特征） | 最高 0.3 | 换行/词数比 |
 
 ### `pii` — 个人身份信息检测
 
