@@ -83,11 +83,12 @@ def _load_input_datasets(
 @click.option("--split", default="train", help="HF dataset split (default: train)")
 @click.option("--text-field", default="text", help="Field name containing text (default: text)")
 @click.option("--hf-config", default=None, help="HF dataset config/subset name")
+@click.option("-w", "--workers", default=None, type=int, help="Parallel workers (default: auto)")
 def bench(input_path: str, config_path: str | None, num_samples: int, no_dedup: bool, seed: int,
           output_dir: str, with_model_filters: bool,
           check_contamination: str | None, with_llm_scoring: bool, llm_samples: int,
           data_type: str, api_url: str | None, api_key: str | None, llm_model: str | None,
-          split: str, text_field: str, hf_config: str | None):
+          split: str, text_field: str, hf_config: str | None, workers: int | None):
     """Run quality benchmark and generate report.
 
     INPUT_PATH can be a local file (jsonl/csv/parquet) or a HuggingFace dataset ID
@@ -129,6 +130,7 @@ def bench(input_path: str, config_path: str | None, num_samples: int, no_dedup: 
             no_dedup=no_dedup,
             seed=seed,
             data_type=data_type,
+            workers=workers,
         )
     except ImportError as e:
         console.print(f"[red]Error: {e}[/red]")
