@@ -50,6 +50,19 @@ dq bench data.jsonl --with-llm-scoring --llm-samples 50
 
 Reports are saved to `reports/` by default (JSON + Markdown). Override with `-o`.
 
+### Production Cleaning
+
+```bash
+# Clean a dataset — filter low-quality docs and write passing docs
+dq run raw.jsonl cleaned.jsonl
+
+# Parquet I/O
+dq run raw.parquet cleaned.parquet
+
+# Custom config + parallel workers
+dq run raw.jsonl cleaned.jsonl -c configs/sft.yaml -w 16
+```
+
 ## Layer 1: Rule-based Filters
 
 ### `gopher_quality` — Basic Quality Heuristics

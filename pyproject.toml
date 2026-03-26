@@ -25,6 +25,9 @@ lid = [
     "fasttext-numpy2-wheel>=0.9.2",
     "fasteners>=0.20",
 ]
+
+# Ray backend (future):
+# ray = ["ray[data]>=2.9"]
 model = [
     "fasttext-wheel>=0.9",
     "transformers>=4.30",

@@ -48,6 +48,19 @@ dq bench data.jsonl --check-contamination /path/to/benchmark.jsonl
 dq bench data.jsonl --with-llm-scoring --llm-samples 50
 ```
 
+### 生产清洗
+
+```bash
+# 清洗数据集 — 过滤低质量文档，输出通过的文档
+dq run raw.jsonl cleaned.jsonl
+
+# Parquet 格式
+dq run raw.parquet cleaned.parquet
+
+# 自定义配置 + 并行
+dq run raw.jsonl cleaned.jsonl -c configs/sft.yaml -w 16
+```
+
 报告默认保存到 `reports/` 目录（JSON + Markdown 格式），可通过 `-o` 自定义输出路径。
 
 ## 第一层：规则过滤器

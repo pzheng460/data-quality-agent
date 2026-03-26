@@ -13,7 +13,7 @@ A Python CLI for detecting low-quality LLM training data. Single command `dq ben
 ## 🧠 Permanent Memory
 
 ### Architecture (current)
-- **CLI**: Single command `dq bench` — accepts local files or HuggingFace dataset IDs
+- **CLI**: `dq bench` (quality report) + `dq run` (production cleaning) — accepts local files or HuggingFace dataset IDs
 - **Layer 1: Rule-based Filters** — deterministic, free, aligned with datatrove
   - Pre-training: Gopher quality/repetition, C4, FineWeb, Language ID (fasttext), Bad Words (LDNOOBW), PII (all aligned with datatrove)
   - SFT: `SFTRulesFilter` — empty_output, output_too_short (closed-form aware), instruction_copy, ai_refusal (hard/soft), language_mismatch, missing_sft_fields
@@ -83,13 +83,18 @@ uv run dq bench data.jsonl -n 1000 -w 16           # 16 parallel workers
 uv run dq bench allenai/dolma3_mix-6T -n 1000
 uv run dq bench data.jsonl --check-contamination mmlu,hellaswag
 uv run dq bench data.jsonl --with-llm-scoring --llm-samples 50
+uv run dq run raw.jsonl cleaned.jsonl                    # Production cleaning
+uv run dq run raw.jsonl cleaned.jsonl -w 16              # 16 parallel workers
+uv run dq run raw.parquet cleaned.parquet                # Parquet I/O
 uv run python scripts/align_with_datatrove.py -n 1000   # Verify datatrove alignment
 ```
 
 ## Key Files
 ```
 src/dq/
-├── cli.py                      # CLI — single `dq bench` command
+├── cli.py                      # CLI — `dq bench` + `dq run`
+├── runner/
+│   └── cleaning.py             #   Production cleaning pipeline (multiprocessing)
 ├── filters/
 │   ├── gopher.py               #   Gopher quality + repetition (aligned with datatrove)
 │   ├── c4.py                   #   C4 filter (aligned with datatrove)
