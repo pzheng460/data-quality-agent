@@ -15,7 +15,7 @@ A Python CLI for detecting low-quality LLM training data. Single command `dq ben
 ### Architecture (current)
 - **CLI**: Single command `dq bench` — accepts local files or HuggingFace dataset IDs
 - **Layer 1: Rule-based Filters** — deterministic, free, aligned with datatrove
-  - Pre-training: Gopher quality/repetition, C4, FineWeb, PII (all use spacy tokenizer matching datatrove)
+  - Pre-training: Gopher quality/repetition, C4, FineWeb, Language ID (fasttext), Bad Words (LDNOOBW), PII (all aligned with datatrove)
   - SFT: `SFTRulesFilter` — empty_output, output_too_short (closed-form aware), instruction_copy, ai_refusal (hard/soft), language_mismatch, missing_sft_fields
   - Dedup detection: exact (SHA256) + MinHash LSH (near-duplicate)
 - **Layer 2: Unified LLM Binary Judge** — `src/dq/judge.py` with data-driven rules (HIGH/LOW classification)
@@ -94,6 +94,8 @@ src/dq/
 │   ├── gopher.py               #   Gopher quality + repetition (aligned with datatrove)
 │   ├── c4.py                   #   C4 filter (aligned with datatrove)
 │   ├── fineweb.py              #   FineWeb filter (aligned with datatrove)
+│   ├── language.py              #   Language ID filter (fasttext, aligned with datatrove)
+│   ├── badwords.py              #   C4 bad words filter (LDNOOBW, aligned with datatrove)
 │   ├── sft_rules.py            #   SFT rules (Layer 1, dq-unique)
 │   └── pii.py                  #   PII detection/redaction
 ├── utils/stats.py              # Word tokenization + all stat functions

@@ -5,7 +5,7 @@ A Python CLI for detecting low-quality LLM training data. Single command `dq ben
 ## Architecture
 
 - **Layer 1: Rule-based Filters** — deterministic, free, millisecond-level
-  - Pre-training: Gopher quality/repetition, C4, FineWeb, PII
+  - Pre-training: Gopher quality/repetition, C4, FineWeb, Language ID, Bad Words, PII
   - SFT: empty output, output too short, instruction copy, AI refusal, language mismatch
   - Dedup: exact duplicate detection (SHA256)
 - **Layer 2: LLM Binary Judge** — semantic quality assessment via LLM API

@@ -43,6 +43,19 @@ pipeline:
         char_duplicates_ratio: 0.01
         new_line_ratio: 0.3
 
+    - name: language
+      enabled: false
+      params:
+        languages: null            # null = any language above threshold
+        language_threshold: 0.65
+        backend: "ft176"           # "ft176" (176-lang) or "glotlid" (1000+)
+        label_only: false
+
+    - name: badwords
+      enabled: false
+      params:
+        default_language: "en"
+
     - name: pii
       mode: redact
 
