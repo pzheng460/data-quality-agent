@@ -26,6 +26,9 @@ uv sync --extra bench      # + HuggingFace datasets
 # 本地文件
 dq bench data.jsonl -n 1000
 
+# 多进程并行（16 个工作进程）
+dq bench data.jsonl -n 1000 -w 16
+
 # HuggingFace 数据集（流式加载，无需完整下载）
 dq bench allenai/dolma3_mix-6T -n 10000
 

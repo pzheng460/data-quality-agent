@@ -65,25 +65,27 @@ class C4Filter(BaseFilter):
         for line in lines:
             stripped = line.strip()
 
-            # lorem ipsum: reject entire doc
-            if self.remove_lorem_ipsum and "lorem ipsum" in stripped.lower():
-                return [], {"reject": "lorem_ipsum"}
-
-            # curly brace: reject entire doc
-            if self.remove_curly_brace and "{" in stripped:
-                return [], {"reject": "curly_brace"}
-
-            # Terminal punctuation check (matching datatrove):
+            # Terminal punctuation check (matching datatrove order):
             # endswith END_PUNCTUATION but NOT endswith ellipsis
+            # MUST come before lorem/curly/javascript/policy so that
+            # lines without terminal punct are skipped first.
             if self.remove_no_terminal_punct and stripped:
                 if not stripped.endswith(_END_PUNCTUATION) or stripped.endswith(_ELLIPSIS):
                     no_punct_removed += 1
                     continue
 
+            # lorem ipsum: reject entire doc
+            if self.remove_lorem_ipsum and "lorem ipsum" in stripped.lower():
+                return [], {"reject": "lorem_ipsum"}
+
             # javascript
             if self.remove_javascript_lines and "javascript" in stripped.lower():
                 js_removed += 1
                 continue
+
+            # curly brace: reject entire doc
+            if self.remove_curly_brace and "{" in stripped:
+                return [], {"reject": "curly_brace"}
 
             # policy substrings (matching datatrove exactly)
             if self.remove_policy_lines:

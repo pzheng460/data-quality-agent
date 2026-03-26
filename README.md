@@ -26,6 +26,9 @@ uv sync --extra bench      # + HuggingFace datasets
 # Local file
 dq bench data.jsonl -n 1000
 
+# Parallel workers (16 processes)
+dq bench data.jsonl -n 1000 -w 16
+
 # HuggingFace dataset (streaming, no full download)
 dq bench allenai/dolma3_mix-6T -n 10000
 

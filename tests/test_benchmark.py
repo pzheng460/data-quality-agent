@@ -732,6 +732,17 @@ class TestSingleDatasetBenchmark:
 class TestBenchCLI:
     """Tests for the dq bench CLI command with custom input."""
 
+    def teardown_method(self):
+        """Reset global LLM client state after each CLI test.
+
+        CLI tests invoke ``dq bench`` which calls ``set_config_from_yaml``,
+        loading real API credentials from ``configs/llm.yaml`` into the
+        global singleton.  Without cleanup this leaks into later tests,
+        causing them to hit the real LLM API and hang.
+        """
+        from dq.llm_client import reset_client
+        reset_client()
+
     def test_bench_with_local_file(self, tmp_path):
         """dq bench should accept a local file as input."""
         import json as json_mod
