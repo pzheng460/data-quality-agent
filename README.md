@@ -77,7 +77,8 @@ Source: Gopher (Rae et al., 2021)
 | `min_avg_word_len` | Average word length too short | 3.0 chars | Avg word length |
 | `max_avg_word_len` | Average word length too long | 10.0 chars | Avg word length |
 | `symbol_ratio` | Too many symbol tokens (`#`, `...`, `…`) | 10% | Symbol-to-word ratio |
-| `lines_end_punct` | Too few lines ending with `.!?。！？;；` | 10% | Fraction of lines with terminal punct |
+| `bullet_lines_ratio` | Too many lines starting with bullet (`•` or `-`) | 90% | Bullet line fraction |
+| `ellipsis_lines_ratio` | Too many lines ending with ellipsis (`...` or `…`) | 30% | Ellipsis line fraction |
 | `stopwords` | Too few English stopwords (non-natural-language) | 2 | Stopword count |
 | `alpha_ratio` | Too few alphabetic/CJK characters | 80% | Alpha char ratio |
 
@@ -91,7 +92,9 @@ Source: Gopher (Rae et al., 2021)
 | `top_3gram` | Most frequent word 3-gram covers too much text | 18% | Character coverage ratio |
 | `top_4gram` | Most frequent word 4-gram covers too much text | 16% | Character coverage ratio |
 | `dup_line_ratio` | Too many duplicate lines | 30% | Duplicate line fraction |
+| `dup_line_char_frac` | Duplicate line character coverage | 20% | Character fraction |
 | `dup_para_ratio` | Too many duplicate paragraphs | 30% | Duplicate paragraph fraction |
+| `dup_para_char_frac` | Duplicate paragraph character coverage | 20% | Character fraction |
 | `dup_5gram_frac` | Text covered by duplicate 5-grams | 15% | Character fraction |
 | `dup_6gram_frac` | Text covered by duplicate 6-grams | 14% | Character fraction |
 | `dup_7gram_frac` | Text covered by duplicate 7-grams | 13% | Character fraction |
@@ -113,7 +116,7 @@ C4 first removes problematic lines, then checks if the remaining document is val
 | Rule | What It Checks | Default | Value |
 |------|----------------|---------|-------|
 | `empty_after_line_filter` | Document becomes empty after line cleaning | N/A | Detail of removals: `javascript(N)`, `policy(N)`, `no_terminal_punct(N)` |
-| `min_sentences` | Too few sentences after cleaning | 3 | Sentence count |
+| `min_sentences` | Too few sentences after cleaning | 5 | Sentence count |
 | `lorem_ipsum` | Contains "lorem ipsum" text | Enabled | Boolean |
 | `curly_brace` | Contains curly braces `{` | Disabled | Boolean |
 

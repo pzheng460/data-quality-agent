@@ -77,7 +77,8 @@ dq bench data.jsonl -n 1000 --save-rejected rejected.jsonl
 | `min_avg_word_len` | 平均词长过短 | 3.0 字符 | 平均词长 |
 | `max_avg_word_len` | 平均词长过长 | 10.0 字符 | 平均词长 |
 | `symbol_ratio` | 符号标记过多（`#`、`...`、`…`） | 10% | 符号词比 |
-| `lines_end_punct` | 以标点结尾的行过少（`.!?。！？;；`） | 10% | 终端标点行比例 |
+| `bullet_lines_ratio` | 以项目符号（`•` 或 `-`）开头的行过多 | 90% | 项目符号行比例 |
+| `ellipsis_lines_ratio` | 以省略号（`...` 或 `…`）结尾的行过多 | 30% | 省略号行比例 |
 | `stopwords` | 英语停用词过少（非自然语言） | 2 | 停用词数 |
 | `alpha_ratio` | 字母/中日韩字符过少 | 80% | 字母字符比 |
 
@@ -91,7 +92,9 @@ dq bench data.jsonl -n 1000 --save-rejected rejected.jsonl
 | `top_3gram` | 最频繁 3-gram 覆盖过多文本 | 18% | 字符覆盖率 |
 | `top_4gram` | 最频繁 4-gram 覆盖过多文本 | 16% | 字符覆盖率 |
 | `dup_line_ratio` | 重复行过多 | 30% | 重复行比例 |
+| `dup_line_char_frac` | 重复行字符覆盖率过高 | 20% | 字符比例 |
 | `dup_para_ratio` | 重复段落过多 | 30% | 重复段落比例 |
+| `dup_para_char_frac` | 重复段落字符覆盖率过高 | 20% | 字符比例 |
 | `dup_5gram_frac` | 重复 5-gram 覆盖的文本 | 15% | 字符比例 |
 | `dup_6gram_frac` | 重复 6-gram 覆盖的文本 | 14% | 字符比例 |
 | `dup_7gram_frac` | 重复 7-gram 覆盖的文本 | 13% | 字符比例 |
@@ -113,7 +116,7 @@ C4 先移除有问题的行，再检查剩余文档是否有效。
 | 规则 | 检查内容 | 默认值 | 检测值 |
 |------|---------|--------|--------|
 | `empty_after_line_filter` | 行清洗后文档为空 | N/A | 移除详情：`javascript(N)`、`policy(N)`、`no_terminal_punct(N)` |
-| `min_sentences` | 清洗后句子过少 | 3 | 句子数 |
+| `min_sentences` | 清洗后句子过少 | 5 | 句子数 |
 | `lorem_ipsum` | 包含 "lorem ipsum" 文本 | 启用 | 布尔值 |
 | `curly_brace` | 包含花括号 `{` | 禁用 | 布尔值 |
 

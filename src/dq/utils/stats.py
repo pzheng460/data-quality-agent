@@ -175,6 +175,30 @@ def lines_ending_with_punct(text: str) -> float:
     return count / len(lines)
 
 
+def bullet_lines_ratio(text: str) -> float:
+    """Fraction of lines starting with a bullet point (matching datatrove).
+
+    datatrove checks lines starting with '•' or '-' (after lstrip).
+    """
+    lines = text.splitlines()
+    if not lines:
+        return 0.0
+    count = sum(1 for line in lines if line.lstrip().startswith("•") or line.lstrip().startswith("-"))
+    return count / len(lines)
+
+
+def ellipsis_lines_ratio(text: str) -> float:
+    """Fraction of lines ending with ellipsis (matching datatrove).
+
+    datatrove checks lines ending with '...' or '…' (after rstrip).
+    """
+    lines = text.splitlines()
+    if not lines:
+        return 0.0
+    count = sum(1 for line in lines if line.rstrip().endswith("...") or line.rstrip().endswith("\u2026"))
+    return count / len(lines)
+
+
 # Gopher default stop words (matching datatrove exactly)
 GOPHER_STOP_WORDS = frozenset({"the", "be", "to", "of", "and", "that", "have", "with"})
 
@@ -215,6 +239,23 @@ def top_ngram_ratio(words: list[str], n: int, text: str) -> float:
     return top_char_length / len(text)
 
 
+def _find_duplicates(elements: list[str]) -> tuple[int, int]:
+    """Find duplicate elements, returning (dup_count, dup_chars).
+
+    Matching datatrove's find_duplicates exactly.
+    """
+    seen: set[str] = set()
+    dup_count = 0
+    dup_chars = 0
+    for elem in elements:
+        if elem in seen:
+            dup_count += 1
+            dup_chars += len(elem)
+        else:
+            seen.add(elem)
+    return dup_count, dup_chars
+
+
 def duplicate_line_ratio(text: str) -> float:
     """Fraction of duplicate lines (matching datatrove's find_duplicates).
 
@@ -226,14 +267,24 @@ def duplicate_line_ratio(text: str) -> float:
     lines = [l for l in lines if l]
     if not lines:
         return 0.0
-    seen: set[str] = set()
-    dup_count = 0
-    for line in lines:
-        if line in seen:
-            dup_count += 1
-        else:
-            seen.add(line)
+    dup_count, _ = _find_duplicates(lines)
     return dup_count / len(lines)
+
+
+def duplicate_line_char_frac(text: str) -> float:
+    """Character fraction of duplicate lines / len(text) (matching datatrove).
+
+    datatrove: char_duplicates / len(text) where char_duplicates is sum of
+    len(line) for each duplicate line occurrence.
+    """
+    if not text:
+        return 0.0
+    lines = re.split(r"\n+", text)
+    lines = [l for l in lines if l]
+    if not lines:
+        return 0.0
+    _, dup_chars = _find_duplicates(lines)
+    return dup_chars / len(text)
 
 
 def duplicate_paragraph_ratio(text: str) -> float:
@@ -245,14 +296,24 @@ def duplicate_paragraph_ratio(text: str) -> float:
     paragraphs = [p for p in paragraphs if p]
     if not paragraphs:
         return 0.0
-    seen: set[str] = set()
-    dup_count = 0
-    for p in paragraphs:
-        if p in seen:
-            dup_count += 1
-        else:
-            seen.add(p)
+    dup_count, _ = _find_duplicates(paragraphs)
     return dup_count / len(paragraphs)
+
+
+def duplicate_paragraph_char_frac(text: str) -> float:
+    """Character fraction of duplicate paragraphs / len(text) (matching datatrove).
+
+    datatrove: char_duplicates / len(text) where char_duplicates is sum of
+    len(paragraph) for each duplicate paragraph occurrence.
+    """
+    if not text:
+        return 0.0
+    paragraphs = re.split(r"\n{2,}", text.strip())
+    paragraphs = [p for p in paragraphs if p]
+    if not paragraphs:
+        return 0.0
+    _, dup_chars = _find_duplicates(paragraphs)
+    return dup_chars / len(text)
 
 
 def char_repetition_ratio(text: str, n: int = 10) -> float:

@@ -7,7 +7,8 @@ pipeline:
         min_avg_word_len: 3
         max_avg_word_len: 10
         max_symbol_ratio: 0.1
-        min_lines_end_punct: 0.1
+        max_bullet_lines_ratio: 0.9
+        max_ellipsis_lines_ratio: 0.3
         min_stopwords: 2
         min_alpha_ratio: 0.8
 
@@ -18,6 +19,8 @@ pipeline:
         max_top_4gram: 0.16
         max_dup_line_ratio: 0.30
         max_dup_para_ratio: 0.30
+        max_dup_line_char_frac: 0.20
+        max_dup_para_char_frac: 0.20
         # Gopher Table A1: duplicate word n-gram character fraction
         max_dup_5gram_frac: 0.15
         max_dup_6gram_frac: 0.14
@@ -33,7 +36,7 @@ pipeline:
         remove_policy_lines: true
         remove_lorem_ipsum: true
         remove_curly_brace: false
-        min_sentences: 3
+        min_sentences: 5
 
     - name: fineweb
       params:

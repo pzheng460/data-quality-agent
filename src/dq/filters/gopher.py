@@ -11,12 +11,15 @@ from dq.pipeline import register_filter
 from dq.utils.stats import (
     alpha_ratio,
     avg_word_length,
+    bullet_lines_ratio,
     count_stopwords,
     dup_ngram_char_frac,
+    duplicate_line_char_frac,
     duplicate_line_ratio,
+    duplicate_paragraph_char_frac,
     duplicate_paragraph_ratio,
+    ellipsis_lines_ratio,
     get_words,
-    lines_ending_with_punct,
     symbol_word_ratio,
     top_ngram_ratio,
     word_count,
@@ -39,7 +42,8 @@ class GopherQualityFilter(BaseFilter):
         min_avg_word_len: float = 3.0,
         max_avg_word_len: float = 10.0,
         max_symbol_ratio: float = 0.1,
-        min_lines_end_punct: float = 0.1,
+        max_bullet_lines_ratio: float = 0.9,
+        max_ellipsis_lines_ratio: float = 0.3,
         min_stopwords: int = 2,
         min_alpha_ratio: float = 0.8,
         **kwargs: Any,
@@ -50,7 +54,8 @@ class GopherQualityFilter(BaseFilter):
         self.min_avg_word_len = min_avg_word_len
         self.max_avg_word_len = max_avg_word_len
         self.max_symbol_ratio = max_symbol_ratio
-        self.min_lines_end_punct = min_lines_end_punct
+        self.max_bullet_lines_ratio = max_bullet_lines_ratio
+        self.max_ellipsis_lines_ratio = max_ellipsis_lines_ratio
         self.min_stopwords = min_stopwords
         self.min_alpha_ratio = min_alpha_ratio
 
@@ -70,23 +75,27 @@ class GopherQualityFilter(BaseFilter):
         if awl > self.max_avg_word_len:
             return False, {"filter": self.name, "reason": "avg_word_len_too_long", "value": awl}
 
-        hash_ratio, ellipsis_ratio = symbol_word_ratio(text, words=words)
+        hash_ratio, ellipsis_ratio_val = symbol_word_ratio(text, words=words)
         if hash_ratio > self.max_symbol_ratio:
             return False, {"filter": self.name, "reason": "high_hash_ratio", "value": hash_ratio}
-        if ellipsis_ratio > self.max_symbol_ratio:
-            return False, {"filter": self.name, "reason": "high_ellipsis_ratio", "value": ellipsis_ratio}
+        if ellipsis_ratio_val > self.max_symbol_ratio:
+            return False, {"filter": self.name, "reason": "high_ellipsis_ratio", "value": ellipsis_ratio_val}
 
-        lep = lines_ending_with_punct(text)
-        if lep < self.min_lines_end_punct:
-            return False, {"filter": self.name, "reason": "low_terminal_punct", "value": lep}
+        blr = bullet_lines_ratio(text)
+        if blr > self.max_bullet_lines_ratio:
+            return False, {"filter": self.name, "reason": "too_many_bullets", "value": blr}
 
-        sw = count_stopwords(words=words)
-        if sw < self.min_stopwords:
-            return False, {"filter": self.name, "reason": "too_few_stopwords", "value": sw}
+        elr = ellipsis_lines_ratio(text)
+        if elr > self.max_ellipsis_lines_ratio:
+            return False, {"filter": self.name, "reason": "too_many_end_ellipsis", "value": elr}
 
         ar = alpha_ratio(words=words)
         if ar < self.min_alpha_ratio:
             return False, {"filter": self.name, "reason": "low_alpha_ratio", "value": ar}
+
+        sw = count_stopwords(words=words)
+        if sw < self.min_stopwords:
+            return False, {"filter": self.name, "reason": "too_few_stopwords", "value": sw}
 
         return True, {}
 
@@ -107,23 +116,27 @@ class GopherQualityFilter(BaseFilter):
         if awl > self.max_avg_word_len:
             failures.append({"filter": self.name, "rule": "max_avg_word_len", "value": awl, "threshold": self.max_avg_word_len})
 
-        hash_ratio, ellipsis_ratio = symbol_word_ratio(text, words=words)
+        hash_ratio, ellipsis_ratio_val = symbol_word_ratio(text, words=words)
         if hash_ratio > self.max_symbol_ratio:
             failures.append({"filter": self.name, "rule": "hash_ratio", "value": hash_ratio, "threshold": self.max_symbol_ratio})
-        if ellipsis_ratio > self.max_symbol_ratio:
-            failures.append({"filter": self.name, "rule": "ellipsis_ratio", "value": ellipsis_ratio, "threshold": self.max_symbol_ratio})
+        if ellipsis_ratio_val > self.max_symbol_ratio:
+            failures.append({"filter": self.name, "rule": "ellipsis_ratio", "value": ellipsis_ratio_val, "threshold": self.max_symbol_ratio})
 
-        lep = lines_ending_with_punct(text)
-        if lep < self.min_lines_end_punct:
-            failures.append({"filter": self.name, "rule": "lines_end_punct", "value": lep, "threshold": self.min_lines_end_punct})
+        blr = bullet_lines_ratio(text)
+        if blr > self.max_bullet_lines_ratio:
+            failures.append({"filter": self.name, "rule": "bullet_lines_ratio", "value": blr, "threshold": self.max_bullet_lines_ratio})
 
-        sw = count_stopwords(words=words)
-        if sw < self.min_stopwords:
-            failures.append({"filter": self.name, "rule": "stopwords", "value": sw, "threshold": self.min_stopwords})
+        elr = ellipsis_lines_ratio(text)
+        if elr > self.max_ellipsis_lines_ratio:
+            failures.append({"filter": self.name, "rule": "ellipsis_lines_ratio", "value": elr, "threshold": self.max_ellipsis_lines_ratio})
 
         ar = alpha_ratio(words=words)
         if ar < self.min_alpha_ratio:
             failures.append({"filter": self.name, "rule": "alpha_ratio", "value": ar, "threshold": self.min_alpha_ratio})
+
+        sw = count_stopwords(words=words)
+        if sw < self.min_stopwords:
+            failures.append({"filter": self.name, "rule": "stopwords", "value": sw, "threshold": self.min_stopwords})
 
         return len(failures) == 0, failures
 
@@ -143,6 +156,8 @@ class GopherRepetitionFilter(BaseFilter):
         max_top_4gram: float = 0.16,
         max_dup_line_ratio: float = 0.30,
         max_dup_para_ratio: float = 0.30,
+        max_dup_line_char_frac: float = 0.20,
+        max_dup_para_char_frac: float = 0.20,
         max_dup_5gram_frac: float = 0.15,
         max_dup_6gram_frac: float = 0.14,
         max_dup_7gram_frac: float = 0.13,
@@ -158,6 +173,8 @@ class GopherRepetitionFilter(BaseFilter):
         self.max_top_4gram = max_top_4gram
         self.max_dup_line_ratio = max_dup_line_ratio
         self.max_dup_para_ratio = max_dup_para_ratio
+        self.max_dup_line_char_frac = max_dup_line_char_frac
+        self.max_dup_para_char_frac = max_dup_para_char_frac
         self.dup_ngram_thresholds = [
             (5, max_dup_5gram_frac),
             (6, max_dup_6gram_frac),
@@ -176,9 +193,17 @@ class GopherRepetitionFilter(BaseFilter):
         if dpr > self.max_dup_para_ratio:
             return False, {"filter": self.name, "reason": "high_dup_para_ratio", "value": dpr}
 
+        dpcf = duplicate_paragraph_char_frac(text)
+        if dpcf > self.max_dup_para_char_frac:
+            return False, {"filter": self.name, "reason": "high_dup_para_char_frac", "value": dpcf}
+
         dlr = duplicate_line_ratio(text)
         if dlr > self.max_dup_line_ratio:
             return False, {"filter": self.name, "reason": "high_dup_line_ratio", "value": dlr}
+
+        dlcf = duplicate_line_char_frac(text)
+        if dlcf > self.max_dup_line_char_frac:
+            return False, {"filter": self.name, "reason": "high_dup_line_char_frac", "value": dlcf}
 
         for n, threshold, label in [
             (2, self.max_top_2gram, "top_2gram"),
@@ -205,9 +230,17 @@ class GopherRepetitionFilter(BaseFilter):
         if dpr > self.max_dup_para_ratio:
             failures.append({"filter": self.name, "rule": "dup_para_ratio", "value": dpr, "threshold": self.max_dup_para_ratio})
 
+        dpcf = duplicate_paragraph_char_frac(text)
+        if dpcf > self.max_dup_para_char_frac:
+            failures.append({"filter": self.name, "rule": "dup_para_char_frac", "value": dpcf, "threshold": self.max_dup_para_char_frac})
+
         dlr = duplicate_line_ratio(text)
         if dlr > self.max_dup_line_ratio:
             failures.append({"filter": self.name, "rule": "dup_line_ratio", "value": dlr, "threshold": self.max_dup_line_ratio})
+
+        dlcf = duplicate_line_char_frac(text)
+        if dlcf > self.max_dup_line_char_frac:
+            failures.append({"filter": self.name, "rule": "dup_line_char_frac", "value": dlcf, "threshold": self.max_dup_line_char_frac})
 
         for n, threshold, label in [
             (2, self.max_top_2gram, "top_2gram"),

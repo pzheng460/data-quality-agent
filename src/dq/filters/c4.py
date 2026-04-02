@@ -43,7 +43,7 @@ class C4Filter(BaseFilter):
         remove_policy_lines: bool = True,
         remove_lorem_ipsum: bool = True,
         remove_curly_brace: bool = False,
-        min_sentences: int = 3,
+        min_sentences: int = 5,
         **kwargs: Any,
     ) -> None:
         super().__init__(text_field=text_field, **kwargs)

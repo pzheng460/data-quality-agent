@@ -152,8 +152,6 @@ def compare_gopher_quality(texts: list[str]) -> FilterComparison:
       dq checks tokens that ARE "#"/"..."/"…" / total words
     - Alpha ratio: datatrove = word-level (frac of words with ≥1 alpha char);
       dq = char-level (frac of non-whitespace chars that are alpha)
-    - Bullet/ellipsis lines: datatrove has max_bullet_lines_ratio (0.9) and
-      max_ellipsis_lines_ratio (0.3); dq has min_lines_end_punct (0.1) instead
     - Stopwords: datatrove uses set intersection (unique); dq counts all occurrences
     """
     comp = FilterComparison(name="gopher_quality")
@@ -163,7 +161,8 @@ def compare_gopher_quality(texts: list[str]) -> FilterComparison:
         min_words=50, max_words=100_000,
         min_avg_word_len=3.0, max_avg_word_len=10.0,
         max_symbol_ratio=0.1,
-        min_lines_end_punct=0.0,  # disable (datatrove doesn't have this in Gopher)
+        max_bullet_lines_ratio=0.9,
+        max_ellipsis_lines_ratio=0.3,
         min_stopwords=2,
         min_alpha_ratio=0.8,
     )
@@ -171,8 +170,8 @@ def compare_gopher_quality(texts: list[str]) -> FilterComparison:
         min_doc_words=50, max_doc_words=100_000,
         min_avg_word_length=3, max_avg_word_length=10,
         max_symbol_word_ratio=0.1,
-        max_bullet_lines_ratio=None,     # disable (dq doesn't have this)
-        max_ellipsis_lines_ratio=None,   # disable (dq doesn't have this)
+        max_bullet_lines_ratio=0.9,
+        max_ellipsis_lines_ratio=0.3,
         max_non_alpha_words_ratio=0.8,
         min_stop_words=2,
     )
@@ -191,7 +190,6 @@ def compare_gopher_repetition(texts: list[str]) -> FilterComparison:
     Known differences vs datatrove:
     - top_ngram_ratio: datatrove = top_ngram_char_length / len(text);
       dq = top_ngram_count / total_ngram_count (frequency ratio, not char fraction)
-    - dup_line_char_frac / dup_para_char_frac: datatrove has these, dq doesn't
     - duplicate counting: datatrove counts only subsequent occurrences as duplicates
       (first occurrence is not a duplicate); dq counts ALL copies if count > 1
     """
@@ -200,14 +198,15 @@ def compare_gopher_repetition(texts: list[str]) -> FilterComparison:
     dq_f = DQ_GopherRepetition(
         max_top_2gram=0.20, max_top_3gram=0.18, max_top_4gram=0.16,
         max_dup_line_ratio=0.30, max_dup_para_ratio=0.30,
+        max_dup_line_char_frac=0.20, max_dup_para_char_frac=0.20,
         max_dup_5gram_frac=0.15, max_dup_6gram_frac=0.14,
         max_dup_7gram_frac=0.13, max_dup_8gram_frac=0.12,
         max_dup_9gram_frac=0.11, max_dup_10gram_frac=0.10,
     )
     dt_f = DT_GopherRepetition(
         dup_line_frac=0.30, dup_para_frac=0.30,
-        dup_line_char_frac=None,  # disable (dq doesn't have this)
-        dup_para_char_frac=None,  # disable (dq doesn't have this)
+        dup_line_char_frac=0.20,
+        dup_para_char_frac=0.20,
         top_n_grams=((2, 0.20), (3, 0.18), (4, 0.16)),
         dup_n_grams=((5, 0.15), (6, 0.14), (7, 0.13), (8, 0.12), (9, 0.11), (10, 0.10)),
     )
@@ -225,7 +224,7 @@ def compare_c4(texts: list[str]) -> FilterComparison:
 
     Known differences vs datatrove:
     - curly_bracket: datatrove default True, dq default False
-    - min_sentences: datatrove default 5, dq default 3
+    - min_sentences: datatrove default 5, dq default 5
     - min_words_per_line: datatrove has (default 3), dq doesn't
     - max_word_length: datatrove has (default 1000), dq doesn't
     - remove_citations: datatrove has, dq doesn't

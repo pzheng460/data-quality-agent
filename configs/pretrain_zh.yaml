@@ -14,7 +14,8 @@ pipeline:
         min_avg_word_len: 1        # CJK chars are 1-char words
         max_avg_word_len: 10
         max_symbol_ratio: 0.15
-        min_lines_end_punct: 0.05  # Relaxed for Chinese text
+        max_bullet_lines_ratio: 0.9
+        max_ellipsis_lines_ratio: 0.3
         min_stopwords: 0           # Disabled for Chinese
         min_alpha_ratio: 0.6       # CJK chars count as alpha
 
@@ -25,7 +26,8 @@ pipeline:
         max_top_4gram: 0.16
         max_dup_line_ratio: 0.30
         max_dup_para_ratio: 0.30
-        # char_repetition replaced by dup_ngram_frac (Gopher Table A1)
+        max_dup_line_char_frac: 0.20
+        max_dup_para_char_frac: 0.20
 
     - name: c4
       params:

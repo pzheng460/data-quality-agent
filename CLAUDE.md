@@ -35,6 +35,7 @@ Pre-training filters (Gopher, C4, FineWeb) are 100% aligned with datatrove's ref
 - **stopwords**: set intersection with 8-word Gopher set `{"the","be","to","of","and","that","have","with"}`
 - **top_ngram_ratio**: char coverage / len(text), not frequency ratio
 - **duplicate_line_ratio**: `\n+` split (merges empty lines), counts subsequent duplicates only
+- **dup_line_char_frac / dup_para_char_frac**: sum of len(element) for duplicate elements / len(text)
 - **dup_ngram_char_frac**: denominator is `len(text)`, not `sum(word_lens)`
 - **C4 terminal punct**: `endswith(('.','?','!','"',"'"))` excluding `...`
 - **C4 sentences**: spacy sentence splitter, not regex

@@ -41,7 +41,7 @@ class TestBaseFilterDetailedDefault:
 
     def test_gopher_quality_min_words_compat(self):
         """GopherQualityFilter filter_detailed reports min_words failures."""
-        f = GopherQualityFilter(min_words=50, min_stopwords=0, min_lines_end_punct=0.0)
+        f = GopherQualityFilter(min_words=50, min_stopwords=0, max_bullet_lines_ratio=1.0, max_ellipsis_lines_ratio=1.0)
         doc = {"text": "short text"}
         keep, failures = f.filter_detailed(doc)
         assert not keep
@@ -59,7 +59,7 @@ class TestGopherQualityDetailed:
     def test_returns_all_failures(self):
         """A doc failing multiple rules should return ALL failures."""
         # Short text with no stopwords, bad alpha ratio, no punctuation
-        f = GopherQualityFilter(min_words=5, min_stopwords=2, min_lines_end_punct=0.5)
+        f = GopherQualityFilter(min_words=5, min_stopwords=2)
         doc = {"text": "123 456 789"}
         keep, failures = f.filter_detailed(doc)
         assert not keep
@@ -101,7 +101,7 @@ class TestGopherQualityDetailed:
             min_words=100,
             min_alpha_ratio=0.9,
             min_stopwords=0,
-            min_lines_end_punct=0.0,
+            max_bullet_lines_ratio=1.0, max_ellipsis_lines_ratio=1.0,
         )
         # Very short numeric text
         doc = {"text": "1 2 3"}
@@ -196,7 +196,7 @@ class TestGopherQualityWordLimits:
     """Word count limits are now handled by GopherQualityFilter."""
 
     def test_too_short(self):
-        f = GopherQualityFilter(min_words=50, min_stopwords=0, min_lines_end_punct=0.0)
+        f = GopherQualityFilter(min_words=50, min_stopwords=0, max_bullet_lines_ratio=1.0, max_ellipsis_lines_ratio=1.0)
         doc = {"text": "short"}
         keep, failures = f.filter_detailed(doc)
         assert not keep
@@ -204,7 +204,7 @@ class TestGopherQualityWordLimits:
         assert any(fail["threshold"] == 50 for fail in failures if fail["rule"] == "min_words")
 
     def test_too_long(self):
-        f = GopherQualityFilter(min_words=1, max_words=5, min_stopwords=0, min_lines_end_punct=0.0)
+        f = GopherQualityFilter(min_words=1, max_words=5, min_stopwords=0, max_bullet_lines_ratio=1.0, max_ellipsis_lines_ratio=1.0)
         doc = {"text": "one two three four five six seven eight nine ten"}
         keep, failures = f.filter_detailed(doc)
         assert not keep

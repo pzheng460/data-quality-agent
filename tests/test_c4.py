@@ -20,7 +20,7 @@ class TestC4Filter:
 
     def test_curly_brace_off_by_default(self):
         f = C4Filter(remove_curly_brace=False)
-        doc = {"text": "This has a { brace. And some more text. It should pass by default."}
+        doc = {"text": "This has a { brace. And some more text. It should pass by default. Here is another sentence. And one more for good measure."}
         keep, info = f.filter(doc)
         # Should pass because curly brace removal is off
         assert keep

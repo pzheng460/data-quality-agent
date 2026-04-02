@@ -65,7 +65,7 @@ class TestRunBenchmark:
         config = PipelineConfig(
             text_field="text",
             filters=[
-                FilterConfig("gopher_quality", params={"min_words": 20, "max_words": 100000, "min_stopwords": 0, "min_lines_end_punct": 0.0}),
+                FilterConfig("gopher_quality", params={"min_words": 20, "max_words": 100000, "min_stopwords": 0, "max_bullet_lines_ratio": 1.0, "max_ellipsis_lines_ratio": 1.0}),
             ],
         )
 
@@ -90,7 +90,8 @@ pipeline:
         min_words: 10
         max_words: 100000
         min_stopwords: 0
-        min_lines_end_punct: 0.0
+        max_bullet_lines_ratio: 1.0
+        max_ellipsis_lines_ratio: 1.0
 """
         config_file = tmp_path / "test_config.yaml"
         config_file.write_text(yaml_content)
