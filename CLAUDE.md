@@ -24,6 +24,7 @@ A Python CLI for detecting low-quality LLM training data. Single command `dq ben
   - **Adding New Rules**: append to RULES list in judge.py — no code changes needed
 - **Contamination Detection** — n-gram overlap against benchmarks (mmlu, hellaswag, etc.), HF datasets, or local files
 - **Multiprocessing** — benchmark runner uses `multiprocessing.Pool` with per-chunk evaluation. `OMP_NUM_THREADS=1` prevents spacy thread contention.
+- **Rejected Doc Export** — `--save-rejected <path>` exports all filtered docs with full text, all triggered filter/rule/value/threshold to JSONL. Fields: `__dq_rejections` (list of rejections), `__dq_dataset` (source dataset name).
 
 ### Datatrove Alignment
 Pre-training filters (Gopher, C4, FineWeb) are 100% aligned with datatrove's reference implementation (verified on 4000/4000 C4 samples). Key implementation details:
@@ -83,6 +84,7 @@ uv run dq bench data.jsonl -n 1000 -w 16           # 16 parallel workers
 uv run dq bench allenai/dolma3_mix-6T -n 1000
 uv run dq bench data.jsonl --check-contamination mmlu,hellaswag
 uv run dq bench data.jsonl --with-llm-scoring --llm-samples 50
+uv run dq bench data.jsonl -n 1000 --save-rejected rejected.jsonl  # Export all rejected docs
 uv run python scripts/align_with_datatrove.py -n 1000   # Verify datatrove alignment
 ```
 

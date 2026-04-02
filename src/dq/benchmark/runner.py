@@ -20,6 +20,7 @@ def _eval_chunk(
     chunk: list[dict],
     filter_configs: list[dict],
     text_field: str,
+    collect_rejected: bool = False,
 ) -> dict:
     """Process a chunk of docs through all filters. Runs in a worker process.
 
@@ -29,6 +30,7 @@ def _eval_chunk(
         chunk: List of documents to process.
         filter_configs: List of dicts with 'name' and 'params' for each filter.
         text_field: Text field name.
+        collect_rejected: If True, collect all rejected docs with full text and reasons.
 
     Returns:
         Dict with per-filter fail counts, per-rule stats, and overall pass count.
@@ -53,6 +55,9 @@ def _eval_chunk(
     rule_fail_counts: dict[str, dict[str, int]] = {f.name: {} for f in filters}
     docs_passing_all = 0
 
+    # Collect all rejected docs when requested
+    rejected_docs: list[dict] = []
+
     # Dataset stats (computed alongside filtering to avoid extra tokenization pass)
     from dq.utils.stats import word_count as wc_fn, avg_word_length as awl_fn
     word_counts: list[int] = []
@@ -64,6 +69,7 @@ def _eval_chunk(
         total_awl += awl_fn(text)
 
         pass_all = True
+        doc_rejections: list[dict] = []
         for f in filters:
             _keep, failures = f.filter_detailed(doc)
 
@@ -82,6 +88,15 @@ def _eval_chunk(
                         },
                     })
 
+                if collect_rejected:
+                    for fail in failures:
+                        doc_rejections.append({
+                            "filter": f.name,
+                            "rule": fail.get("rule", "unknown"),
+                            "value": fail.get("value", ""),
+                            "threshold": fail.get("threshold", ""),
+                        })
+
             for fail in failures:
                 rule = fail["rule"]
                 if rule not in rule_fail_counts[f.name]:
@@ -90,8 +105,12 @@ def _eval_chunk(
 
         if pass_all:
             docs_passing_all += 1
+        elif collect_rejected and doc_rejections:
+            rejected_doc = dict(doc)
+            rejected_doc["__dq_rejections"] = doc_rejections
+            rejected_docs.append(rejected_doc)
 
-    return {
+    result = {
         "num_docs": len(chunk),
         "filter_fail_counts": filter_fail_counts,
         "filter_sample_drops": filter_sample_drops,
@@ -100,6 +119,9 @@ def _eval_chunk(
         "word_counts": word_counts,
         "total_awl": total_awl,
     }
+    if collect_rejected:
+        result["rejected_docs"] = rejected_docs
+    return result
 
 
 def _merge_chunk_results(
@@ -161,6 +183,7 @@ def run_benchmark(
     api_key: str | None = None,
     model: str | None = None,
     workers: int | None = None,
+    save_rejected: bool = False,
 ) -> BenchmarkReport:
     """Run the quality pipeline on each dataset and collect comparison stats.
 
@@ -177,6 +200,7 @@ def run_benchmark(
         api_key: LLM API key for scoring.
         model: LLM model name for scoring.
         workers: Number of parallel workers. None = auto-detect.
+        save_rejected: If True, collect all rejected docs in report.rejected_docs.
 
     Returns:
         BenchmarkReport with per-dataset, per-filter pass rates.
@@ -245,9 +269,11 @@ def run_benchmark(
         # Run evaluation (parallel or single-process)
         # Workers compute both filter results AND dataset stats in one pass
         if workers > 1 and num_docs >= workers * 10:
-            chunk_results = _run_parallel(docs, filter_configs, config.text_field, workers)
+            chunk_results = _run_parallel(docs, filter_configs, config.text_field, workers,
+                                          collect_rejected=save_rejected)
         else:
-            chunk_results = [_eval_chunk(docs, filter_configs, config.text_field)]
+            chunk_results = [_eval_chunk(docs, filter_configs, config.text_field,
+                                         collect_rejected=save_rejected)]
 
         # Merge results
         filter_fail_counts, filter_sample_drops, ds_rule_stats, docs_passing_all = \
@@ -330,6 +356,13 @@ def run_benchmark(
         report.datasets[ds_name] = result
         report.rule_stats[ds_name] = ds_rule_stats
 
+        # Merge rejected docs from all chunks
+        if save_rejected:
+            ds_rejected: list[dict] = []
+            for r in chunk_results:
+                ds_rejected.extend(r.get("rejected_docs", []))
+            report.rejected_docs[ds_name] = ds_rejected
+
     # Layer 2: LLM binary judge (opt-in)
     if sft_samples > 0:
         detected_type = data_type
@@ -357,6 +390,7 @@ def _run_parallel(
     filter_configs: list[dict],
     text_field: str,
     workers: int,
+    collect_rejected: bool = False,
 ) -> list[dict]:
     """Split docs into chunks and process in parallel using multiprocessing."""
     from multiprocessing import get_context
@@ -370,7 +404,8 @@ def _run_parallel(
     chunk_size = (len(docs) + workers - 1) // workers
     chunks = [docs[i:i + chunk_size] for i in range(0, len(docs), chunk_size)]
 
-    worker_fn = partial(_eval_chunk, filter_configs=filter_configs, text_field=text_field)
+    worker_fn = partial(_eval_chunk, filter_configs=filter_configs, text_field=text_field,
+                        collect_rejected=collect_rejected)
 
     ctx = get_context("spawn")
     with ctx.Pool(workers) as pool:

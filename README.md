@@ -46,9 +46,23 @@ dq bench data.jsonl --check-contamination /path/to/benchmark.jsonl
 
 # With Layer 2 LLM judge
 dq bench data.jsonl --with-llm-scoring --llm-samples 50
+
+# Save all rejected docs with rejection reasons to JSONL
+dq bench data.jsonl -n 1000 --save-rejected rejected.jsonl
 ```
 
 Reports are saved to `reports/` by default (JSON + Markdown). Override with `-o`.
+
+### Rejected Document Export
+
+Use `--save-rejected <path>` to export all filtered documents with full text and detailed rejection reasons to a JSONL file. Each line contains the original document fields plus:
+
+- `__dq_rejections`: list of all triggered filters/rules with values and thresholds
+- `__dq_dataset`: source dataset name
+
+```json
+{"text": "...", "__dq_rejections": [{"filter": "gopher_quality", "rule": "min_words", "value": 3, "threshold": 50}], "__dq_dataset": "my_data"}
+```
 
 ## Layer 1: Rule-based Filters
 

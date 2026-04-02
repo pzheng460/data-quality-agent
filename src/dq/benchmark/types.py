@@ -124,6 +124,8 @@ class BenchmarkReport:
     rule_stats: dict[str, dict[str, dict[str, RuleStats]]] = field(default_factory=dict)
     llm_scoring_enabled: bool = False
     llm_samples: int = 0
+    # All rejected docs per dataset: {dataset_name: [doc_with_rejections, ...]}
+    rejected_docs: dict[str, list[dict]] = field(default_factory=dict)
 
     def discrimination_scores(self) -> dict[str, float]:
         """Compute per-filter discrimination: max pass rate - min pass rate."""

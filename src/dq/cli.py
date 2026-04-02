@@ -84,11 +84,14 @@ def _load_input_datasets(
 @click.option("--text-field", default="text", help="Field name containing text (default: text)")
 @click.option("--hf-config", default=None, help="HF dataset config/subset name")
 @click.option("-w", "--workers", default=None, type=int, help="Parallel workers (default: auto)")
+@click.option("--save-rejected", "save_rejected_path", default=None, type=click.Path(),
+              help="Save all rejected docs with reasons to a JSONL file")
 def bench(input_path: str, config_path: str | None, num_samples: int, no_dedup: bool, seed: int,
           output_dir: str, with_model_filters: bool,
           check_contamination: str | None, with_llm_scoring: bool, llm_samples: int,
           data_type: str, api_url: str | None, api_key: str | None, llm_model: str | None,
-          split: str, text_field: str, hf_config: str | None, workers: int | None):
+          split: str, text_field: str, hf_config: str | None, workers: int | None,
+          save_rejected_path: str | None):
     """Run quality benchmark and generate report.
 
     INPUT_PATH can be a local file (jsonl/csv/parquet) or a HuggingFace dataset ID
@@ -138,6 +141,7 @@ def bench(input_path: str, config_path: str | None, num_samples: int, no_dedup: 
             seed=seed,
             data_type=data_type,
             workers=workers,
+            save_rejected=bool(save_rejected_path),
         )
     except ImportError as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -207,3 +211,17 @@ def bench(input_path: str, config_path: str | None, num_samples: int, no_dedup: 
     benchmark_to_json(report, path=Path(output_dir) / "benchmark.json")
     benchmark_to_markdown(report, path=Path(output_dir) / "benchmark.md")
     console.print(f"[green]Reports saved to {output_dir}/[/green]")
+
+    # Save rejected docs to JSONL
+    if save_rejected_path and report.rejected_docs:
+        import json
+        rejected_path = Path(save_rejected_path)
+        rejected_path.parent.mkdir(parents=True, exist_ok=True)
+        total_rejected = 0
+        with open(rejected_path, "w", encoding="utf-8") as f:
+            for ds_name, rejected_list in report.rejected_docs.items():
+                for doc in rejected_list:
+                    doc["__dq_dataset"] = ds_name
+                    f.write(json.dumps(doc, ensure_ascii=False) + "\n")
+                    total_rejected += 1
+        console.print(f"[green]Rejected docs saved to {save_rejected_path} ({total_rejected} docs)[/green]")

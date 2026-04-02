@@ -46,9 +46,23 @@ dq bench data.jsonl --check-contamination /path/to/benchmark.jsonl
 
 # 使用第二层 LLM 评判
 dq bench data.jsonl --with-llm-scoring --llm-samples 50
+
+# 导出所有被过滤的文档及拒绝原因到 JSONL 文件
+dq bench data.jsonl -n 1000 --save-rejected rejected.jsonl
 ```
 
 报告默认保存到 `reports/` 目录（JSON + Markdown 格式），可通过 `-o` 自定义输出路径。
+
+### 被拒文档导出
+
+使用 `--save-rejected <路径>` 可将所有被过滤的文档连同完整文本和详细拒绝原因导出为 JSONL 文件。每行包含原始文档字段以及：
+
+- `__dq_rejections`：所有触发的过滤器/规则列表，包含检测值和阈值
+- `__dq_dataset`：来源数据集名称
+
+```json
+{"text": "...", "__dq_rejections": [{"filter": "gopher_quality", "rule": "min_words", "value": 3, "threshold": 50}], "__dq_dataset": "my_data"}
+```
 
 ## 第一层：规则过滤器
 
