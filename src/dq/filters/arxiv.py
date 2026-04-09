@@ -314,6 +314,11 @@ def _clean_latex(text: str) -> str:
     # Restore math
     text = _restore_math(text, math_regions)
 
+    # 23. Remove figure/table placeholders — useless for LLM pretraining
+    text = re.sub(r"^\[(?:Figure|Table)\]\s*$", "", text, flags=re.MULTILINE)
+    # Remove caption remnants (lines that are just "Figure N:" or "Table N:")
+    text = re.sub(r"^(?:Figure|Table)\s*\d*\s*[:.]?\s*$", "", text, flags=re.MULTILINE)
+
     # Final cleanup
     text = re.sub(r"^[ \t]+", "", text, flags=re.MULTILINE)   # leading whitespace per line
     text = re.sub(r"[ \t]+$", "", text, flags=re.MULTILINE)   # trailing whitespace

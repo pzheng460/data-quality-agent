@@ -52,6 +52,10 @@ body {
 .prose-article strong { color: #111; }
 .prose-article a { color: #4f46e5; text-decoration: underline; }
 .prose-article hr { border: none; border-top: 1px solid #e5e7eb; margin: 2em 0; }
+.prose-article table { border-collapse: collapse; margin: 1em 0; font-size: 0.9em; width: auto; }
+.prose-article th, .prose-article td { border: 1px solid #d1d5db; padding: 0.4em 0.8em; text-align: left; }
+.prose-article th { background: #f3f4f6; font-weight: 600; }
+.prose-article tr:nth-child(even) { background: #f9fafb; }
 
 /* KaTeX display math spacing */
 .prose-article .katex-display { margin: 1.2em 0; overflow-x: auto; }

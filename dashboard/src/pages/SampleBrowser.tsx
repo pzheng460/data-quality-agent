@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../context'
 import { api } from '../hooks/useApi'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
@@ -106,7 +107,7 @@ function DocDetail({ doc, compareDoc }: { doc: Doc; compareDoc: Doc | null }) {
             ) : compareDoc ? (
               <div className="flex-1 overflow-auto rounded-lg border border-amber-200 bg-amber-50/30 p-4">
                 <article className="prose-article">
-                  <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
                     {compareDoc.text}
                   </ReactMarkdown>
                 </article>
@@ -126,7 +127,7 @@ function DocDetail({ doc, compareDoc }: { doc: Doc; compareDoc: Doc | null }) {
             </div>
             <div className="flex-1 overflow-auto rounded-lg border border-green-200 bg-green-50/20 p-4">
               <article className="prose-article">
-                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
                   {doc.text}
                 </ReactMarkdown>
               </article>
@@ -139,7 +140,7 @@ function DocDetail({ doc, compareDoc }: { doc: Doc; compareDoc: Doc | null }) {
       {tab === 'rendered' && (
         <div className="max-w-3xl mx-auto">
           <article className="prose-article">
-            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+            <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
               {doc.text}
             </ReactMarkdown>
           </article>
