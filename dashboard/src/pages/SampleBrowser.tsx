@@ -7,20 +7,15 @@ import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
 
-interface Doc {
-  id: string; text: string; text_preview?: string; metadata?: any
-  structural_checks?: Record<string, unknown>; trace?: Record<string, unknown>
-  __dq_rejections?: Array<{ filter: string; rule: string; value?: unknown; threshold?: unknown }>
-  [k: string]: unknown
-}
+interface Doc { id: string; text: string; text_preview?: string; metadata?: any; structural_checks?: Record<string, unknown>; trace?: Record<string, unknown>; __dq_rejections?: Array<{ filter: string; rule: string; value?: unknown; threshold?: unknown }>; [k: string]: unknown }
 
 const STAGES = [
-  { stage: 'stage1_parsed', sub: 'kept', label: 'Phase 1 — Kept', color: 'green' },
-  { stage: 'stage1_parsed', sub: 'rejected', label: 'Phase 1 — Rejected', color: 'red' },
-  { stage: 'stage2_filtered', sub: 'kept', label: 'Phase 2 — Kept', color: 'green' },
-  { stage: 'stage2_filtered', sub: 'rejected', label: 'Phase 2 — Rejected', color: 'red' },
-  { stage: 'stage3_dedup', sub: 'kept', label: 'Phase 3 — Kept', color: 'green' },
-  { stage: 'stage5_final', sub: '', label: 'Final Output', color: 'blue' },
+  { stage: 'stage1_parsed', sub: 'kept', label: 'P1 Kept', color: 'green' },
+  { stage: 'stage1_parsed', sub: 'rejected', label: 'P1 Rejected', color: 'red' },
+  { stage: 'stage2_filtered', sub: 'kept', label: 'P2 Kept', color: 'green' },
+  { stage: 'stage2_filtered', sub: 'rejected', label: 'P2 Rejected', color: 'red' },
+  { stage: 'stage3_dedup', sub: 'kept', label: 'P3 Kept', color: 'green' },
+  { stage: 'stage5_final', sub: '', label: 'Final' },
 ]
 
 function Tag({ label, color = 'gray' }: { label: string; color?: string }) {
@@ -28,9 +23,10 @@ function Tag({ label, color = 'gray' }: { label: string; color?: string }) {
   return <span className={`text-xs px-2 py-0.5 rounded ${c[color] || c.gray}`}>{label}</span>
 }
 
-/* ── Document Detail with Original vs Cleaned comparison ── */
+/* ── Detail panel ── */
 function DocDetail({ doc, compareDoc }: { doc: Doc; compareDoc: Doc | null }) {
-  const [tab, setTab] = useState<string>('compare')
+  const [tab, setTab] = useState<'compare' | 'rendered' | 'raw' | 'json' | 'trace'>('compare')
+  const [compareView, setCompareView] = useState<'original' | 'cleaned'>('original')
   const meta = doc.metadata as any
   const rej = doc.__dq_rejections
   const sc = doc.structural_checks as Record<string, unknown> | undefined
@@ -51,30 +47,30 @@ function DocDetail({ doc, compareDoc }: { doc: Doc; compareDoc: Doc | null }) {
           {meta?.version && <Tag label={meta.version} />}
           {meta?.primary_category && <Tag label={meta.primary_category} color="blue" />}
           <Tag label={`${doc.text?.length ?? 0} chars`} />
-          {arxivAbs && <a href={arxivAbs} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline ml-2">arxiv page ↗</a>}
+          {arxivAbs && <a href={arxivAbs} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline ml-2">arxiv ↗</a>}
           {arxivPdf && <a href={arxivPdf} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">PDF ↗</a>}
         </div>
       </div>
 
-      {/* Rejection banner */}
+      {/* Rejection */}
       {rej && rej.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3">
           <div className="font-semibold text-red-700 text-sm">Rejected</div>
           {rej.map((r, i) => (
             <div key={i} className="text-sm mt-1">
-              <code className="text-red-600 bg-red-100 px-1.5 py-0.5 rounded">{r.filter}.{r.rule}</code>
-              {r.value !== undefined && <span className="text-gray-500 ml-2">value={String(r.value)}</span>}
+              <code className="text-red-600 bg-red-100 px-1.5 rounded">{r.filter}.{r.rule}</code>
+              {r.value !== undefined && <span className="text-gray-500 ml-2">val={String(r.value)}</span>}
               {r.threshold !== undefined && <span className="text-gray-500 ml-1">thr={String(r.threshold)}</span>}
             </div>
           ))}
         </div>
       )}
 
-      {/* Structural checks */}
+      {/* Structural */}
       {sc && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {Object.entries(sc).map(([k, v]) => (
-            <span key={k} className={`text-[11px] px-2 py-0.5 rounded ${v === true ? 'bg-green-50 text-green-700' : v === false ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
+            <span key={k} className={`text-[11px] px-1.5 py-0.5 rounded ${v === true ? 'bg-green-50 text-green-700' : v === false ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600'}`}>
               {k}: {String(v)}
             </span>
           ))}
@@ -83,29 +79,46 @@ function DocDetail({ doc, compareDoc }: { doc: Doc; compareDoc: Doc | null }) {
 
       {/* Tabs */}
       <div className="flex gap-0.5 border-b border-gray-200">
-        {['compare', 'rendered', 'raw', 'json', 'trace'].map(t => (
-          <button key={t} onClick={() => setTab(t as any)}
+        {(['compare', 'rendered', 'raw', 'json', 'trace'] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm border-b-2 -mb-px transition-colors ${tab === t ? 'border-blue-500 text-blue-700 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             {{ compare: 'Original vs Cleaned', rendered: 'Cleaned', raw: 'Raw Text', json: 'JSON', trace: 'Trace' }[t]}
           </button>
         ))}
       </div>
 
-      {/* ── Original vs Cleaned (side by side) ── */}
+      {/* ── Compare: toggle between Original / Cleaned ── */}
       {tab === 'compare' && (
-        <div className="grid grid-cols-2 gap-3 h-[70vh]">
-          {/* Left: Original — iframe from arxiv, or rendered pre-clean text */}
-          <div className="flex flex-col min-h-0">
-            <div className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2 shrink-0">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-              Original
-              {arxivHtml && <a href={arxivHtml} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline ml-auto">Open HTML ↗</a>}
-              {arxivPdf && <a href={arxivPdf} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline ml-2">Open PDF ↗</a>}
+        <div>
+          {/* Toggle bar */}
+          <div className="flex items-center gap-2 mb-3">
+            <div className="inline-flex rounded-lg bg-gray-100 p-0.5">
+              <button onClick={() => setCompareView('original')}
+                className={`px-4 py-1.5 text-sm rounded-md transition ${compareView === 'original' ? 'bg-white shadow font-medium text-amber-700' : 'text-gray-500 hover:text-gray-700'}`}>
+                Original
+              </button>
+              <button onClick={() => setCompareView('cleaned')}
+                className={`px-4 py-1.5 text-sm rounded-md transition ${compareView === 'cleaned' ? 'bg-white shadow font-medium text-green-700' : 'text-gray-500 hover:text-gray-700'}`}>
+                Cleaned
+              </button>
             </div>
-            {arxivHtml ? (
-              <iframe src={arxivHtml} className="flex-1 rounded-lg border border-amber-200 bg-white" title="Original paper" sandbox="allow-same-origin allow-scripts" />
+            {compareView === 'original' && arxivHtml && (
+              <a href={arxivHtml} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline">Open HTML ↗</a>
+            )}
+            {compareView === 'original' && arxivPdf && (
+              <a href={arxivPdf} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline">Open PDF ↗</a>
+            )}
+            <span className={`ml-auto text-xs px-2 py-0.5 rounded ${compareView === 'original' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+              {compareView === 'original' ? 'Before cleaning' : 'After cleaning'}
+            </span>
+          </div>
+
+          {/* Content */}
+          {compareView === 'original' ? (
+            arxivHtml ? (
+              <iframe src={arxivHtml} className="w-full h-[70vh] rounded-lg border border-amber-200 bg-white" title="Original paper" sandbox="allow-same-origin allow-scripts" />
             ) : compareDoc ? (
-              <div className="flex-1 overflow-auto rounded-lg border border-amber-200 bg-amber-50/30 p-4">
+              <div className="overflow-auto max-h-[70vh] rounded-lg border border-amber-200 bg-amber-50/30 p-5">
                 <article className="prose-article">
                   <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
                     {compareDoc.text}
@@ -113,30 +126,23 @@ function DocDetail({ doc, compareDoc }: { doc: Doc; compareDoc: Doc | null }) {
                 </article>
               </div>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-400 rounded-lg border border-dashed border-gray-300">
-                No original version available.<br/>Original is only shown for Phase 2+ stages.
+              <div className="flex items-center justify-center h-48 text-gray-400 border rounded-lg border-dashed">
+                No original version available. Select a Phase 2+ stage to see before/after.
               </div>
-            )}
-          </div>
-
-          {/* Right: Cleaned output */}
-          <div className="flex flex-col min-h-0">
-            <div className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2 shrink-0">
-              <span className="w-2.5 h-2.5 rounded-full bg-green-400" />
-              Cleaned Output
-            </div>
-            <div className="flex-1 overflow-auto rounded-lg border border-green-200 bg-green-50/20 p-4">
+            )
+          ) : (
+            <div className="overflow-auto max-h-[70vh] rounded-lg border border-green-200 bg-green-50/20 p-5">
               <article className="prose-article">
                 <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
                   {doc.text}
                 </ReactMarkdown>
               </article>
             </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* ── Cleaned (full width, comfortable reading) ── */}
+      {/* ── Cleaned (full width) ── */}
       {tab === 'rendered' && (
         <div className="max-w-3xl mx-auto">
           <article className="prose-article">
@@ -170,7 +176,7 @@ function DocDetail({ doc, compareDoc }: { doc: Doc; compareDoc: Doc | null }) {
   )
 }
 
-/* ── Main page component ── */
+/* ── Main page ── */
 
 export default function SampleBrowser() {
   const { outputDir } = useApp()
@@ -179,6 +185,7 @@ export default function SampleBrowser() {
   const [curDoc, setCurDoc] = useState<Doc | null>(null)
   const [compareDoc, setCompareDoc] = useState<Doc | null>(null)
   const [loading, setLoading] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const loadDocs = async (s: typeof STAGES[0]) => {
     setCurStage(s); setCurDoc(null); setCompareDoc(null); setLoading(true)
@@ -193,10 +200,9 @@ export default function SampleBrowser() {
   const selectDoc = async (doc: Doc) => {
     if (!curStage) return
     try {
-      const subParam = curStage.sub ? `&sub=${curStage.sub}` : ''
-      const full = await api<Doc>(`/api/doc?output_dir=${encodeURIComponent(outputDir)}&stage=${curStage.stage}${subParam}&doc_id=${encodeURIComponent(doc.id)}`)
+      const sub = curStage.sub ? `&sub=${curStage.sub}` : ''
+      const full = await api<Doc>(`/api/doc?output_dir=${encodeURIComponent(outputDir)}&stage=${curStage.stage}${sub}&doc_id=${encodeURIComponent(doc.id)}`)
       setCurDoc(full)
-      // Load the pre-cleaning version for comparison
       if (curStage.stage !== 'stage1_parsed') {
         try {
           const before = await api<Doc>(`/api/doc?output_dir=${encodeURIComponent(outputDir)}&stage=stage1_parsed&sub=kept&doc_id=${encodeURIComponent(doc.id)}`)
@@ -209,42 +215,58 @@ export default function SampleBrowser() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-3rem)] gap-3">
-      {/* Stage list */}
-      <div className="w-48 bg-white rounded-lg shadow overflow-auto shrink-0">
-        <div className="px-3 py-2 border-b font-semibold text-sm sticky top-0 bg-white z-10">Stages</div>
-        {STAGES.map(s => (
-          <button key={`${s.stage}/${s.sub}`} onClick={() => loadDocs(s)}
-            className={`block w-full text-left px-3 py-2.5 text-sm border-b border-gray-100 hover:bg-blue-50 ${curStage?.stage === s.stage && curStage?.sub === s.sub ? 'bg-blue-100 font-medium' : ''}`}>
-            <span className={`inline-block w-2 h-2 rounded-full mr-1.5 align-middle ${s.color === 'red' ? 'bg-red-400' : s.color === 'green' ? 'bg-green-500' : 'bg-blue-500'}`} />
-            {s.label}
-          </button>
-        ))}
-      </div>
+    <div className="flex h-[calc(100vh-3rem)]">
+      {/* Collapsible sidebar */}
+      {sidebarOpen && (
+        <div className="flex gap-2 shrink-0 mr-3">
+          {/* Stage list */}
+          <div className="w-40 bg-white rounded-lg shadow overflow-auto">
+            <div className="px-3 py-2 border-b font-semibold text-sm sticky top-0 bg-white z-10 flex justify-between items-center">
+              Stages
+              <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            {STAGES.map(s => (
+              <button key={`${s.stage}/${s.sub}`} onClick={() => loadDocs(s)}
+                className={`block w-full text-left px-3 py-2 text-sm border-b border-gray-100 hover:bg-blue-50 ${curStage?.stage === s.stage && curStage?.sub === s.sub ? 'bg-blue-100 font-medium' : ''}`}>
+                <span className={`inline-block w-2 h-2 rounded-full mr-1.5 align-middle ${s.color === 'red' ? 'bg-red-400' : s.color === 'green' ? 'bg-green-500' : 'bg-blue-500'}`} />
+                {s.label || s.stage.replace('stage', '').replace('_', ' ')}
+              </button>
+            ))}
+          </div>
 
-      {/* Doc list */}
-      <div className="w-64 bg-white rounded-lg shadow overflow-auto shrink-0">
-        <div className="px-3 py-2 border-b font-semibold text-sm sticky top-0 bg-white z-10">
-          Documents <span className="font-normal text-gray-400">({docs.length})</span>
+          {/* Doc list */}
+          <div className="w-56 bg-white rounded-lg shadow overflow-auto">
+            <div className="px-3 py-2 border-b font-semibold text-sm sticky top-0 bg-white z-10">
+              Docs <span className="text-gray-400 font-normal">({docs.length})</span>
+            </div>
+            {loading && <p className="p-3 text-xs text-gray-400">Loading...</p>}
+            {docs.map((d, i) => (
+              <button key={d.id || i} onClick={() => selectDoc(d)}
+                className={`block w-full text-left px-3 py-2 border-b border-gray-50 hover:bg-blue-50 ${curDoc?.id === d.id ? 'bg-blue-50' : ''}`}>
+                <div className="text-xs font-mono font-medium truncate">{d.id}</div>
+                <div className="text-[11px] text-gray-500 truncate">{d.metadata?.title || d.text_preview?.slice(0, 50)}</div>
+                {(d.__dq_rejections?.length ?? 0) > 0 && (
+                  <div className="flex flex-wrap gap-0.5 mt-0.5">
+                    {d.__dq_rejections!.map((r, j) => <span key={j} className="bg-red-100 text-red-600 text-[10px] px-1 rounded">{r.rule}</span>)}
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
-        {loading && <p className="p-3 text-xs text-gray-400">Loading...</p>}
-        {docs.map((d, i) => (
-          <button key={d.id || i} onClick={() => selectDoc(d)}
-            className={`block w-full text-left px-3 py-2 border-b border-gray-50 hover:bg-blue-50 ${curDoc?.id === d.id ? 'bg-blue-50' : ''}`}>
-            <div className="text-xs font-mono font-medium truncate">{d.id}</div>
-            <div className="text-[11px] text-gray-500 truncate">{d.metadata?.title || d.text_preview?.slice(0, 60)}</div>
-            {(d.__dq_rejections?.length ?? 0) > 0 && (
-              <div className="flex flex-wrap gap-0.5 mt-0.5">
-                {d.__dq_rejections!.map((r, j) => <span key={j} className="bg-red-100 text-red-600 text-[10px] px-1 rounded">{r.rule}</span>)}
-              </div>
-            )}
-          </button>
-        ))}
-      </div>
+      )}
 
       {/* Detail panel */}
-      <div className="flex-1 bg-white rounded-lg shadow overflow-auto">
-        {curDoc ? <DocDetail doc={curDoc} compareDoc={compareDoc} /> : <div className="flex items-center justify-center h-full text-gray-400">Select a stage → document</div>}
+      <div className="flex-1 bg-white rounded-lg shadow overflow-auto min-w-0">
+        {!sidebarOpen && (
+          <button onClick={() => setSidebarOpen(true)}
+            className="absolute top-8 left-8 z-10 bg-white shadow rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">
+            ☰ Stages
+          </button>
+        )}
+        {curDoc ? <DocDetail doc={curDoc} compareDoc={compareDoc} /> : (
+          <div className="p-8 text-center text-gray-400">Select a stage → document</div>
+        )}
       </div>
     </div>
   )
