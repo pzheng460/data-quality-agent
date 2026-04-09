@@ -39,8 +39,8 @@ function DocDetail({ doc, compareDoc }: { doc: Doc; compareDoc: Doc | null }) {
   const arxivPdf = arxivId ? `https://arxiv.org/pdf/${arxivId}` : null
 
   const OriginalPanel = ({ className = '' }: { className?: string }) => (
-    arxivHtml ? (
-      <iframe src={arxivHtml} className={`w-full rounded-lg border border-amber-200 bg-white ${className}`} title="Original" sandbox="allow-same-origin allow-scripts" />
+    arxivPdf ? (
+      <iframe src={arxivPdf} className={`w-full rounded-lg border border-amber-200 bg-white ${className}`} title="Original PDF" />
     ) : compareDoc ? (
       <div className={`overflow-auto rounded-lg border border-amber-200 bg-amber-50/30 p-4 ${className}`}><Md>{compareDoc.text}</Md></div>
     ) : (
