@@ -324,6 +324,48 @@ def list_docs(stage: str, output_dir: str, sub: str = "", offset: int = 0, limit
     return {"docs": docs, "offset": offset, "limit": limit, "has_more": count > offset + limit}
 
 
+@app.get("/api/raw-input")
+def list_raw_input(input_path: str, offset: int = 0, limit: int = 20):
+    """Read raw input file (JSONL) before any pipeline processing."""
+    from dq.utils.io import read_docs
+
+    p = Path(input_path)
+    if not p.exists():
+        raise HTTPException(404, f"Input file not found: {input_path}")
+
+    docs = []
+    count = 0
+    for doc in read_docs(p):
+        if count < offset:
+            count += 1
+            continue
+        if len(docs) >= limit:
+            break
+        summary = dict(doc)
+        text = summary.get("text", "")
+        summary["text_preview"] = text[:300]
+        summary["text_length"] = len(text)
+        docs.append(summary)
+        count += 1
+
+    return {"docs": docs, "offset": offset, "limit": limit}
+
+
+@app.get("/api/raw-input/doc")
+def get_raw_input_doc(input_path: str, doc_id: str):
+    """Get a single raw input document by ID."""
+    from dq.utils.io import read_docs
+
+    p = Path(input_path)
+    if not p.exists():
+        raise HTTPException(404, f"Input file not found: {input_path}")
+
+    for doc in read_docs(p):
+        if doc.get("id") == doc_id:
+            return doc
+    raise HTTPException(404, f"Doc {doc_id} not found in {input_path}")
+
+
 @app.get("/api/doc")
 def get_full_doc(output_dir: str, stage: str, doc_id: str, sub: str = ""):
     """Get a single document by ID with full text."""

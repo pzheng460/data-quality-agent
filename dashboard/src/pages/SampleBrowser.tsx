@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useApp } from '../context'
 import { api } from '../hooks/useApi'
 import ReactMarkdown from 'react-markdown'
@@ -10,12 +10,13 @@ import 'katex/dist/katex.min.css'
 interface Doc { id: string; text: string; text_preview?: string; metadata?: any; structural_checks?: Record<string, unknown>; trace?: Record<string, unknown>; __dq_rejections?: Array<{ filter: string; rule: string; value?: unknown; threshold?: unknown }>; [k: string]: unknown }
 
 const STAGES = [
+  { stage: '_raw_input', sub: '', label: 'Raw Input', color: 'amber' },
   { stage: 'stage1_parsed', sub: 'kept', label: 'P1 Kept', color: 'green' },
   { stage: 'stage1_parsed', sub: 'rejected', label: 'P1 Rejected', color: 'red' },
   { stage: 'stage2_filtered', sub: 'kept', label: 'P2 Kept', color: 'green' },
   { stage: 'stage2_filtered', sub: 'rejected', label: 'P2 Rejected', color: 'red' },
   { stage: 'stage3_dedup', sub: 'kept', label: 'P3 Kept', color: 'green' },
-  { stage: 'stage5_final', sub: '', label: 'Final' },
+  { stage: 'stage5_final', sub: '', label: 'Final', color: 'blue' },
 ]
 
 function Tag({ label, color = 'gray' }: { label: string; color?: string }) {
@@ -42,7 +43,7 @@ function DocDetail({ doc, compareDoc }: { doc: Doc; compareDoc: Doc | null }) {
     arxivPdf ? (
       <iframe src={arxivPdf} className={`w-full rounded-lg border border-amber-200 bg-white ${className}`} title="Original PDF" />
     ) : compareDoc ? (
-      <div className={`overflow-auto rounded-lg border border-amber-200 bg-amber-50/30 p-4 ${className}`}><Md>{compareDoc.text}</Md></div>
+      <pre className={`overflow-auto rounded-lg border border-amber-200 bg-amber-50/30 p-4 text-[12px] leading-relaxed font-mono whitespace-pre-wrap ${className}`}>{compareDoc.text}</pre>
     ) : (
       <div className={`flex items-center justify-center text-gray-400 border rounded-lg border-dashed text-sm ${className}`}>No original. Select a Phase 2+ stage.</div>
     )
@@ -166,13 +167,26 @@ export default function SampleBrowser() {
   const [compareDoc, setCompareDoc] = useState<Doc | null>(null)
   const [loading, setLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [inputPath, setInputPath] = useState('')
+
+  // Try to get input_path from last pipeline run
+  useEffect(() => {
+    api<any>('/api/status').then(d => { if (d.input_path) setInputPath(d.input_path) }).catch(() => {})
+  }, [])
 
   const loadDocs = async (s: typeof STAGES[0]) => {
     setCurStage(s); setCurDoc(null); setCompareDoc(null); setLoading(true)
     try {
-      const path = s.sub ? `/api/docs/${s.stage}/${s.sub}` : `/api/docs/${s.stage}`
-      const data = await api<any>(`${path}?output_dir=${encodeURIComponent(outputDir)}&limit=100`)
-      setDocs(data.docs || [])
+      if (s.stage === '_raw_input') {
+        // Read from original input file
+        if (!inputPath) { setDocs([]); setLoading(false); return }
+        const data = await api<any>(`/api/raw-input?input_path=${encodeURIComponent(inputPath)}&limit=100`)
+        setDocs(data.docs || [])
+      } else {
+        const path = s.sub ? `/api/docs/${s.stage}/${s.sub}` : `/api/docs/${s.stage}`
+        const data = await api<any>(`${path}?output_dir=${encodeURIComponent(outputDir)}&limit=100`)
+        setDocs(data.docs || [])
+      }
     } catch { setDocs([]) }
     setLoading(false)
   }
@@ -180,15 +194,23 @@ export default function SampleBrowser() {
   const selectDoc = async (doc: Doc) => {
     if (!curStage) return
     try {
-      const sub = curStage.sub ? `&sub=${curStage.sub}` : ''
-      const full = await api<Doc>(`/api/doc?output_dir=${encodeURIComponent(outputDir)}&stage=${curStage.stage}${sub}&doc_id=${encodeURIComponent(doc.id)}`)
-      setCurDoc(full)
-      if (curStage.stage !== 'stage1_parsed') {
-        try {
-          const before = await api<Doc>(`/api/doc?output_dir=${encodeURIComponent(outputDir)}&stage=stage1_parsed&sub=kept&doc_id=${encodeURIComponent(doc.id)}`)
-          setCompareDoc(before)
-        } catch { setCompareDoc(null) }
-      } else { setCompareDoc(null) }
+      if (curStage.stage === '_raw_input') {
+        // Fetch full doc from raw input
+        const full = await api<Doc>(`/api/raw-input/doc?input_path=${encodeURIComponent(inputPath)}&doc_id=${encodeURIComponent(doc.id)}`)
+        setCurDoc(full)
+        setCompareDoc(null) // raw IS the "before"
+      } else {
+        const sub = curStage.sub ? `&sub=${curStage.sub}` : ''
+        const full = await api<Doc>(`/api/doc?output_dir=${encodeURIComponent(outputDir)}&stage=${curStage.stage}${sub}&doc_id=${encodeURIComponent(doc.id)}`)
+        setCurDoc(full)
+        // Load raw input as "before" for comparison
+        if (curStage.stage !== 'stage1_parsed' && inputPath) {
+          try {
+            const before = await api<Doc>(`/api/raw-input/doc?input_path=${encodeURIComponent(inputPath)}&doc_id=${encodeURIComponent(doc.id)}`)
+            setCompareDoc(before)
+          } catch { setCompareDoc(null) }
+        } else { setCompareDoc(null) }
+      }
     } catch { setCurDoc(doc); setCompareDoc(null) }
   }
 
@@ -205,7 +227,7 @@ export default function SampleBrowser() {
             {STAGES.map(s => (
               <button key={`${s.stage}/${s.sub}`} onClick={() => loadDocs(s)}
                 className={`block w-full text-left px-3 py-2 text-sm border-b border-gray-100 hover:bg-blue-50 ${curStage?.stage === s.stage && curStage?.sub === s.sub ? 'bg-blue-100 font-medium' : ''}`}>
-                <span className={`inline-block w-2 h-2 rounded-full mr-1.5 align-middle ${s.color === 'red' ? 'bg-red-400' : s.color === 'green' ? 'bg-green-500' : 'bg-blue-500'}`} />
+                <span className={`inline-block w-2 h-2 rounded-full mr-1.5 align-middle ${s.color === 'red' ? 'bg-red-400' : s.color === 'green' ? 'bg-green-500' : s.color === 'amber' ? 'bg-amber-400' : 'bg-blue-500'}`} />
                 {s.label}
               </button>
             ))}
