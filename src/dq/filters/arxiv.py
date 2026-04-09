@@ -155,17 +155,20 @@ _TABULAR_RE = re.compile(
 
 
 def _flatten_nested_tabulars(text: str) -> str:
-    """Iteratively replace innermost tabular environments with plain text.
+    """Flatten only tabulars nested inside other tabulars (inline cell headers).
 
-    Handles: \\begin{tabular}[c]{@{}c@{}}Chatbot Arena\\\\  ELO Rating\\end{tabular}
-    → "Chatbot Arena ELO Rating"
+    Only targets tabulars preceded by & or { (i.e. inside a cell), leaving
+    top-level tabulars intact for _convert_tabulars.
+
+    Example: \\textbf{\\begin{tabular}[c]{@{}c@{}}Chatbot Arena\\\\  ELO Rating\\end{tabular}}
+    → \\textbf{Chatbot Arena ELO Rating}
     """
-    # Match innermost tabular (body contains no \begin{tabular})
-    inner_re = re.compile(
+    nested_re = re.compile(
+        r"(?<=[\{&])\s*"   # must be preceded by { or & (inside a cell)
         r"\\begin\{tabular\}\s*"
         r"(?:\[[^\]]*\])?\s*"
         r"(?:\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})?\s*"
-        r"((?:(?!\\begin\{tabular\}).)*?)"
+        r"(.*?)"
         r"\\end\{tabular\}",
         re.DOTALL,
     )
@@ -177,9 +180,7 @@ def _flatten_nested_tabulars(text: str) -> str:
         body = re.sub(r"@\{[^}]*\}", "", body)
         return " ".join(body.split())
 
-    # Single pass: only flattens innermost tabulars (the ones used inline for
-    # multi-line cell headers). After this, outer tabulars remain for _convert_tabulars.
-    return inner_re.sub(_flatten, text)
+    return nested_re.sub(_flatten, text)
 
 
 def _clean_cell(cell: str) -> str:
