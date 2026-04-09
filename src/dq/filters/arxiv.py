@@ -246,7 +246,11 @@ def _clean_latex(text: str) -> str:
     # 5. Format commands → keep content
     text = _FORMAT_CMD_RE.sub(r"\1", text)
 
-    # 6. Remove graphics, input, figures
+    # 6. Extract captions before removing figures (captions are valuable text)
+    text = re.sub(r"\\captionof\{[^}]*\}\{([^}]*)\}", r"\1", text)
+    text = re.sub(r"\\caption\{([^}]*)\}", r"\1", text)
+
+    # 7. Remove graphics, input
     text = _GRAPHICS_RE.sub("", text)
     text = _INPUT_RE.sub("", text)
 
@@ -297,7 +301,7 @@ def _clean_latex(text: str) -> str:
     # 19. LaTeX typography → Unicode
     text = re.sub(r"``", "\u201c", text)   # `` → "
     text = re.sub(r"''", "\u201d", text)   # '' → "
-    text = re.sub(r"--", "\u2013", text)   # -- → –
+    text = re.sub(r"(?<!-)--(?!-)", "\u2013", text)   # -- → – (but not ---)
 
     # 20. Remove LaTeX environment option remnants: [leftmargin=10pt] etc.
     text = re.sub(r"^\[[\w=.,\s]+\]\s*$", "", text, flags=re.MULTILINE)
