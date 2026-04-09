@@ -96,5 +96,6 @@ class PIIFilter(BaseFilter):
             if matches:
                 failures.append({"filter": self.name, "rule": pii_type, "value": len(matches), "threshold": 0})
 
-        # PII filter always keeps docs (redact mode), so pass=True unless detect mode
-        return len(failures) == 0, failures
+        # PII filter keeps docs in both modes — redact cleans, detect reports
+        # Never reject a doc just because it has PII
+        return True, failures

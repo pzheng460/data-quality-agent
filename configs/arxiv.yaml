@@ -6,7 +6,7 @@ pipeline:
     - name: arxiv
       params:
         max_latex_residual: 0.05
-        require_abstract: true
+        require_abstract: false
         min_sections: 2
 
     # ── Gopher quality (thresholds relaxed for academic text) ──
@@ -35,7 +35,7 @@ pipeline:
 
     - name: c4
       params:
-        remove_no_terminal_punct: true
+        remove_no_terminal_punct: false  # headings and math lines don't end with punct
         remove_javascript_lines: true
         remove_policy_lines: true
         remove_lorem_ipsum: true
@@ -50,7 +50,7 @@ pipeline:
         backend: "ft176"
 
     - name: badwords
-      enabled: true
+      enabled: false   # academic papers discuss harmful topics legitimately
       params:
         default_language: "en"
 

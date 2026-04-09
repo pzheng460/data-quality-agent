@@ -181,7 +181,7 @@ class TestPIIFilterDetailed:
         f = PIIFilter(mode="detect")
         doc = {"text": "Contact me at user@example.com for details."}
         keep, failures = f.filter_detailed(doc)
-        assert not keep
+        assert keep  # PII filter never rejects — it reports findings
         assert any(fail["rule"] == "email" for fail in failures)
 
     def test_no_pii(self):
