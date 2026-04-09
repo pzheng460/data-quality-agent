@@ -154,8 +154,51 @@ _TABULAR_RE = re.compile(
 )
 
 
+def _flatten_nested_tabulars(text: str) -> str:
+    """Iteratively replace innermost tabular environments with plain text.
+
+    Handles: \\begin{tabular}[c]{@{}c@{}}Chatbot Arena\\\\  ELO Rating\\end{tabular}
+    → "Chatbot Arena ELO Rating"
+    """
+    # Match innermost tabular (body contains no \begin{tabular})
+    inner_re = re.compile(
+        r"\\begin\{tabular\}\s*"
+        r"(?:\[[^\]]*\])?\s*"
+        r"(?:\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})?\s*"
+        r"((?:(?!\\begin\{tabular\}).)*?)"
+        r"\\end\{tabular\}",
+        re.DOTALL,
+    )
+    def _flatten(m: re.Match) -> str:
+        body = m.group(1)
+        body = re.sub(r"\\\\", " ", body)
+        body = re.sub(r"\\[a-zA-Z]+\{([^}]*)\}", r"\1", body)
+        body = re.sub(r"\\[a-zA-Z]+", "", body)
+        body = re.sub(r"@\{[^}]*\}", "", body)
+        return " ".join(body.split())
+
+    # Single pass: only flattens innermost tabulars (the ones used inline for
+    # multi-line cell headers). After this, outer tabulars remain for _convert_tabulars.
+    return inner_re.sub(_flatten, text)
+
+
+def _clean_cell(cell: str) -> str:
+    """Clean LaTeX from a single table cell."""
+    cell = re.sub(r"\\textbf\{([^}]*)\}", r"**\1**", cell)
+    cell = re.sub(r"\\texttt\{([^}]*)\}", r"`\1`", cell)
+    cell = re.sub(r"\\textit\{([^}]*)\}", r"*\1*", cell)
+    cell = re.sub(r"\\small\b", "", cell)
+    cell = re.sub(r"\\[a-zA-Z]+\{([^}]*)\}", r"\1", cell)
+    cell = re.sub(r"\\[a-zA-Z]+", "", cell)
+    cell = re.sub(r"@\{[^}]*\}", "", cell)
+    return " ".join(cell.split())
+
+
 def _convert_tabulars(text: str) -> str:
     """Convert \\begin{tabular}...\\end{tabular} to markdown tables."""
+    # First flatten any nested tabulars (multi-line header cells)
+    text = _flatten_nested_tabulars(text)
+
     def _convert_one(m: re.Match) -> str:
         body = m.group(1)
         body = re.sub(r"\\(?:toprule|midrule|bottomrule|hline)\b", "", body)
@@ -166,17 +209,10 @@ def _convert_tabulars(text: str) -> str:
             row = row.strip()
             if not row:
                 continue
-            cells = [c.strip() for c in row.split("&")]
-            cleaned_cells = []
-            for cell in cells:
-                cell = re.sub(r"\\textbf\{([^}]*)\}", r"**\1**", cell)
-                cell = re.sub(r"\\texttt\{([^}]*)\}", r"`\1`", cell)
-                cell = re.sub(r"\\textit\{([^}]*)\}", r"*\1*", cell)
-                cell = re.sub(r"\\small\b", "", cell)
-                cell = re.sub(r"\\[a-zA-Z]+\{([^}]*)\}", r"\1", cell)
-                cell = re.sub(r"\\[a-zA-Z]+", "", cell)
-                cleaned_cells.append(cell.strip())
-            md_rows.append(" | ".join(cleaned_cells))
+            cells = [_clean_cell(c) for c in row.split("&")]
+            line = " | ".join(cells)
+            if line.strip():
+                md_rows.append(line)
         if not md_rows:
             return ""
         header = md_rows[0]
@@ -186,6 +222,8 @@ def _convert_tabulars(text: str) -> str:
         return "\n" + "\n".join(lines) + "\n"
 
     return _TABULAR_RE.sub(_convert_one, text)
+
+
 
 
 # ── Cleaning ──
@@ -220,6 +258,10 @@ def _clean_latex(text: str) -> str:
 
     # Protect math regions
     text, math_regions = _protect_math(text)
+
+    # 0. Convert tabular environments to markdown tables FIRST
+    #    (must run before format commands strip \textbf{} wrappers from nested tabulars)
+    text = _convert_tabulars(text)
 
     # 1. Remove citations and references
     text = _CITE_RE.sub("", text)
@@ -268,8 +310,7 @@ def _clean_latex(text: str) -> str:
     text = _LAYOUT_CMDS.sub("", text)
     text = _SPACING_RE.sub("", text)
 
-    # 8. Convert tabular environments to markdown tables
-    text = _convert_tabulars(text)
+    # 8. (tabular conversion already done in step 0)
 
     # 9. Remove environment markers (keep content)
     text = re.compile(r"\\(?:begin|end)\s*\{[^}]*\}").sub("", text)
