@@ -71,7 +71,7 @@ _ENV_RE = re.compile(r"\\(?:begin|end)\s*\{[^}]*\}")
 _LAYOUT_CMDS = re.compile(
     r"\\(?:"
     # spacing
-    r"noindent|centering|raggedright|raggedleft"
+    r"noindent|center|centering|raggedright|raggedleft"
     r"|smallskip|medskip|bigskip|vfill|hfill|newline|linebreak"
     r"|pagebreak|newpage|clearpage"
     # size
@@ -143,6 +143,48 @@ _ABSTRACT_RE = re.compile(r"(?:^|\n)#+\s*abstract", re.IGNORECASE)
 _HEADING_RE = re.compile(r"^#+\s+", re.MULTILINE)
 
 
+# ── Tabular conversion ──
+
+_TABULAR_RE = re.compile(
+    r"\\begin\{tabular\*?\}(?:\{[^}]*\})?\s*(.*?)\\end\{tabular\*?\}",
+    re.DOTALL,
+)
+
+
+def _convert_tabulars(text: str) -> str:
+    """Convert \\begin{tabular}...\\end{tabular} to markdown tables."""
+    def _convert_one(m: re.Match) -> str:
+        body = m.group(1)
+        body = re.sub(r"\\(?:toprule|midrule|bottomrule|hline)\b", "", body)
+        body = re.sub(r"\\cline\{[^}]*\}", "", body)
+        rows = re.split(r"\\\\", body)
+        md_rows = []
+        for row in rows:
+            row = row.strip()
+            if not row:
+                continue
+            cells = [c.strip() for c in row.split("&")]
+            cleaned_cells = []
+            for cell in cells:
+                cell = re.sub(r"\\textbf\{([^}]*)\}", r"**\1**", cell)
+                cell = re.sub(r"\\texttt\{([^}]*)\}", r"`\1`", cell)
+                cell = re.sub(r"\\textit\{([^}]*)\}", r"*\1*", cell)
+                cell = re.sub(r"\\small\b", "", cell)
+                cell = re.sub(r"\\[a-zA-Z]+\{([^}]*)\}", r"\1", cell)
+                cell = re.sub(r"\\[a-zA-Z]+", "", cell)
+                cleaned_cells.append(cell.strip())
+            md_rows.append(" | ".join(cleaned_cells))
+        if not md_rows:
+            return ""
+        header = md_rows[0]
+        ncols = header.count("|") + 1
+        sep = " | ".join(["---"] * ncols)
+        lines = [header, sep] + md_rows[1:]
+        return "\n" + "\n".join(lines) + "\n"
+
+    return _TABULAR_RE.sub(_convert_one, text)
+
+
 # ── Cleaning ──
 
 def _protect_math(text: str) -> tuple[str, list[tuple[str, str]]]:
@@ -212,10 +254,13 @@ def _clean_latex(text: str) -> str:
     text = _LAYOUT_CMDS.sub("", text)
     text = _SPACING_RE.sub("", text)
 
-    # 8. Remove environment markers (keep content)
+    # 8. Convert tabular environments to markdown tables
+    text = _convert_tabulars(text)
+
+    # 9. Remove environment markers (keep content)
     text = re.compile(r"\\(?:begin|end)\s*\{[^}]*\}").sub("", text)
 
-    # 9. \item → bullet
+    # 10. \item → bullet
     text = _ITEM_RE.sub("\n- ", text)
 
     # 10. \\ (line break) → newline
@@ -242,7 +287,7 @@ def _clean_latex(text: str) -> str:
     text = re.sub(r"\{[rlc]\}\s*\{[\d.]+\\?(?:textwidth|linewidth|cm|in|pt|em)\}", "", text)
 
     # 17. Remove LaTeX table formatting
-    text = re.sub(r"\b(?:toprule|midrule|bottomrule|hline|cline|arraystretch|tabcolsep|centering|textwidth|linewidth|parbox|captionof)\b", "", text)
+    text = re.sub(r"\b(?:toprule|midrule|bottomrule|hline|cline|arraystretch|tabcolsep|centering|center|textwidth|linewidth|parbox|captionof)\b", "", text)
     # Convert table & separators to | for readability
     text = re.sub(r"\s*&\s*", " | ", text)
 
