@@ -360,3 +360,110 @@ def get_overview(output_dir: str):
     if phases:
         return {"version": "unknown", "phases": phases}
     raise HTTPException(404, "No stats found")
+
+
+# ── Ingestion state ──
+
+_ingest_state: dict[str, Any] = {
+    "status": "idle",      # idle | downloading | done | error
+    "total": 0,
+    "downloaded": 0,
+    "papers": [],          # list of {arxiv_id, title, chars, source_method}
+    "error": None,
+    "output_path": None,
+}
+
+
+# ── Ingestion endpoints ──
+
+class IngestByIdsRequest(BaseModel):
+    ids: list[str]
+    output_path: str
+    delay: float = 3.0
+
+
+
+class IngestByDateRequest(BaseModel):
+    from_date: str
+    to_date: str | None = None
+    categories: list[str] = []
+    max_papers: int = 100
+    output_path: str
+    delay: float = 3.0
+
+
+@app.get("/api/ingest/status")
+def ingest_status():
+    with _lock:
+        return dict(_ingest_state)
+
+
+def _run_ingest(doc_iter, output_path: str):
+    """Shared ingestion worker: iterate docs, write to JSONL."""
+    try:
+        out = Path(output_path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with open(out, "w", encoding="utf-8") as f:
+            for doc in doc_iter:
+                f.write(json.dumps(doc, ensure_ascii=False) + "\n")
+                meta = doc.get("metadata", {})
+                paper_info = {
+                    "arxiv_id": meta.get("arxiv_id", doc.get("id", "")),
+                    "title": meta.get("title", ""),
+                    "categories": meta.get("categories", []),
+                    "primary_category": meta.get("primary_category", ""),
+                    "abstract": (meta.get("abstract", "") or "")[:200],
+                    "chars": len(doc.get("text", "")),
+                    "source_method": "arxiv_eprint",
+                }
+                with _lock:
+                    _ingest_state["downloaded"] += 1
+                    _ingest_state["papers"].append(paper_info)
+                _push_event({"type": "paper_downloaded", **paper_info})
+        with _lock:
+            _ingest_state["status"] = "done"
+        _push_event({"type": "ingest_done", "count": _ingest_state["downloaded"]})
+    except Exception as e:
+        with _lock:
+            _ingest_state["status"] = "error"
+            _ingest_state["error"] = str(e)
+        _push_event({"type": "error", "message": str(e)})
+
+
+@app.post("/api/ingest/by-ids")
+def ingest_by_ids(req: IngestByIdsRequest):
+    """Download specific papers by arxiv ID."""
+    with _lock:
+        if _ingest_state.get("status") == "downloading":
+            raise HTTPException(400, "Download already in progress")
+        _ingest_state.update(status="downloading", total=len(req.ids), downloaded=0,
+                             papers=[], error=None, output_path=req.output_path)
+
+    def _source():
+        from dq.ingest.arxiv_source import ArxivSource
+        return ArxivSource(ids=req.ids, delay=req.delay).fetch()
+
+    threading.Thread(target=_run_ingest, args=(_source(), req.output_path), daemon=True).start()
+    return {"status": "started", "total": len(req.ids)}
+
+
+@app.post("/api/ingest/by-date")
+def ingest_by_date(req: IngestByDateRequest):
+    """Download papers by date range via OAI-PMH discovery."""
+    with _lock:
+        if _ingest_state.get("status") == "downloading":
+            raise HTTPException(400, "Download already in progress")
+        _ingest_state.update(status="downloading", total=req.max_papers, downloaded=0,
+                             papers=[], error=None, output_path=req.output_path)
+
+    def _source():
+        from dq.ingest.arxiv_source import ArxivSource
+        return ArxivSource(
+            from_date=req.from_date,
+            to_date=req.to_date or None,
+            categories=req.categories or None,
+            delay=req.delay,
+        ).fetch(limit=req.max_papers)
+
+    threading.Thread(target=_run_ingest, args=(_source(), req.output_path), daemon=True).start()
+    return {"status": "started", "max_papers": req.max_papers}
