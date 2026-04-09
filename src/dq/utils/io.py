@@ -70,9 +70,44 @@ def write_csv(docs: Iterator[dict], path: str | Path) -> int:
     return len(rows)
 
 
+def read_jsonl_zst(path: str | Path) -> Iterator[dict]:
+    """Read documents from a zstd-compressed JSONL file (.jsonl.zst)."""
+    import io as _io
+
+    import zstandard as zstd
+
+    with open(path, "rb") as fh:
+        dctx = zstd.ZstdDecompressor()
+        with dctx.stream_reader(fh) as reader:
+            text_stream = _io.TextIOWrapper(reader, encoding="utf-8")
+            for line in text_stream:
+                line = line.strip()
+                if line:
+                    yield json.loads(line)
+
+
+def write_jsonl_zst(docs: Iterator[dict], path: str | Path, level: int = 3) -> int:
+    """Write documents to a zstd-compressed JSONL file. Returns count written."""
+    import zstandard as zstd
+
+    count = 0
+    with open(path, "wb") as fh:
+        cctx = zstd.ZstdCompressor(level=level)
+        with cctx.stream_writer(fh) as writer:
+            for doc in docs:
+                line = json.dumps(doc, ensure_ascii=False) + "\n"
+                writer.write(line.encode("utf-8"))
+                count += 1
+    return count
+
+
 def read_docs(path: str | Path) -> Iterator[dict]:
     """Auto-detect format and read documents."""
     path = Path(path)
+    # Check for compound suffix .jsonl.zst
+    if path.name.endswith(".jsonl.zst"):
+        yield from read_jsonl_zst(path)
+        return
     suffix = path.suffix.lower()
     if suffix == ".jsonl":
         yield from read_jsonl(path)
@@ -130,6 +165,9 @@ def sample_docs(
 def write_docs(docs: Iterator[dict], path: str | Path) -> int:
     """Auto-detect format and write documents. Returns count written."""
     path = Path(path)
+    # Check for compound suffix .jsonl.zst
+    if str(path).endswith(".jsonl.zst"):
+        return write_jsonl_zst(docs, path)
     suffix = path.suffix.lower()
     if suffix == ".jsonl":
         return write_jsonl(docs, path)

@@ -19,6 +19,9 @@ dependencies = [
     "anthropic>=0.86.0",
     "datatrove[io]>=0.4.0",
     "spacy>=3.8.14",
+    "zstandard>=0.18",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
 ]
 
 [project.optional-dependencies]

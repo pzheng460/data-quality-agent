@@ -1,0 +1,58 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Better math rendering spacing */
+.katex-display {
+  margin: 1em 0 !important;
+  overflow-x: auto;
+}
+
+/* Prose improvements for academic papers */
+.prose-paper {
+  --tw-prose-body: #1f2937;
+  --tw-prose-headings: #111827;
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.prose-paper h1 { font-size: 1.5em; margin-top: 0; }
+.prose-paper h2 { font-size: 1.25em; margin-top: 1.5em; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
+.prose-paper h3 { font-size: 1.1em; }
+.prose-paper p { margin: 0.75em 0; }
+.prose-paper code { background: #f3f4f6; padding: 0.15em 0.3em; border-radius: 3px; font-size: 0.9em; }
+.prose-paper pre { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 1em; overflow-x: auto; }
+.prose-paper blockquote { border-left: 3px solid #d1d5db; padding-left: 1em; color: #6b7280; }
+
+/* Diff highlights */
+.diff-added { background: #dcfce7; }
+.diff-removed { background: #fee2e2; text-decoration: line-through; }
+
+/* Article rendering — comfortable reading for academic papers */
+.prose-article {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 16px;
+  line-height: 1.8;
+  color: #1a1a1a;
+  max-width: 72ch;
+}
+.prose-article h1 { font-family: system-ui, sans-serif; font-size: 1.6em; font-weight: 700; margin: 0.8em 0 0.4em; color: #111; }
+.prose-article h2 { font-family: system-ui, sans-serif; font-size: 1.3em; font-weight: 600; margin: 1.5em 0 0.5em; color: #222; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
+.prose-article h3 { font-family: system-ui, sans-serif; font-size: 1.1em; font-weight: 600; margin: 1.2em 0 0.4em; color: #333; }
+.prose-article p { margin: 0.8em 0; }
+.prose-article code { background: #f3f4f6; padding: 0.15em 0.35em; border-radius: 4px; font-size: 0.88em; font-family: 'SF Mono', 'Fira Code', monospace; }
+.prose-article pre { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1em; overflow-x: auto; line-height: 1.5; }
+.prose-article blockquote { border-left: 3px solid #6366f1; background: #f5f3ff; padding: 0.6em 1em; margin: 1em 0; border-radius: 0 6px 6px 0; }
+.prose-article ul, .prose-article ol { padding-left: 1.5em; margin: 0.5em 0; }
+.prose-article li { margin: 0.3em 0; }
+.prose-article strong { color: #111; }
+.prose-article a { color: #4f46e5; text-decoration: underline; }
+.prose-article hr { border: none; border-top: 1px solid #e5e7eb; margin: 2em 0; }
+
+/* KaTeX display math spacing */
+.prose-article .katex-display { margin: 1.2em 0; overflow-x: auto; }
+.prose-article .katex { font-size: 1.05em; }

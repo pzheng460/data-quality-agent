@@ -1,0 +1,362 @@
+"""FastAPI backend for controlling the pipeline and browsing results."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import threading
+import time
+from pathlib import Path
+from typing import Any
+
+import yaml
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="dq Pipeline Dashboard")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# ── Global state ──
+
+_state: dict[str, Any] = {
+    "status": "idle",          # idle | running | finished | error
+    "current_phase": None,
+    "progress": [],            # list of phase result dicts
+    "error": None,
+    "config_path": None,
+    "input_path": None,
+    "output_dir": None,
+}
+_lock = threading.Lock()
+_events: list[dict] = []      # SSE event log
+
+
+def _push_event(event: dict) -> None:
+    with _lock:
+        _events.append(event)
+
+
+# ── Models ──
+
+class RunRequest(BaseModel):
+    input_path: str
+    output_dir: str
+    config_path: str
+    workers: int | None = None
+    num_samples: int = 0
+    resume: bool = True
+
+
+class PhaseRunRequest(BaseModel):
+    input_path: str
+    output_dir: str
+    config_path: str
+    phase: int
+    workers: int | None = None
+    num_samples: int = 0
+
+
+# ── Pipeline execution in background thread ──
+
+def _run_pipeline(req: RunRequest) -> None:
+    """Run full pipeline in background thread."""
+    from dq.runner.engine import PhaseEngine
+    from dq.runner.phases import (
+        phase1_parse, phase2_filter, phase3_dedup,
+        phase4_contamination, phase5_package,
+    )
+    from dq.runner.stats import save_overview
+
+    with _lock:
+        _state["status"] = "running"
+        _state["current_phase"] = None
+        _state["progress"] = []
+        _state["error"] = None
+        _state["config_path"] = req.config_path
+        _state["input_path"] = req.input_path
+        _state["output_dir"] = req.output_dir
+
+    try:
+        engine = PhaseEngine(
+            config_path=req.config_path,
+            input_path=req.input_path,
+            output_dir=req.output_dir,
+            workers=req.workers,
+            num_samples=req.num_samples,
+        )
+        engine.output_dir.mkdir(parents=True, exist_ok=True)
+
+        phase_funcs = [
+            ("phase1_parse", phase1_parse),
+            ("phase2_filter", phase2_filter),
+            ("phase3_dedup", phase3_dedup),
+            ("phase4_contamination", phase4_contamination),
+            ("phase5_package", phase5_package),
+        ]
+
+        all_stats = []
+        for name, func in phase_funcs:
+            if req.resume and engine.is_phase_done(name):
+                _push_event({"type": "phase_skip", "phase": name})
+                continue
+
+            with _lock:
+                _state["current_phase"] = name
+            _push_event({"type": "phase_start", "phase": name})
+
+            stats = func(engine)
+            engine.mark_phase_done(name)
+            all_stats.append(stats)
+
+            stats_dir = engine.output_dir / "stats" / engine.version
+            stats_dir.mkdir(parents=True, exist_ok=True)
+            stats.save(stats_dir / f"{name}.json")
+
+            result = stats.to_dict()
+            with _lock:
+                _state["progress"].append(result)
+            _push_event({"type": "phase_done", "phase": name, "stats": result})
+
+        if all_stats:
+            stats_dir = engine.output_dir / "stats" / engine.version
+            save_overview(stats_dir, all_stats, engine.version, config_hash=engine.config_hash)
+
+        with _lock:
+            _state["status"] = "finished"
+            _state["current_phase"] = None
+        _push_event({"type": "pipeline_done"})
+
+    except Exception as e:
+        with _lock:
+            _state["status"] = "error"
+            _state["error"] = str(e)
+        _push_event({"type": "error", "message": str(e)})
+        logger.exception("Pipeline failed")
+
+
+# ── API endpoints ──
+
+@app.get("/api/status")
+def get_status():
+    """Current pipeline status."""
+    with _lock:
+        return dict(_state)
+
+
+@app.post("/api/run")
+def start_pipeline(req: RunRequest):
+    """Start the full pipeline in background."""
+    with _lock:
+        if _state.get("status") == "running":
+            raise HTTPException(400, "Pipeline already running")
+        _events.clear()
+
+    import threading
+    t = threading.Thread(target=_run_pipeline, args=(req,), daemon=True)
+    t.start()
+    return {"status": "started"}
+
+
+@app.post("/api/run-phase")
+def start_phase(req: PhaseRunRequest):
+    """Run a single phase."""
+    with _lock:
+        if _state.get("status") == "running":
+            raise HTTPException(400, "Pipeline already running")
+        _events.clear()
+
+    import threading
+
+    def _run():
+        from dq.runner.engine import PhaseEngine
+        from dq.runner import phases as phase_mod
+
+        phase_map = {
+            1: ("phase1_parse", phase_mod.phase1_parse),
+            2: ("phase2_filter", phase_mod.phase2_filter),
+            3: ("phase3_dedup", phase_mod.phase3_dedup),
+            4: ("phase4_contamination", phase_mod.phase4_contamination),
+            5: ("phase5_package", phase_mod.phase5_package),
+        }
+
+        try:
+            with _lock:
+                _state["status"] = "running"
+
+            engine = PhaseEngine(
+                config_path=req.config_path,
+                input_path=req.input_path,
+                output_dir=req.output_dir,
+                workers=req.workers,
+                num_samples=req.num_samples,
+            )
+            engine.output_dir.mkdir(parents=True, exist_ok=True)
+            name, func = phase_map[req.phase]
+            with _lock:
+                _state["current_phase"] = name
+            _push_event({"type": "phase_start", "phase": name})
+
+            stats = func(engine)
+            engine.mark_phase_done(name)
+
+            stats_dir = engine.output_dir / "stats" / engine.version
+            stats_dir.mkdir(parents=True, exist_ok=True)
+            stats.save(stats_dir / f"{name}.json")
+
+            result = stats.to_dict()
+            with _lock:
+                _state["progress"].append(result)
+                _state["status"] = "finished"
+                _state["current_phase"] = None
+            _push_event({"type": "phase_done", "phase": name, "stats": result})
+
+        except Exception as e:
+            with _lock:
+                _state["status"] = "error"
+                _state["error"] = str(e)
+            _push_event({"type": "error", "message": str(e)})
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return {"status": "started", "phase": req.phase}
+
+
+@app.get("/api/events")
+async def event_stream():
+    """SSE stream of pipeline progress events."""
+    async def generate():
+        last_idx = 0
+        while True:
+            with _lock:
+                new_events = _events[last_idx:]
+                last_idx = len(_events)
+                status = _state.get("status")
+            for ev in new_events:
+                yield f"data: {__import__('json').dumps(ev)}\n\n"
+            if status in ("finished", "error", "idle") and not new_events:
+                yield f"data: {json.dumps({'type': 'end'})}\n\n"
+                break
+            await asyncio.sleep(0.5)
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+@app.get("/api/config")
+def get_config(path: str):
+    """Read a YAML config file."""
+    p = Path(path)
+    if not p.exists():
+        raise HTTPException(404, f"Config not found: {path}")
+    with open(p) as f:
+        return __import__("yaml").safe_load(f)
+
+
+@app.put("/api/config")
+def save_config(path: str, body: dict):
+    """Write updated config to YAML."""
+    p = Path(path)
+    with open(p, "w") as f:
+        yaml.dump(body, f, default_flow_style=False, allow_unicode=True)
+    return {"status": "saved", "path": str(p)}
+
+
+@app.get("/api/phases")
+def list_phases(output_dir: str):
+    """List pipeline phases and their completion status."""
+    out = Path(output_dir)
+    phases = []
+    for num, name in [(1, "phase1_parse"), (2, "phase2_filter"), (3, "phase3_dedup"),
+                       (4, "phase4_contamination"), (5, "phase5_package")]:
+        done = (out / f".{name}_SUCCESS").exists()
+        stats_file = None
+        # Try to find stats
+        for stats_dir in out.glob("stats/*/"):
+            sf = stats_dir / f"{name}.json"
+            if sf.exists():
+                stats_file = str(sf)
+                break
+        phases.append({"phase": num, "name": name, "done": done, "stats_file": stats_file})
+    return phases
+
+
+@app.get("/api/phase-stats/{phase_name}")
+def get_phase_stats(phase_name: str, output_dir: str):
+    """Get stats for a specific phase."""
+    out = Path(output_dir)
+    for stats_dir in out.glob("stats/*/"):
+        sf = stats_dir / f"{phase_name}.json"
+        if sf.exists():
+            with open(sf) as f:
+                return json.load(f)
+    raise HTTPException(404, f"Stats not found for {phase_name}")
+
+
+@app.get("/api/docs/{stage}")
+@app.get("/api/docs/{stage}/{sub}")
+def list_docs(stage: str, output_dir: str, sub: str = "", offset: int = 0, limit: int = 20):
+    """Browse documents from a pipeline stage (kept/rejected)."""
+    from dq.runner.shard import read_shards
+
+    stage_path = Path(output_dir) / stage / sub if sub else Path(output_dir) / stage
+    if not stage_path.exists():
+        raise HTTPException(404, f"Stage not found: {stage}/{sub}")
+
+    docs = []
+    count = 0
+    for doc in read_shards(stage_path):
+        if count < offset:
+            count += 1
+            continue
+        if len(docs) >= limit:
+            break
+        # Trim text for listing
+        summary = dict(doc)
+        text = summary.get("text", "")
+        summary["text_preview"] = text[:300]
+        summary["text_length"] = len(text)
+        docs.append(summary)
+        count += 1
+
+    return {"docs": docs, "offset": offset, "limit": limit, "has_more": count > offset + limit}
+
+
+@app.get("/api/doc")
+def get_full_doc(output_dir: str, stage: str, doc_id: str, sub: str = ""):
+    """Get a single document by ID with full text."""
+    from dq.runner.shard import read_shards
+    stage_path = Path(output_dir) / stage / sub if sub else Path(output_dir) / stage
+    for doc in read_shards(stage_path):
+        if doc.get("id") == doc_id:
+            return doc
+    raise HTTPException(404, f"Doc not found: {doc_id}")
+
+
+@app.get("/api/overview")
+def get_overview(output_dir: str):
+    """Get pipeline overview stats."""
+    out = Path(output_dir)
+    # Find the overview file
+    for stats_dir in sorted(out.glob("stats/*/")):
+        ov = stats_dir / "overview.json"
+        if ov.exists():
+            with open(ov) as f:
+                return json.load(f)
+    # Fallback: build from individual phase stats
+    phases = {}
+    for stats_dir in out.glob("stats/*/"):
+        for sf in sorted(stats_dir.glob("phase*.json")):
+            with open(sf) as f:
+                data = json.load(f)
+            phases[data["phase"]] = {
+                "input": data["input_count"],
+                "output": data["output_count"],
+                "keep_rate": data["keep_rate"],
+                "reject_reasons": data.get("reject_reasons", {}),
+            }
+    if phases:
+        return {"version": "unknown", "phases": phases}
+    raise HTTPException(404, "No stats found")

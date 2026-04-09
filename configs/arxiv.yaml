@@ -1,0 +1,101 @@
+pipeline:
+  text_field: "text"
+
+  filters:
+    # ── Arxiv-specific (clean-then-judge, must be first) ──
+    - name: arxiv
+      params:
+        max_latex_residual: 0.05
+        require_abstract: true
+        min_sections: 2
+
+    # ── Gopher quality (thresholds relaxed for academic text) ──
+    - name: gopher_quality
+      params:
+        min_avg_word_len: 3
+        max_avg_word_len: 10
+        max_symbol_ratio: 0.1
+        max_ellipsis_lines_ratio: 0.3
+        min_stopwords: 2             # academic text has fewer stopwords
+        min_alpha_ratio: 0.7         # formulas lower alpha ratio
+
+    - name: gopher_repetition
+      params:
+        max_top_2gram: 0.20
+        max_top_3gram: 0.18
+        max_top_4gram: 0.16
+        max_dup_line_ratio: 0.30
+        max_dup_para_ratio: 0.30
+        max_dup_5gram_frac: 0.15
+        max_dup_6gram_frac: 0.14
+        max_dup_7gram_frac: 0.13
+        max_dup_8gram_frac: 0.12
+        max_dup_9gram_frac: 0.11
+        max_dup_10gram_frac: 0.10
+
+    - name: c4
+      params:
+        remove_no_terminal_punct: true
+        remove_javascript_lines: true
+        remove_policy_lines: true
+        remove_lorem_ipsum: true
+        remove_curly_brace: false
+        min_sentences: 3             # papers may have short sections
+
+    - name: language
+      enabled: true
+      params:
+        languages: ["en"]
+        language_threshold: 0.5
+        backend: "ft176"
+
+    - name: badwords
+      enabled: true
+      params:
+        default_language: "en"
+
+    - name: pii
+      mode: redact
+
+  dedup:
+    exact: true
+    minhash:
+      enabled: true
+      num_perm: 112
+      bands: 14
+      rows: 8
+      ngram_size: 5
+
+# ── Arxiv-specific config (read by runner, not by PipelineConfig) ──
+arxiv:
+  version: v2025-04
+  data_source: "togethercomputer/RedPajama-v2"
+  hf_endpoint: "https://hf-mirror.com"
+  subset: "arxiv"
+
+  phase1:
+    min_text_length: 200
+    max_latex_residual: 0.20
+    preview_length: 500
+
+  phase3:
+    version_dedup: true
+
+  phase4:
+    ngram_size: 13
+    threshold: 0.8
+    benchmarks:
+      - mmlu
+      - gsm8k
+      - hellaswag
+      - arc
+      - humaneval
+      - truthfulqa
+
+  phase5:
+    shard_target_bytes: 1073741824  # 1GB
+    sort_by: "id"
+
+  parallelism:
+    num_workers: null
+    chunk_size: 1000
