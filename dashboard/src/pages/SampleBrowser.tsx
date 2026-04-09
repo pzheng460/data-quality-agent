@@ -29,8 +29,9 @@ function Md({ children }: { children: string }) {
 }
 
 /* ── DocDetail ── */
-function DocDetail({ doc, compareDoc }: { doc: Doc; compareDoc: Doc | null }) {
-  const [tab, setTab] = useState<'compare' | 'rendered' | 'raw' | 'json' | 'trace'>('compare')
+function DocDetail({ doc, compareDoc, isRawInput = false }: { doc: Doc; compareDoc: Doc | null; isRawInput?: boolean }) {
+  const [tab, setTab] = useState<string>(isRawInput ? 'text' : 'compare')
+  const isRaw = isRawInput
   const [compareView, setCompareView] = useState<'split' | 'original' | 'cleaned'>('split')
   const meta = doc.metadata as any
   const sc = doc.structural_checks as Record<string, unknown> | undefined
@@ -93,13 +94,30 @@ function DocDetail({ doc, compareDoc }: { doc: Doc; compareDoc: Doc | null }) {
 
       {/* Tabs */}
       <div className="flex gap-0.5 border-b border-gray-200">
-        {(['compare', 'rendered', 'raw', 'json', 'trace'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm border-b-2 -mb-px ${tab === t ? 'border-blue-500 text-blue-700 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-            {{ compare: 'Compare', rendered: 'Cleaned', raw: 'Raw', json: 'JSON', trace: 'Trace' }[t]}
+        {(isRaw
+          ? [['text','Text'],['pdf','PDF'],['json','JSON']]
+          : [['compare','Compare'],['rendered','Rendered'],['raw','Source'],['json','JSON'],['trace','Trace']]
+        ).map(([key, label]) => (
+          <button key={key} onClick={() => setTab(key)}
+            className={`px-4 py-2 text-sm border-b-2 -mb-px ${tab === key ? 'border-blue-500 text-blue-700 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            {label}
           </button>
         ))}
       </div>
+
+      {/* Raw text (raw input only) */}
+      {tab === 'text' && (
+        <pre className="text-[13px] leading-relaxed bg-gray-50 border border-amber-200 p-5 rounded-lg overflow-auto max-h-[75vh] whitespace-pre-wrap font-mono text-gray-800">{doc.text}</pre>
+      )}
+
+      {/* PDF (raw input only) */}
+      {tab === 'pdf' && (
+        arxivPdf ? (
+          <iframe src={arxivPdf} className="w-full h-[75vh] rounded-lg border border-gray-200" title="PDF" />
+        ) : (
+          <div className="flex items-center justify-center h-48 text-gray-400 border rounded-lg border-dashed">No arxiv ID — PDF unavailable.</div>
+        )
+      )}
 
       {/* Compare */}
       {tab === 'compare' && (
@@ -263,7 +281,7 @@ export default function SampleBrowser() {
             </button>
           </div>
         )}
-        {curDoc ? <DocDetail doc={curDoc} compareDoc={compareDoc} /> : (
+        {curDoc ? <DocDetail doc={curDoc} compareDoc={compareDoc} isRawInput={curStage?.stage === '_raw_input'} /> : (
           <div className="flex items-center justify-center h-full text-gray-400">
             {sidebarOpen ? 'Select a stage → document' : (
               <button onClick={() => setSidebarOpen(true)} className="text-blue-500 hover:underline">← Open sidebar to select a document</button>
