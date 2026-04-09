@@ -4,11 +4,8 @@ const navItems = [
   { to: '/', label: 'Pipeline Control' },
   { to: '/overview', label: 'Overview' },
   { to: '/phases', label: 'Phase Details' },
-  { to: '/signals', label: 'Quality Signals' },
   { to: '/samples', label: 'Sample Browser' },
-  { to: '/dedup', label: 'Dedup Clusters' },
-  { to: '/contamination', label: 'Contamination' },
-  { to: '/golden', label: 'Golden Tests' },
+  { to: '/signals', label: 'Quality Check' },
 ]
 
 export default function Layout() {

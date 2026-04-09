@@ -362,6 +362,87 @@ def get_overview(output_dir: str):
     raise HTTPException(404, "No stats found")
 
 
+# ── Quality Check (dq bench on final output) ──
+
+class QualityCheckRequest(BaseModel):
+    output_dir: str
+    num_samples: int = 50
+    config_path: str = ""
+
+
+@app.post("/api/quality-check")
+def run_quality_check(req: QualityCheckRequest):
+    """Run dq bench on the final pipeline output to check quality."""
+    from dq.runner.shard import read_shards
+    import random
+
+    final_dir = Path(req.output_dir) / "stage5_final"
+    if not final_dir.exists():
+        raise HTTPException(404, "stage5_final not found")
+
+    # Load docs from final output
+    docs = list(read_shards(final_dir))
+    if not docs:
+        raise HTTPException(404, "No documents in stage5_final")
+
+    # Sample
+    sample = random.sample(docs, min(req.num_samples, len(docs)))
+
+    # Run benchmark
+    from dq.filters import ensure_registered
+    ensure_registered()
+    from dq.config import PipelineConfig
+    from dq.pipeline import Pipeline
+
+    if req.config_path:
+        config = PipelineConfig.from_yaml(req.config_path)
+    else:
+        config = PipelineConfig.default()
+
+    pipeline = Pipeline(config)
+
+    per_filter: dict[str, dict] = {}
+    per_rule: dict[str, dict[str, int]] = {}
+    total_pass = 0
+    total_words = 0
+
+    for doc in sample:
+        pass_all = True
+        for f in pipeline.filters:
+            fname = f.name
+            keep, failures = f.filter_detailed(doc)
+            if fname not in per_filter:
+                per_filter[fname] = {"total": 0, "passed": 0, "failed": 0}
+            per_filter[fname]["total"] += 1
+            if keep:
+                per_filter[fname]["passed"] += 1
+            else:
+                per_filter[fname]["failed"] += 1
+                pass_all = False
+            for fail in failures:
+                rule = fail.get("rule", "unknown")
+                key = f"{fname}.{rule}"
+                per_rule.setdefault(fname, {})
+                per_rule[fname][key] = per_rule[fname].get(key, 0) + 1
+        if pass_all:
+            total_pass += 1
+        text = doc.get("text", "")
+        total_words += len(text.split())
+
+    for fname in per_filter:
+        t = per_filter[fname]["total"]
+        per_filter[fname]["pass_rate"] = per_filter[fname]["passed"] / t if t > 0 else 0
+
+    return {
+        "total_docs": len(docs),
+        "sampled": len(sample),
+        "per_filter": per_filter,
+        "per_rule": per_rule,
+        "dataset_stats": {"avg_word_count": total_words / len(sample) if sample else 0},
+        "overall_pass_rate": total_pass / len(sample) if sample else 0,
+    }
+
+
 # ── Ingestion state ──
 
 _ingest_state: dict[str, Any] = {
