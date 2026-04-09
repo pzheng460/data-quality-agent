@@ -146,7 +146,10 @@ _HEADING_RE = re.compile(r"^#+\s+", re.MULTILINE)
 # ── Tabular conversion ──
 
 _TABULAR_RE = re.compile(
-    r"\\begin\{tabular\*?\}(?:\{[^}]*\})?\s*(.*?)\\end\{tabular\*?\}",
+    r"\\begin\{tabular\*?\}"
+    r"(?:\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})?"  # column spec with nested {} like {@{}lcl@{}}
+    r"\s*(.*?)"
+    r"\\end\{tabular\*?\}",
     re.DOTALL,
 )
 
@@ -246,6 +249,13 @@ def _clean_latex(text: str) -> str:
     # 5. Format commands → keep content
     text = _FORMAT_CMD_RE.sub(r"\1", text)
 
+    # 5b. Box commands → keep inner content (before catch-all removes them)
+    # \parbox{width}{content} — content may span multiple lines
+    text = re.sub(r"\\parbox\{[^}]*\}\{", "", text)  # remove \parbox{width}{ prefix
+    text = re.sub(r"\\fbox\{", "", text)              # remove \fbox{ prefix
+    text = re.sub(r"\\mbox\{", "", text)              # remove \mbox{
+    # The closing } will be cleaned up as orphaned braces later
+
     # 6. Extract captions before removing figures (captions are valuable text)
     text = re.sub(r"\\captionof\{[^}]*\}\{([^}]*)\}", r"\1", text)
     text = re.sub(r"\\caption\{([^}]*)\}", r"\1", text)
@@ -323,12 +333,18 @@ def _clean_latex(text: str) -> str:
     #     e.g. \mistral → mistral, \llama → llama
     text = re.sub(r"\\([a-zA-Z]{2,})\b", r"\1", text)
 
+    # 23. Clean up orphaned braces and LaTeX formatting artifacts
+    text = re.sub(r"\{[rlc]\}\{[\d.]*\\?(?:textwidth|linewidth|cm|pt|em)\}", "", text)
+    text = re.sub(r"@\{[^}]*\}", "", text)         # @{} column separators
+    text = re.sub(r"\{\\centering", "", text)       # {\centering
+    text = re.sub(r"^\s*\}\s*$", "", text, flags=re.MULTILINE)  # lone } on a line
+    text = re.sub(r"^\s*\{\s*$", "", text, flags=re.MULTILINE)  # lone { on a line
+
     # Restore math
     text = _restore_math(text, math_regions)
 
-    # 23. Remove figure/table placeholders — useless for LLM pretraining
+    # 24. Remove figure/table placeholders — useless for LLM pretraining
     text = re.sub(r"^\[(?:Figure|Table)\]\s*$", "", text, flags=re.MULTILINE)
-    # Remove caption remnants (lines that are just "Figure N:" or "Table N:")
     text = re.sub(r"^(?:Figure|Table)\s*\d*\s*[:.]?\s*$", "", text, flags=re.MULTILINE)
 
     # Final cleanup
