@@ -294,10 +294,15 @@ def _clean_latex(text: str) -> str:
     # 18. Clean orphaned tildes (LaTeX non-breaking space) → regular space
     text = re.sub(r"~", " ", text)
 
-    # 19. Remove LaTeX environment option remnants: [leftmargin=10pt] etc.
+    # 19. LaTeX typography → Unicode
+    text = re.sub(r"``", "\u201c", text)   # `` → "
+    text = re.sub(r"''", "\u201d", text)   # '' → "
+    text = re.sub(r"--", "\u2013", text)   # -- → –
+
+    # 20. Remove LaTeX environment option remnants: [leftmargin=10pt] etc.
     text = re.sub(r"^\[[\w=.,\s]+\]\s*$", "", text, flags=re.MULTILINE)
 
-    # 20. Clean up citation/ref artifacts: trailing commas, empty parens
+    # 21. Clean up citation/ref artifacts: trailing commas, empty parens
     text = re.sub(r"\(\s*\)", "", text)           # empty ()
     text = re.sub(r"\[\s*\]", "", text)           # empty []
     text = re.sub(r",\s*,", ",", text)            # double commas
