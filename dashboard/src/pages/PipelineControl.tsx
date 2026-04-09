@@ -13,7 +13,7 @@ export default function PipelineControl() {
 
   // ── Ingest state ──
   const [ingestMode, setIngestMode] = useState<'ids' | 'date'>('ids')
-  const [arxivIds, setArxivIds] = useState('2310.06825\n2307.09288')
+  const [arxivIds, setArxivIds] = useState('1706.03762\n2310.06825\n2303.08774\n1312.6114\n2203.15556')
   const [fromDate, setFromDate] = useState('2025-04-01')
   const [toDate, setToDate] = useState('2025-04-07')
   const [catFilter, setCatFilter] = useState('cs.CL')
