@@ -309,31 +309,28 @@ def ingest(source: str, output: str, limit: int, list_sources: bool, params: tup
     if not output:
         raise click.UsageError("Missing option '-o' / '--output'.")
 
-    # Parse KEY=VALUE params
-    source_params: dict = {}
-    for p in params:
-        if "=" not in p:
-            raise click.UsageError(f"Invalid param (expected KEY=VALUE): {p}")
-        key, val = p.split("=", 1)
-        # Auto-convert lists (comma-separated)
-        if "," in val:
-            source_params_val = [v.strip() for v in val.split(",") if v.strip()]
-        else:
-            # Try numeric
-            try:
-                source_params_val = float(val) if "." in val else int(val)
-            except ValueError:
-                source_params_val = val
-        source_params[key] = source_params_val
-
-    # Instantiate source
+    # Resolve source class first so we can use its schema for param parsing
     try:
         src_cls = get_source_class(source)
     except ValueError as e:
         raise click.UsageError(str(e))
 
+    schema = src_cls.params_schema()
+    source_params: dict = {}
+    for p in params:
+        if "=" not in p:
+            raise click.UsageError(f"Invalid param (expected KEY=VALUE): {p}")
+        key, val = p.split("=", 1)
+        param_type = schema.get(key, {}).get("type", "string")
+        if param_type == "list":
+            source_params[key] = [v.strip() for v in val.split(",") if v.strip()]
+        elif param_type in ("number", "float"):
+            source_params[key] = float(val)
+        else:
+            source_params[key] = val
+
     src = src_cls(**source_params)
-    console.print(f"[bold]Ingesting from {source}[/bold] → {output_path if 'output_path' in dir() else output}")
+    console.print(f"[bold]Ingesting from {source}[/bold] → {output}")
 
     from pathlib import Path
     out = Path(output)

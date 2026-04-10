@@ -96,6 +96,21 @@ def _clean_text(text: str) -> str:
     text = re.sub(r"\\(?:begin|end)\{[^}]+\}", "", text)
     text = re.sub(r"\\[a-zA-Z]{2,}\b", "", text)
 
+    # ── Figure/Table reference cleanup ──
+    # "Figure )" or "Table )" left after citation removal
+    text = re.sub(r"(Figure|Table|Section|Eq\.?)\s*\)", r"\1", text)
+    text = re.sub(r"(Figure|Table|Section|Eq\.?)\s*\(\s*\)", r"\1", text)
+
+    # ── Author affiliation residuals ──
+    # "Name 1,* Name 2,3 Name 3" — strip trailing affiliation markers from names
+    # Only apply to first few lines (author block)
+    lines = text.split("\n")
+    for i in range(min(10, len(lines))):
+        # Strip patterns like "1,*" "2,3" "1" after author names
+        if re.search(r"[A-Z][a-z]+\s+\d+[,*\d]*", lines[i]) and "##" not in lines[i]:
+            lines[i] = re.sub(r"\s+\d+[,*\d]*(?=\s|$)", "", lines[i])
+    text = "\n".join(lines)
+
     # ── Bullet duplication ──
     text = re.sub(r"^-\s*[•·]\s*", "- ", text, flags=re.MULTILINE)
 

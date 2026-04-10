@@ -28,18 +28,42 @@ class HtmlExtractor(Extractor):
 def html_to_text(html: str) -> str:
     """Extract text from LaTeXML HTML. Pure format conversion.
 
-    All data cleaning (citations, footnotes, residual LaTeX) is
-    handled by ArxivFilter in the filter stage.
+    Handles LaTeXML-specific elements:
+    - Author affiliations (strip superscript numbers)
+    - Footnote marks (remove)
+    - Algorithm blocks (extract pseudocode text)
+    - Table headers (deduplicate LaTeXML's doubled rendering)
+    - Math (preserve as $LaTeX$)
+    - Citations (remove <cite> tags)
     """
     from bs4 import BeautifulSoup
 
     soup = BeautifulSoup(html, "lxml")
 
-    # Remove non-content HTML elements
+    # ── Remove non-content elements ──
     for tag in soup.find_all(["style", "script", "nav", "header", "footer"]):
         tag.decompose()
 
-    # Replace <math> with LaTeX source (MathML → LaTeX string)
+    # ── Fix 5: Remove footnote marks (superscript numbers like ¹ ² *) ──
+    for fn in soup.select(".ltx_note_mark, .ltx_tag_note"):
+        fn.decompose()
+
+    # ── Fix 1: Clean author affiliation superscripts ──
+    for creator in soup.select(".ltx_creator.ltx_role_author"):
+        # Remove contact-related elements
+        for contact in creator.select(".ltx_contact"):
+            contact.decompose()
+        # Remove affiliation number superscripts (class ltx_note in author context)
+        for note in creator.select(".ltx_note"):
+            note.decompose()
+        for sup in creator.find_all("sup"):
+            sup.decompose()
+
+    # ── Remove footnote content blocks (they appear at bottom, not useful) ──
+    for note in soup.select(".ltx_note_content, .ltx_note_outer"):
+        note.decompose()
+
+    # ── Replace <math> with LaTeX source ──
     for math_el in soup.find_all("math"):
         latex_src = _math_to_latex(math_el)
         if latex_src:
@@ -51,23 +75,45 @@ def html_to_text(html: str) -> str:
         else:
             math_el.replace_with(math_el.get_text())
 
-    # Remove images from figures (keep captions)
+    # ── Remove citations (LaTeXML <cite> tags) ──
+    for cite_el in soup.find_all("cite"):
+        cite_el.decompose()
+
+    # ── Fix 3: Handle algorithm/pseudocode blocks ──
+    for algo in soup.select(".ltx_listing, .ltx_algorithm, [class*='algorithm']"):
+        # Extract just the text content, stripping LaTeXML algorithm macros
+        algo_text = algo.get_text(separator="\n", strip=True)
+        # Remove \SetKw... \DontPrintSemicolon etc.
+        algo_text = re.sub(r"\\(?:SetKw\w+|DontPrintSemicolon|SetAlgoLined)\w*", "", algo_text)
+        # Clean up
+        algo_text = re.sub(r"\n{2,}", "\n", algo_text).strip()
+        if algo_text:
+            algo.replace_with(f"\n```\n{algo_text}\n```\n")
+        else:
+            algo.decompose()
+
+    # ── Remove images from figures (keep captions) ──
     for fig in soup.find_all("figure"):
         for img in fig.find_all(["img", "embed", "object", "picture", "svg"]):
             img.decompose()
 
-    # Convert tables to pipe-delimited text
+    # ── Fix 2: Convert tables — handle LaTeXML's doubled headers ──
     for table in soup.find_all("table"):
         rows = []
         for tr in table.find_all("tr"):
-            cells = [td.get_text(strip=True) for td in tr.find_all(["td", "th"])]
+            cells = []
+            for td in tr.find_all(["td", "th"]):
+                cell_text = td.get_text(strip=True)
+                # LaTeXML sometimes renders "Mainmain" — deduplicate
+                cell_text = _dedup_camelcase(cell_text)
+                cells.append(cell_text)
             if any(cells):
                 row_text = " | ".join(cells).strip()
                 if row_text:
                     rows.append(row_text)
         table.replace_with("\n".join(rows) + "\n")
 
-    # Extract block elements into markdown-like structure
+    # ── Extract block elements ──
     lines = []
     for el in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6",
                               "p", "li", "figcaption", "blockquote", "div"]):
@@ -107,7 +153,18 @@ def _math_to_latex(el) -> str:
     alt = el.get("alttext", "")
     if alt:
         return alt
-    tex_attr = el.get("tex", "")
-    if tex_attr:
-        return tex_attr
+    tex = el.get("tex", "")
+    if tex:
+        return tex
     return el.get_text()
+
+
+def _dedup_camelcase(text: str) -> str:
+    """Fix LaTeXML's doubled table headers like 'Mainmain' -> 'Main'.
+
+    LaTeXML sometimes renders \\textbf{Main} as 'Mainmain' where the
+    styled and unstyled versions are concatenated.
+    """
+    # Pattern: CapitalizedWord immediately followed by same word lowercase
+    # e.g. "Mainmain" "Verifierverifier" "Speculatorspeculator"
+    return re.sub(r"([A-Z][a-z]+)(\1)", lambda m: m.group(1), text, flags=re.IGNORECASE)
