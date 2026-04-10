@@ -1,19 +1,19 @@
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
-import PipelineControl from './pages/PipelineControl'
+import Pipeline from './pages/Pipeline'
 import Overview from './pages/Overview'
-import SampleBrowser from './pages/SampleBrowser'
-import QualityCheck from './pages/QualityCheck'
+import Samples from './pages/Samples'
+import Benchmark from './pages/Benchmark'
 
 export default function App() {
   return (
     <HashRouter>
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/" element={<PipelineControl />} />
+          <Route path="/" element={<Pipeline />} />
           <Route path="/overview" element={<Overview />} />
-          <Route path="/samples" element={<SampleBrowser />} />
-          <Route path="/benchmark" element={<QualityCheck />} />
+          <Route path="/samples" element={<Samples />} />
+          <Route path="/benchmark" element={<Benchmark />} />
         </Route>
       </Routes>
     </HashRouter>
