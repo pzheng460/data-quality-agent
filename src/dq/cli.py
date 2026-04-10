@@ -270,3 +270,81 @@ def run(input_path: str, output_dir: str, config_path: str, stage: int | None,
         engine.run_stage(target)
     else:
         engine.run_all(resume=resume)
+
+
+@main.command()
+@click.option("-s", "--source", default=None, help="Source name (e.g. arxiv_latexml, arxiv_ar5iv, arxiv_hf_bulk, local_file)")
+@click.option("-o", "--output", default=None, help="Output JSONL path")
+@click.option("-n", "--limit", default=0, type=int, help="Max documents (0=all)")
+@click.option("--list-sources", is_flag=True, default=False, help="List available sources and exit")
+@click.argument("params", nargs=-1)
+def ingest(source: str, output: str, limit: int, list_sources: bool, params: tuple[str, ...]):
+    """Ingest data from a registered source.
+
+    Source-specific params are passed as KEY=VALUE pairs.
+
+    \b
+    Examples:
+      dq ingest -s arxiv_latexml -o data.jsonl ids=2310.06825,1706.03762
+      dq ingest -s arxiv_ar5iv -o data.jsonl ids=2310.06825 delay=1.0
+      dq ingest -s arxiv_hf_bulk -o data.jsonl -n 100
+      dq ingest -s local_file -o data.jsonl path=/tmp/raw.jsonl
+      dq ingest --list-sources
+    """
+    import json
+
+    from dq.stages.ingestion import ensure_sources_registered, list_sources as _list_sources
+    from dq.stages.ingestion.registry import get_source_class
+    ensure_sources_registered()
+
+    if list_sources:
+        for domain, sources in _list_sources().items():
+            console.print(f"\n[bold]{domain}[/bold]")
+            for s in sources:
+                console.print(f"  {s['name']:20s}  priority={s['priority']}  params: {', '.join(s['params'].keys()) or '(none)'}")
+        return
+
+    if not source:
+        raise click.UsageError("Missing option '-s' / '--source'. Use --list-sources to see available sources.")
+    if not output:
+        raise click.UsageError("Missing option '-o' / '--output'.")
+
+    # Parse KEY=VALUE params
+    source_params: dict = {}
+    for p in params:
+        if "=" not in p:
+            raise click.UsageError(f"Invalid param (expected KEY=VALUE): {p}")
+        key, val = p.split("=", 1)
+        # Auto-convert lists (comma-separated)
+        if "," in val:
+            source_params_val = [v.strip() for v in val.split(",") if v.strip()]
+        else:
+            # Try numeric
+            try:
+                source_params_val = float(val) if "." in val else int(val)
+            except ValueError:
+                source_params_val = val
+        source_params[key] = source_params_val
+
+    # Instantiate source
+    try:
+        src_cls = get_source_class(source)
+    except ValueError as e:
+        raise click.UsageError(str(e))
+
+    src = src_cls(**source_params)
+    console.print(f"[bold]Ingesting from {source}[/bold] → {output_path if 'output_path' in dir() else output}")
+
+    from pathlib import Path
+    out = Path(output)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    count = 0
+    with open(out, "w", encoding="utf-8") as f:
+        for doc in src.fetch(limit=limit):
+            f.write(json.dumps(doc, ensure_ascii=False) + "\n")
+            count += 1
+            if count % 100 == 0:
+                console.print(f"  {count} docs...", end="\r")
+
+    console.print(f"[green]Done: {count} documents → {output}[/green]")
