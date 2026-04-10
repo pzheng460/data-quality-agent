@@ -111,6 +111,7 @@ def html_to_text(html: str) -> str:
     # ── Convert data tables — handle LaTeXML's doubled headers ──
     for table in soup.find_all("table"):
         rows = []
+        is_header = True
         for tr in table.find_all("tr"):
             cells = []
             for td in tr.find_all(["td", "th"]):
@@ -121,19 +122,32 @@ def html_to_text(html: str) -> str:
                 row_text = " | ".join(cells).strip()
                 if row_text:
                     rows.append(row_text)
-        table.replace_with("\n".join(rows) + "\n")
+                    # Add markdown table separator after first row (header)
+                    if is_header:
+                        rows.append(" | ".join(["---"] * len(cells)))
+                        is_header = False
+        # Put entire table in one <p> — newlines within get_text() are preserved
+        # since we use \n as the content (not child elements)
+        new_pre = soup.new_tag("pre")
+        new_pre.string = "\n".join(r for r in rows if r.strip())
+        table.replace_with(new_pre)
 
     # ── Extract block elements ──
     lines = []
     for el in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6",
-                              "p", "li", "figcaption", "blockquote", "div"]):
+                              "p", "pre", "li", "figcaption", "blockquote", "div"]):
         if el.find_parent(["p", "li", "figcaption", "blockquote"]):
             continue
         if el.name == "div" and el.find(["h1", "h2", "h3", "h4", "h5", "h6",
-                                          "p", "li", "figcaption", "blockquote"]):
+                                          "p", "pre", "li", "figcaption", "blockquote"]):
             continue
 
-        text = el.get_text(separator=" ", strip=True)
+        # For <pre> (tables, code), preserve newlines but remove blank lines
+        if el.name == "pre":
+            raw = el.get_text()
+            text = "\n".join(l for l in raw.split("\n") if l.strip())
+        else:
+            text = el.get_text(separator=" ", strip=True)
         if not text:
             continue
 

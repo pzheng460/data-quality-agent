@@ -136,8 +136,22 @@ def _clean_text(text: str) -> str:
     # Remove empty headings
     text = re.sub(r"^#{1,4}\s*$", "", text, flags=re.MULTILINE)
 
-    # Clean residual \Xhline and similar table commands
-    text = re.sub(r"\\[Xx]hline[\d.]*(?:pt)?", "", text)
+    # Clean residual \Xhline and similar table commands (remove whole line)
+    text = re.sub(r"^\\[Xx]hline[\d.]*(?:pt)?\s*$", "", text, flags=re.MULTILINE)
+
+    # Fix markdown tables: remove blank lines between table rows
+    # (blank lines break markdown table rendering)
+    lines = text.split("\n")
+    result_lines = []
+    for i, line in enumerate(lines):
+        if not line.strip():
+            # Check if this blank line is between two table rows (lines with |)
+            prev_is_table = i > 0 and "|" in lines[i-1]
+            next_is_table = i < len(lines) - 1 and "|" in lines[i+1]
+            if prev_is_table and next_is_table:
+                continue  # skip blank line within table
+        result_lines.append(line)
+    text = "\n".join(result_lines)
 
     return text.strip()
 
