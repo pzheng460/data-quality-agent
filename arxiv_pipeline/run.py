@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
-"""Orchestrate the full arxiv pipeline: ingestion → extraction → curation.
+"""Orchestrate the arxiv data pipeline.
 
-Each stage can also be run independently.
+Two ingestion modes:
+  --bulk    Load from HF dataset (marin-community/ar5iv-no-problem-markdown)
+            For historical bulk data. Already markdown, skips extraction.
+  --ids     Fetch from ar5iv by arxiv IDs (incremental)
+            For new papers. HTML → markdown conversion.
+
+Then runs dq curation (filter → quality score → dedup → contamination → package).
 
 Usage:
-    # Full pipeline
-    python -m arxiv_pipeline.run \
-        --ids 1706.03762,2310.06825,2303.08774 \
-        --workdir /data/arxiv_pipeline \
-        --config configs/arxiv.yaml
+    # Bulk: load 10K papers from HF, then curate
+    python -m arxiv_pipeline.run --bulk --limit 10000 --workdir /data/arxiv
 
-    # Single stage
-    python -m arxiv_pipeline.ingestion.fetch_arxiv \
-        --ids 2310.06825 --output raw/batch1.jsonl
+    # Incremental: fetch specific papers, then curate
+    python -m arxiv_pipeline.run --ids 2310.06825,2307.09288 --workdir /data/arxiv
 
-    python -m arxiv_pipeline.extraction.latex_to_markdown \
-        --input raw/batch1.jsonl --output extracted/batch1.jsonl.zst
-
-    python -m arxiv_pipeline.curation.run \
-        --input extracted/batch1.jsonl.zst --output cleaned/ --config configs/arxiv.yaml
+    # Each stage independently
+    python -m arxiv_pipeline.ingestion.hf_bulk --output raw/bulk.jsonl.zst --limit 1000
+    python -m arxiv_pipeline.ingestion.fetch_ar5iv --ids 2310.06825 --output raw/new.jsonl
+    dq run raw/bulk.jsonl.zst -o cleaned/ -c configs/arxiv.yaml
 """
 
 from __future__ import annotations
@@ -30,71 +31,51 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def run_full_pipeline(
-    ids: list[str],
-    workdir: str,
-    config: str = "configs/arxiv.yaml",
-    workers: int = 1,
-    delay: float = 3.0,
-):
-    """Run all 3 stages sequentially."""
-    work = Path(workdir)
-    raw_path = work / "raw" / "input.jsonl"
-    extracted_path = work / "extracted" / "input.jsonl.zst"
-    cleaned_dir = work / "cleaned"
-
-    # ── Stage 1: Ingestion ──
-    logger.info("=== Stage 1: Ingestion ===")
-    from arxiv_pipeline.ingestion.fetch_arxiv import fetch_by_ids
-    count = fetch_by_ids(ids, raw_path, delay=delay)
-    logger.info("Downloaded %d papers → %s", count, raw_path)
-
-    # ── Stage 2: Extraction ──
-    logger.info("=== Stage 2: Extraction ===")
-    from arxiv_pipeline.extraction.latex_to_markdown import process_file
-    count = process_file(raw_path, extracted_path)
-    logger.info("Extracted %d papers → %s", count, extracted_path)
-
-    # ── Stage 3: Curation ──
-    logger.info("=== Stage 3: Curation ===")
-    from arxiv_pipeline.curation.run import run_curation
-    run_curation(str(extracted_path), str(cleaned_dir), config, workers=workers)
-    logger.info("Curation done → %s", cleaned_dir)
-
-
 def main():
-    parser = argparse.ArgumentParser(description="Arxiv pipeline: ingest → extract → curate")
-    parser.add_argument("--ids", required=True, help="Comma-separated arxiv IDs")
-    parser.add_argument("--workdir", required=True, help="Working directory for all stages")
+    parser = argparse.ArgumentParser(description="Arxiv pipeline: ingest → curate")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--bulk", action="store_true", help="Load from HF bulk dataset")
+    group.add_argument("--ids", help="Comma-separated arxiv IDs to fetch from ar5iv")
+    parser.add_argument("--workdir", required=True, help="Working directory")
     parser.add_argument("--config", default="configs/arxiv.yaml")
+    parser.add_argument("--limit", type=int, default=0, help="Max papers for --bulk (0=all)")
     parser.add_argument("--workers", type=int, default=1)
-    parser.add_argument("--delay", type=float, default=3.0)
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s")
+    work = Path(args.workdir)
 
-    workdir = Path(args.workdir)
-    ids = [s.strip() for s in args.ids.split(",") if s.strip()]
+    if args.bulk:
+        # ── Bulk: HF dataset → curate ──
+        raw_path = work / "raw" / "bulk.jsonl.zst"
+        logger.info("=== Stage 1: Bulk ingestion from HuggingFace ===")
+        from arxiv_pipeline.ingestion.hf_bulk import load_bulk
+        count = load_bulk(raw_path, limit=args.limit)
+        logger.info("Loaded %d papers", count)
 
-    # Stage 1: Ingestion
-    raw_path = workdir / "raw" / "input.jsonl"
-    logger.info("=== Stage 1: Ingestion (%d papers) ===", len(ids))
-    from arxiv_pipeline.ingestion.fetch_arxiv import fetch_by_ids
-    fetch_by_ids(ids, raw_path, delay=args.delay)
+        logger.info("=== Stage 2: Skipped (ar5iv data is already markdown) ===")
 
-    # Stage 2: Extraction
-    extracted_path = workdir / "extracted" / "input.jsonl.zst"
-    logger.info("=== Stage 2: Extraction ===")
-    from arxiv_pipeline.extraction.latex_to_markdown import process_file
-    process_file(raw_path, extracted_path)
+        logger.info("=== Stage 3: Curation ===")
+        from arxiv_pipeline.curation.run import run_curation
+        run_curation(str(raw_path), str(work / "cleaned"), args.config, workers=args.workers)
 
-    # Stage 3: Curation (dq run)
-    cleaned_dir = workdir / "cleaned"
-    logger.info("=== Stage 3: Curation ===")
-    from arxiv_pipeline.curation.run import run_curation
-    run_curation(str(extracted_path), str(cleaned_dir), args.config, args.workers)
+    else:
+        # ── Incremental: ar5iv HTML → curate ──
+        ids = [s.strip() for s in args.ids.split(",") if s.strip()]
+        raw_path = work / "raw" / "incremental.jsonl"
 
-    logger.info("=== Done: %s ===", workdir)
+        logger.info("=== Stage 1: Fetch %d papers from ar5iv ===", len(ids))
+        from arxiv_pipeline.ingestion.fetch_ar5iv import fetch_papers
+        count = fetch_papers(ids, raw_path)
+        logger.info("Fetched %d papers", count)
+
+        logger.info("=== Stage 2: Skipped (ar5iv HTML already converted) ===")
+
+        logger.info("=== Stage 3: Curation ===")
+        from arxiv_pipeline.curation.run import run_curation
+        run_curation(str(raw_path), str(work / "cleaned"), args.config, workers=args.workers)
+
+    logger.info("=== Pipeline complete: %s ===", work)
 
 
 if __name__ == "__main__":
