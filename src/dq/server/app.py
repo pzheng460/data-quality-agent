@@ -67,8 +67,8 @@ def _run_pipeline(req: RunRequest) -> None:
     """Run full pipeline in background thread."""
     from dq.runner.engine import PhaseEngine
     from dq.runner.phases import (
-        phase1_parse, phase2_filter, phase3_dedup,
-        phase4_contamination, phase5_package,
+        phase1_parse, phase2_filter, phase2b_quality_score,
+        phase3_dedup, phase4_contamination, phase5_package,
     )
     from dq.runner.stats import save_overview
 
@@ -94,6 +94,7 @@ def _run_pipeline(req: RunRequest) -> None:
         phase_funcs = [
             ("phase1_parse", phase1_parse),
             ("phase2_filter", phase2_filter),
+            ("phase2b_quality_score", phase2b_quality_score),
             ("phase3_dedup", phase3_dedup),
             ("phase4_contamination", phase4_contamination),
             ("phase5_package", phase5_package),
@@ -269,8 +270,8 @@ def list_phases(output_dir: str):
     """List pipeline phases and their completion status."""
     out = Path(output_dir)
     phases = []
-    for num, name in [(1, "phase1_parse"), (2, "phase2_filter"), (3, "phase3_dedup"),
-                       (4, "phase4_contamination"), (5, "phase5_package")]:
+    for num, name in [(1, "phase1_parse"), (2, "phase2_filter"), (3, "phase2b_quality_score"),
+                       (4, "phase3_dedup"), (5, "phase4_contamination"), (6, "phase5_package")]:
         done = (out / f".{name}_SUCCESS").exists()
         stats_file = None
         # Try to find stats

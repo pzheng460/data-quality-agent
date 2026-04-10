@@ -5,8 +5,8 @@ import { useApp } from '../context'
 interface PaperInfo { arxiv_id: string; title: string; categories: string[]; primary_category: string; abstract?: string; chars: number; source_method: string }
 interface PhaseResult { phase: string; input_count: number; output_count: number; rejected_count: number; keep_rate: number; reject_reasons: Record<string, number>; duration_seconds: number }
 
-const phaseOrder = ['phase1_parse', 'phase2_filter', 'phase3_dedup', 'phase4_contamination', 'phase5_package']
-const LABELS: Record<string, string> = { phase1_parse: '1. Parse', phase2_filter: '2. Filter', phase3_dedup: '3. Dedup', phase4_contamination: '4. Contam.', phase5_package: '5. Package' }
+const phaseOrder = ['phase1_parse', 'phase2_filter', 'phase2b_quality_score', 'phase3_dedup', 'phase4_contamination', 'phase5_package']
+const LABELS: Record<string, string> = { phase1_parse: '1. Parse', phase2_filter: '2. Filter', phase2b_quality_score: '2b. Quality', phase3_dedup: '3. Dedup', phase4_contamination: '4. Contam.', phase5_package: '5. Package' }
 
 export default function PipelineControl() {
   const { outputDir, setOutputDir, refresh } = useApp()
@@ -203,7 +203,7 @@ export default function PipelineControl() {
           <button onClick={startPipeline} disabled={pipeStatus === 'running'} className={`px-4 py-2 rounded font-medium text-white ${pipeStatus === 'running' ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}>
             {pipeStatus === 'running' ? 'Running...' : 'Run All Phases'}
           </button>
-          {[1,2,3,4,5].map(n => (
+          {[1,2,3,4,5,6].map(n => (
             <button key={n} disabled={pipeStatus === 'running'} onClick={() => runPhase(n)} className="px-3 py-2 text-xs rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50">P{n}</button>
           ))}
         </div>
