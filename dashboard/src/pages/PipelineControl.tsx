@@ -52,7 +52,7 @@ export default function PipelineControl() {
   const [pipeInput, setPipeInput] = useState('/tmp/dq_data/raw.jsonl')
   const [configPath, setConfigPath] = useState('configs/arxiv.yaml')
   const [workers, setWorkers] = useState(4)
-  const [resume, setResume] = useState(true)
+  const [resume, setResume] = useState(false)
   const [pipeStatus, setPipeStatus] = useState('idle')
   const [stageResults, setStageResults] = useState<Record<string, StageResult>>({})
   const [pipeError, setPipeError] = useState<string | null>(null)
