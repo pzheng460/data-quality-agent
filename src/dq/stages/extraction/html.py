@@ -166,6 +166,13 @@ def _math_to_latex(el) -> str:
         # Strip LaTeX line-continuation comments (%\n or trailing %)
         alt = re.sub(r"%\s*\n\s*", "", alt)
         alt = alt.rstrip("%").strip()
+        # Fix LaTeXML delimiter syntax for KaTeX compatibility:
+        # \big{(} → \big(   \Big{\{} → \Big\{   \big{\lceil} → \big\lceil
+        alt = re.sub(
+            r"\\(big|Big|bigg|Bigg|left|right)\{(\\?[^}]+)\}",
+            r"\\\1\2",
+            alt,
+        )
         return alt
     tex = el.get("tex", "")
     if tex:
