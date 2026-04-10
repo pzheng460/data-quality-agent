@@ -108,28 +108,22 @@ def html_to_text(html: str) -> str:
         for img in fig.find_all(["img", "embed", "object", "picture", "svg"]):
             img.decompose()
 
-    # ── Convert data tables — handle LaTeXML's doubled headers ──
+    # ── Convert data tables — handle rowspan/colspan and doubled headers ──
     for table in soup.find_all("table"):
-        rows = []
-        is_header = True
-        for tr in table.find_all("tr"):
-            cells = []
-            for td in tr.find_all(["td", "th"]):
-                cell_text = td.get_text(strip=True)
-                cell_text = _dedup_camelcase(cell_text)
-                cells.append(cell_text)
-            if any(cells):
-                row_text = " | ".join(cells).strip()
-                if row_text:
-                    rows.append(row_text)
-                    # Add markdown table separator after first row (header)
-                    if is_header:
-                        rows.append(" | ".join(["---"] * len(cells)))
-                        is_header = False
-        # Put entire table in one <p> — newlines within get_text() are preserved
-        # since we use \n as the content (not child elements)
+        rows = _extract_table(table)
+        if not rows:
+            table.decompose()
+            continue
+        # Build markdown table
+        md_rows = []
+        for cells in rows:
+            md_rows.append(" | ".join(_dedup_camelcase(c) for c in cells))
+        # Insert separator after header
+        if len(md_rows) > 1:
+            ncols = len(rows[0])
+            md_rows.insert(1, " | ".join(["---"] * ncols))
         new_pre = soup.new_tag("pre")
-        new_pre.string = "\n".join(r for r in rows if r.strip())
+        new_pre.string = "\n".join(r for r in md_rows if r.strip())
         table.replace_with(new_pre)
 
     # ── Extract block elements ──
@@ -194,6 +188,55 @@ def _math_to_latex(el) -> str:
     if tex:
         return tex
     return el.get_text()
+
+
+def _extract_table(table) -> list[list[str]]:
+    """Extract table with rowspan/colspan support into a 2D grid."""
+    trs = table.find_all("tr")
+    if not trs:
+        return []
+
+    # First pass: determine grid size
+    max_cols = 0
+    for tr in trs:
+        col_count = 0
+        for td in tr.find_all(["td", "th"]):
+            col_count += int(td.get("colspan", 1))
+        max_cols = max(max_cols, col_count)
+
+    if max_cols == 0:
+        return []
+
+    # Build grid with rowspan/colspan support
+    num_rows = len(trs)
+    grid: list[list[str]] = [[""] * max_cols for _ in range(num_rows)]
+    occupied: list[list[bool]] = [[False] * max_cols for _ in range(num_rows)]
+
+    for row_idx, tr in enumerate(trs):
+        col_idx = 0
+        for td in tr.find_all(["td", "th"]):
+            # Skip occupied cells (from previous rowspan)
+            while col_idx < max_cols and occupied[row_idx][col_idx]:
+                col_idx += 1
+            if col_idx >= max_cols:
+                break
+
+            cell_text = td.get_text(strip=True)
+            rowspan = int(td.get("rowspan", 1))
+            colspan = int(td.get("colspan", 1))
+
+            # Fill the grid
+            for dr in range(rowspan):
+                for dc in range(colspan):
+                    r, c = row_idx + dr, col_idx + dc
+                    if r < num_rows and c < max_cols:
+                        grid[r][c] = cell_text if (dr == 0 and dc == 0) else cell_text
+                        occupied[r][c] = True
+
+            col_idx += colspan
+
+    # Filter out empty rows
+    return [row for row in grid if any(cell.strip() for cell in row)]
 
 
 def _dedup_camelcase(text: str) -> str:
