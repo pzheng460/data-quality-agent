@@ -146,7 +146,10 @@ class HfBulkSource(IngestSource):
                             return
 
         if remaining:
-            logger.warning("IDs not found in dataset: %s", remaining)
+            msg = f"IDs not found in ar5iv dataset (may have conversion issues): {remaining}"
+            logger.warning(msg)
+            if count == 0:
+                raise ValueError(msg)
 
     def _fetch_stream(self, limit: int) -> Iterator[dict]:
         """Bulk streaming mode — scan entire dataset."""
