@@ -196,7 +196,7 @@ export default function PipelineControl() {
                 </div>
               </div>
               {activeSource === 'arxiv_hf_bulk' && paramValues['ids'] && (
-                <p className="text-xs text-amber-600">Note: HF Bulk scans the full dataset sequentially — slow for individual IDs. Use ar5iv or latexml for specific papers.</p>
+                <p className="text-xs text-muted-foreground">HF Bulk: fast shard lookup by ID prefix. Papers not in the ar5iv "no-problem" set will fall through.</p>
               )}
             </div>
           )}
