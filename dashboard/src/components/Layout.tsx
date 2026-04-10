@@ -1,11 +1,10 @@
 import { NavLink, Outlet } from 'react-router-dom'
 
 const navItems = [
-  { to: '/', label: 'Pipeline Control' },
+  { to: '/', label: 'Pipeline' },
   { to: '/overview', label: 'Overview' },
-  { to: '/phases', label: 'Stage Details' },
-  { to: '/samples', label: 'Sample Browser' },
-  { to: '/signals', label: 'Benchmark' },
+  { to: '/samples', label: 'Samples' },
+  { to: '/benchmark', label: 'Benchmark' },
 ]
 
 export default function Layout() {
