@@ -171,32 +171,63 @@ export default function PipelineControl() {
           <p className="text-xs text-gray-400">Download or load raw data from a source</p>
         </div>
         <div className="px-5 py-4 space-y-3">
-          {/* Domain tabs + source picker */}
+          {/* Domain tabs */}
           <div className="flex gap-2 items-center">
             {domains.map(d => (
               <button key={d} onClick={() => selectDomain(d)}
                 className={`px-2.5 py-1 text-xs rounded font-medium capitalize ${activeDomain === d ? (DOMAIN_COLORS[d] || 'bg-gray-200 text-gray-700') : 'bg-gray-50 text-gray-400'}`}
               >{d}</button>
             ))}
-            {sourcesInDomain.length > 1 && <>
-              <span className="text-gray-300 mx-1">|</span>
-              {sourcesInDomain.map(s => (
-                <button key={s.name} onClick={() => selectSource(s.name)}
-                  className={`px-2.5 py-1 text-xs rounded border ${activeSource === s.name ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-medium' : 'border-gray-200 text-gray-500'}`}
-                >{s.name.replace(/^[^_]+_/, '')}</button>
-              ))}
-            </>}
           </div>
 
-          {/* Source params */}
-          {currentSource && (
+          {/* Arxiv domain: unified inputs + source picker */}
+          {activeDomain === 'arxiv' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-xs text-gray-600">
+                  Arxiv IDs <span className="text-gray-400">(or use date range below)</span>
+                  <textarea value={paramValues['ids'] ?? ''} onChange={e => setParamValues(v => ({...v, ids: e.target.value}))}
+                    rows={2} className="mt-1 block w-full rounded border border-gray-300 px-2 py-1 text-xs font-mono" placeholder="2310.06825, 1706.03762" />
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <label className="block text-xs text-gray-600">From date
+                    <input type="date" value={paramValues['from_date'] ?? ''} onChange={e => setParamValues(v => ({...v, from_date: e.target.value}))}
+                      className="mt-1 block w-full rounded border border-gray-300 px-1.5 py-1 text-xs" />
+                  </label>
+                  <label className="block text-xs text-gray-600">To date
+                    <input type="date" value={paramValues['to_date'] ?? ''} onChange={e => setParamValues(v => ({...v, to_date: e.target.value}))}
+                      className="mt-1 block w-full rounded border border-gray-300 px-1.5 py-1 text-xs" />
+                  </label>
+                  <label className="block text-xs text-gray-600">Categories
+                    <input value={paramValues['categories'] ?? ''} onChange={e => setParamValues(v => ({...v, categories: e.target.value}))}
+                      className="mt-1 block w-full rounded border border-gray-300 px-1.5 py-1 text-xs font-mono" placeholder="cs.CL" />
+                  </label>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-500">Source:</span>
+                {sourcesInDomain.map(s => (
+                  <button key={s.name} onClick={() => selectSource(s.name)}
+                    className={`px-2.5 py-1 text-xs rounded border ${activeSource === s.name ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-medium' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                  >{s.name.replace(/^[^_]+_/, '')}</button>
+                ))}
+                <span className="text-gray-200">|</span>
+                <label className="flex items-center gap-1 text-xs text-gray-600">
+                  Limit <input type="number" value={ingestLimit} onChange={e => setIngestLimit(Number(e.target.value))} className="w-16 rounded border border-gray-300 px-2 py-0.5 text-xs" placeholder="0" />
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Non-arxiv domains: dynamic params from schema */}
+          {activeDomain !== 'arxiv' && currentSource && (
             <div className="grid grid-cols-3 gap-3">
               {Object.entries(currentSource.params).map(([key, def]) => (
                 <label key={key} className="block text-xs text-gray-600">
                   {def.label}{def.required && <span className="text-red-400">*</span>}
                   {def.type === 'list' ? (
                     <textarea value={paramValues[key] ?? ''} onChange={e => setParamValues(v => ({...v, [key]: e.target.value}))}
-                      rows={2} className="mt-1 block w-full rounded border border-gray-300 px-2 py-1 text-xs font-mono" placeholder="one per line" />
+                      rows={2} className="mt-1 block w-full rounded border border-gray-300 px-2 py-1 text-xs font-mono" />
                   ) : (
                     <input type={def.type === 'number' || def.type === 'float' ? 'number' : 'text'}
                       value={paramValues[key] ?? ''} onChange={e => setParamValues(v => ({...v, [key]: e.target.value}))}

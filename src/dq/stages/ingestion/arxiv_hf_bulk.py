@@ -1,4 +1,10 @@
-"""Bulk ingest arxiv papers from HuggingFace ar5iv dataset."""
+"""Bulk ingest arxiv papers from HuggingFace ar5iv dataset.
+
+Supports:
+- By IDs: stream dataset, filter for specific papers
+- By date: discover IDs via OAI-PMH, then filter from dataset
+- Bulk: stream all papers (with optional limit)
+"""
 
 from __future__ import annotations
 
@@ -16,12 +22,7 @@ DATASET_ID = "marin-community/ar5iv-no-problem-markdown"
 
 @register_source("arxiv_hf_bulk")
 class HfBulkSource(IngestSource):
-    """Stream ar5iv-converted papers from HuggingFace dataset.
-
-    Supports two modes:
-    - By IDs: pass `ids=["2310.06825", ...]` to fetch specific papers
-    - Bulk: omit `ids` to stream all papers (with optional limit)
-    """
+    """Stream ar5iv-converted papers from HuggingFace dataset."""
 
     domain = "arxiv"
     priority = 100
@@ -30,43 +31,56 @@ class HfBulkSource(IngestSource):
     @classmethod
     def params_schema(cls):
         return {
-            "ids": {"type": "list", "label": "Arxiv IDs (empty = all)", "required": False},
+            "ids": {"type": "list", "label": "Arxiv IDs", "required": False},
+            "from_date": {"type": "string", "label": "From date", "required": False},
+            "to_date": {"type": "string", "label": "To date", "required": False},
+            "categories": {"type": "list", "label": "Categories", "required": False},
             "dataset_id": {"type": "string", "label": "HF dataset ID", "default": DATASET_ID},
-            "categories": {"type": "list", "label": "Category filter (e.g. cs., math.)", "required": False},
         }
 
     def __init__(
         self,
         ids: list[str] | None = None,
-        dataset_id: str = DATASET_ID,
+        from_date: str | None = None,
+        to_date: str | None = None,
         categories: list[str] | None = None,
+        dataset_id: str = DATASET_ID,
         **kwargs,
     ) -> None:
-        self.ids = set(ids) if ids else None
+        self.ids = ids
+        self.from_date = from_date
+        self.to_date = to_date
+        self.categories = set(categories) if categories else None
         self.dataset_id = dataset_id
-        self.categories = categories
 
     def fetch(self, limit: int = 0) -> Iterator[dict]:
         import os
         os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
-
         from datasets import load_dataset
 
+        # Resolve IDs from date range if needed
+        target_ids = None
         if self.ids:
-            logger.info("Fetching %d specific papers from %s...", len(self.ids), self.dataset_id)
+            target_ids = set(self.ids)
+        elif self.from_date:
+            from dq.stages.ingestion.arxiv_source import _oai_list_ids
+            id_list = _oai_list_ids(self.from_date, self.to_date, self.categories, max_results=limit or 1000)
+            logger.info("OAI-PMH returned %d IDs for date range", len(id_list))
+            target_ids = set(id_list)
+
+        if target_ids is not None:
+            logger.info("Filtering HF dataset for %d specific IDs...", len(target_ids))
         else:
-            logger.info("Streaming %s from HuggingFace...", self.dataset_id)
+            logger.info("Streaming all from %s...", self.dataset_id)
 
         ds = load_dataset(self.dataset_id, split="train", streaming=True)
-
-        remaining = set(self.ids) if self.ids else None
+        remaining = set(target_ids) if target_ids is not None else None
         count = 0
 
         for sample in ds:
             arxiv_id = _extract_id(sample.get("id", ""))
             text = sample.get("text", "")
 
-            # If filtering by IDs, check match
             if remaining is not None:
                 if arxiv_id not in remaining:
                     continue
@@ -91,7 +105,6 @@ class HfBulkSource(IngestSource):
                 logger.info("Streamed %d papers...", count)
             if limit > 0 and count >= limit:
                 break
-            # If we found all requested IDs, stop early
             if remaining is not None and len(remaining) == 0:
                 break
 

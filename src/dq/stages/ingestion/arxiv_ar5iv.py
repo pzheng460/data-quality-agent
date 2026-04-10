@@ -1,6 +1,8 @@
 """Fetch raw HTML from ar5iv (pre-rendered by LaTeXML upstream).
 
-Yields raw HTML — extraction stage converts to clean text.
+Supports:
+- By IDs: fetch specific papers
+- By date: discover IDs via OAI-PMH, then fetch
 """
 
 from __future__ import annotations
@@ -29,20 +31,36 @@ class Ar5ivSource(IngestSource):
     @classmethod
     def params_schema(cls):
         return {
-            "ids": {"type": "list", "label": "Arxiv IDs", "required": True},
-            "delay": {"type": "float", "label": "Delay (s)", "default": 1.0},
+            "ids": {"type": "list", "label": "Arxiv IDs", "required": False},
+            "from_date": {"type": "string", "label": "From date", "required": False},
+            "to_date": {"type": "string", "label": "To date", "required": False},
+            "categories": {"type": "list", "label": "Categories", "required": False},
+            "delay": {"type": "number", "label": "Delay (s)", "default": 1.0},
         }
 
-    def __init__(self, ids: list[str], delay: float = 1.0, **kwargs) -> None:
+    def __init__(self, ids: list[str] | None = None, from_date: str | None = None,
+                 to_date: str | None = None, categories: list[str] | None = None,
+                 delay: float = 1.0, **kwargs) -> None:
         self.ids = ids
+        self.from_date = from_date
+        self.to_date = to_date
+        self.categories = set(categories) if categories else None
         self.delay = delay
 
     def fetch(self, limit: int = 0) -> Iterator[dict]:
-        from dq.stages.ingestion.arxiv_source import _batch_metadata
+        from dq.stages.ingestion.arxiv_source import _batch_metadata, _oai_list_ids
 
-        meta = _batch_metadata(self.ids)
+        # Resolve IDs
+        ids = self.ids
+        if not ids and self.from_date:
+            ids = _oai_list_ids(self.from_date, self.to_date, self.categories, max_results=limit or 1000)
+            logger.info("OAI-PMH returned %d IDs", len(ids))
+        if not ids:
+            raise ValueError("Provide either ids or from_date")
+
+        meta = _batch_metadata(ids)
         count = 0
-        for aid in self.ids:
+        for aid in ids:
             if limit and count >= limit:
                 break
             try:
@@ -51,7 +69,7 @@ class Ar5ivSource(IngestSource):
                     continue
                 yield {
                     "id": f"arxiv_{aid}",
-                    "text": html,  # raw HTML — extraction stage converts to text
+                    "text": html,
                     "source": "ar5iv",
                     "metadata": {
                         "arxiv_id": aid,
