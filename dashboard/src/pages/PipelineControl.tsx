@@ -169,16 +169,16 @@ export default function PipelineControl() {
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="space-y-2">
-                    <Label>From date</Label>
-                    <Input type="date" value={paramValues['from_date'] ?? ''} onChange={e => setParamValues((v: any) => ({...v, from_date: e.target.value}))} />
+                    <Label htmlFor="from_date">From date</Label>
+                    <Input id="from_date" type="date" value={paramValues['from_date'] ?? ''} onChange={e => setParamValues((v: any) => ({...v, from_date: e.target.value}))} />
                   </div>
-                  <div>
-                    <Label>To date</Label>
-                    <Input type="date" value={paramValues['to_date'] ?? ''} onChange={e => setParamValues((v: any) => ({...v, to_date: e.target.value}))} />
+                  <div className="space-y-2">
+                    <Label htmlFor="to_date">To date</Label>
+                    <Input id="to_date" type="date" value={paramValues['to_date'] ?? ''} onChange={e => setParamValues((v: any) => ({...v, to_date: e.target.value}))} />
                   </div>
-                  <div>
-                    <Label>Categories</Label>
-                    <Input value={paramValues['categories'] ?? ''} onChange={e => setParamValues((v: any) => ({...v, categories: e.target.value}))} placeholder="cs.CL" className="font-mono" />
+                  <div className="space-y-2">
+                    <Label htmlFor="categories">Categories</Label>
+                    <Input id="categories" value={paramValues['categories'] ?? ''} onChange={e => setParamValues((v: any) => ({...v, categories: e.target.value}))} placeholder="cs.CL" className="font-mono" />
                   </div>
                 </div>
               </div>
