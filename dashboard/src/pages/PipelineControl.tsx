@@ -35,27 +35,27 @@ function PathLabel({ label, path }: { label: string; path: string }) {
 }
 
 export default function PipelineControl() {
-  const { outputDir, setOutputDir, refresh } = useApp()
+  const {
+    outputDir, setOutputDir, refresh,
+    ingestOutput, setIngestOutput,
+    ingestStatus, setIngestStatus,
+    papers, setPapers,
+    activeDomain, setActiveDomain,
+    activeSource, setActiveSource,
+    paramValues, setParamValues,
+    pipeInput, setPipeInput,
+    configPath, setConfigPath,
+    workers, setWorkers,
+    resume, setResume,
+    pipeStatus, setPipeStatus,
+    stageResults, setStageResults,
+    pipeError, setPipeError,
+  } = useApp()
 
-  // ── Ingest ──
+  // Local-only state (transient, OK to lose)
   const [sourcesByDomain, setSourcesByDomain] = useState<Record<string, SourceDef[]>>({})
-  const [activeDomain, setActiveDomain] = useState('')
-  const [activeSource, setActiveSource] = useState('')
-  const [paramValues, setParamValues] = useState<Record<string, any>>({})
   const [ingestLimit, setIngestLimit] = useState(0)
-  const [ingestOutput, setIngestOutput] = useState('/tmp/dq_data/raw.jsonl')
-  const [ingestStatus, setIngestStatus] = useState('idle')
-  const [papers, setPapers] = useState<PaperInfo[]>([])
   const [ingestError, setIngestError] = useState<string | null>(null)
-
-  // ── Pipeline ──
-  const [pipeInput, setPipeInput] = useState('/tmp/dq_data/raw.jsonl')
-  const [configPath, setConfigPath] = useState('configs/arxiv.yaml')
-  const [workers, setWorkers] = useState(4)
-  const [resume, setResume] = useState(false)
-  const [pipeStatus, setPipeStatus] = useState('idle')
-  const [stageResults, setStageResults] = useState<Record<string, StageResult>>({})
-  const [pipeError, setPipeError] = useState<string | null>(null)
 
   // Derived
   const domains = Object.keys(sourcesByDomain)
@@ -75,7 +75,8 @@ export default function PipelineControl() {
     api<Record<string, SourceDef[]>>('/api/sources').then(data => {
       setSourcesByDomain(data)
       const d = Object.keys(data)
-      if (d.length) { setActiveDomain(d[0]); const f = data[d[0]][0]; if (f) { setActiveSource(f.name); setParamValues(getDefaults(f.params)) } }
+      // Only set defaults if not already selected (preserve state across tab switches)
+      if (d.length && !activeDomain) { setActiveDomain(d[0]); const f = data[d[0]][0]; if (f) { setActiveSource(f.name); setParamValues(getDefaults(f.params)) } }
     }).catch(() => {})
   }, [])
 
