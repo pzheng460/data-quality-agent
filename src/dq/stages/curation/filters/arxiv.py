@@ -119,9 +119,14 @@ def _clean_text(text: str) -> str:
     text = re.sub(r"[ \t]+$", "", text, flags=re.MULTILINE)
     text = re.sub(r"\n{3,}", "\n\n", text)
 
-    # Restore math
+    # Restore math (clean % comments inside math blocks)
     for key, val in math_phs:
+        val = re.sub(r"%.*?\n", "\n", val)  # strip % line comments
+        val = val.rstrip("%")
         text = text.replace(key, val)
+
+    # Remove empty headings
+    text = re.sub(r"^#{1,4}\s*$", "", text, flags=re.MULTILINE)
 
     return text.strip()
 
