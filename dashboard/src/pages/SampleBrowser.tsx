@@ -10,8 +10,7 @@ import 'katex/dist/katex.min.css'
 interface Doc { id: string; text: string; text_preview?: string; metadata?: any; structural_checks?: Record<string, unknown>; trace?: Record<string, unknown>; __dq_rejections?: Array<{ filter: string; rule: string; value?: unknown; threshold?: unknown }>; [k: string]: unknown }
 
 const STAGES = [
-  { stage: '_raw_input', sub: '', label: 'Raw Input', color: 'amber' },
-  { stage: 'stage1_ingested', sub: 'kept', label: 'S1 Ingested', color: 'green' },
+  { stage: 'stage1_ingested', sub: 'kept', label: 'S1 Ingested', color: 'amber' },
   { stage: 'stage2_extracted', sub: 'kept', label: 'S2 Extracted', color: 'green' },
   { stage: 'stage2_extracted', sub: 'rejected', label: 'S2 Rejected', color: 'red' },
   { stage: 'stage3_curated', sub: 'kept', label: 'S3 Curated', color: 'green' },
@@ -195,16 +194,9 @@ export default function SampleBrowser() {
   const loadDocs = async (s: typeof STAGES[0]) => {
     setCurStage(s); setCurDoc(null); setCompareDoc(null); setLoading(true)
     try {
-      if (s.stage === '_raw_input') {
-        // Read from original input file
-        if (!inputPath) { setDocs([]); setLoading(false); return }
-        const data = await api<any>(`/api/raw-input?input_path=${encodeURIComponent(inputPath)}&limit=100`)
-        setDocs(data.docs || [])
-      } else {
-        const path = s.sub ? `/api/docs/${s.stage}/${s.sub}` : `/api/docs/${s.stage}`
-        const data = await api<any>(`${path}?output_dir=${encodeURIComponent(outputDir)}&limit=100`)
-        setDocs(data.docs || [])
-      }
+      const path = s.sub ? `/api/docs/${s.stage}/${s.sub}` : `/api/docs/${s.stage}`
+      const data = await api<any>(`${path}?output_dir=${encodeURIComponent(outputDir)}&limit=100`)
+      setDocs(data.docs || [])
     } catch { setDocs([]) }
     setLoading(false)
   }
@@ -212,23 +204,16 @@ export default function SampleBrowser() {
   const selectDoc = async (doc: Doc) => {
     if (!curStage) return
     try {
-      if (curStage.stage === '_raw_input') {
-        // Fetch full doc from raw input
-        const full = await api<Doc>(`/api/raw-input/doc?input_path=${encodeURIComponent(inputPath)}&doc_id=${encodeURIComponent(doc.id)}`)
-        setCurDoc(full)
-        setCompareDoc(null) // raw IS the "before"
-      } else {
-        const sub = curStage.sub ? `&sub=${curStage.sub}` : ''
-        const full = await api<Doc>(`/api/doc?output_dir=${encodeURIComponent(outputDir)}&stage=${curStage.stage}${sub}&doc_id=${encodeURIComponent(doc.id)}`)
-        setCurDoc(full)
-        // Load raw input as "before" for comparison
-        if (curStage.stage !== 'stage1_ingested' && inputPath) {
-          try {
-            const before = await api<Doc>(`/api/raw-input/doc?input_path=${encodeURIComponent(inputPath)}&doc_id=${encodeURIComponent(doc.id)}`)
-            setCompareDoc(before)
-          } catch { setCompareDoc(null) }
-        } else { setCompareDoc(null) }
-      }
+      const sub = curStage.sub ? `&sub=${curStage.sub}` : ''
+      const full = await api<Doc>(`/api/doc?output_dir=${encodeURIComponent(outputDir)}&stage=${curStage.stage}${sub}&doc_id=${encodeURIComponent(doc.id)}`)
+      setCurDoc(full)
+      // Load S1 ingested as "before" for comparison (for stages after S1)
+      if (curStage.stage !== 'stage1_ingested') {
+        try {
+          const before = await api<Doc>(`/api/doc?output_dir=${encodeURIComponent(outputDir)}&stage=stage1_ingested&sub=kept&doc_id=${encodeURIComponent(doc.id)}`)
+          setCompareDoc(before)
+        } catch { setCompareDoc(null) }
+      } else { setCompareDoc(null) }
     } catch { setCurDoc(doc); setCompareDoc(null) }
   }
 
