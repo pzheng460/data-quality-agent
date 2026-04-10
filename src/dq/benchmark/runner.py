@@ -40,7 +40,7 @@ def _eval_chunk(
     os.environ.setdefault("MKL_NUM_THREADS", "1")
     os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 
-    from dq.filters import ensure_registered; ensure_registered()
+    from dq.stages.curation.filters import ensure_registered; ensure_registered()
     from dq.pipeline import get_filter_class
 
     # Build filters in this process
@@ -205,7 +205,7 @@ def run_benchmark(
     Returns:
         BenchmarkReport with per-dataset, per-filter pass rates.
     """
-    from dq.filters import ensure_registered; ensure_registered()
+    from dq.stages.curation.filters import ensure_registered; ensure_registered()
     from dq.config import DedupConfig, PipelineConfig
     from dq.pipeline import Pipeline
 
@@ -287,7 +287,7 @@ def run_benchmark(
             total_awl += r["total_awl"]
 
         # Dedup detection (reports stats only, does not remove docs)
-        from dq.dedup.exact import ExactDedup
+        from dq.stages.curation.dedup.exact import ExactDedup
         exact = ExactDedup(text_field=config.text_field)
         list(exact.dedup(docs))
         exact_dups = exact.duplicate_docs
@@ -297,7 +297,7 @@ def run_benchmark(
         minhash_rate = 0.0
         minhash_cfg = config.dedup.minhash
         if minhash_cfg.get("enabled", False) and not no_dedup:
-            from dq.dedup.minhash import MinHashDedup
+            from dq.stages.curation.dedup.minhash import MinHashDedup
             mh = MinHashDedup(
                 text_field=config.text_field,
                 num_perm=minhash_cfg.get("num_perm", 112),

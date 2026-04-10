@@ -1,7 +1,7 @@
 """Tests for C4 filters."""
 
-from dq.filters import ensure_registered; ensure_registered()
-from dq.filters.c4 import C4Filter
+from dq.stages.curation.filters import ensure_registered; ensure_registered()
+from dq.stages.curation.filters.c4 import C4Filter
 
 
 class TestC4Filter:

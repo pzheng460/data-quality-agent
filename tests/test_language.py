@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from dq.filters import ensure_registered; ensure_registered()
+from dq.stages.curation.filters import ensure_registered; ensure_registered()
 from dq.pipeline import get_filter_class
 
 
@@ -26,7 +26,7 @@ class TestLanguageFilter:
         assert cls.name == "language"
 
     def test_high_confidence_passes(self):
-        from dq.filters.language import LanguageFilter
+        from dq.stages.curation.filters.language import LanguageFilter
         f = LanguageFilter(languages=["en"], language_threshold=0.65)
         f._model = self._make_mock_model("en", 0.95)
 
@@ -37,7 +37,7 @@ class TestLanguageFilter:
         assert doc["metadata"]["language_score"] == 0.95
 
     def test_low_confidence_fails(self):
-        from dq.filters.language import LanguageFilter
+        from dq.stages.curation.filters.language import LanguageFilter
         f = LanguageFilter(languages=["en"], language_threshold=0.65)
         f._model = self._make_mock_model("en", 0.30)
 
@@ -48,7 +48,7 @@ class TestLanguageFilter:
         assert info["score"] == 0.30
 
     def test_wrong_language_fails(self):
-        from dq.filters.language import LanguageFilter
+        from dq.stages.curation.filters.language import LanguageFilter
         f = LanguageFilter(languages=["en"], language_threshold=0.65)
         # Model predicts French, not English
         mock = MagicMock()
@@ -64,7 +64,7 @@ class TestLanguageFilter:
 
     def test_no_language_filter_keeps_high_confidence(self):
         """languages=None means keep any language above threshold."""
-        from dq.filters.language import LanguageFilter
+        from dq.stages.curation.filters.language import LanguageFilter
         f = LanguageFilter(languages=None, language_threshold=0.65)
         f._model = self._make_mock_model("ja", 0.90)
 
@@ -73,7 +73,7 @@ class TestLanguageFilter:
         assert keep is True
 
     def test_label_only_always_passes(self):
-        from dq.filters.language import LanguageFilter
+        from dq.stages.curation.filters.language import LanguageFilter
         f = LanguageFilter(label_only=True)
         f._model = self._make_mock_model("en", 0.10)  # Very low score
 
@@ -83,7 +83,7 @@ class TestLanguageFilter:
         assert doc["metadata"]["language"] == "en"
 
     def test_empty_text_fails(self):
-        from dq.filters.language import LanguageFilter
+        from dq.stages.curation.filters.language import LanguageFilter
         f = LanguageFilter()
         f._model = self._make_mock_model()
 
@@ -94,7 +94,7 @@ class TestLanguageFilter:
 
     def test_multiple_languages_any_above_threshold(self):
         """With languages=['en', 'fr'], keep if either is above threshold."""
-        from dq.filters.language import LanguageFilter
+        from dq.stages.curation.filters.language import LanguageFilter
         f = LanguageFilter(languages=["en", "fr"], language_threshold=0.5)
         mock = MagicMock()
         mock.predict.return_value = (
@@ -108,7 +108,7 @@ class TestLanguageFilter:
         assert keep is True
 
     def test_filter_detailed(self):
-        from dq.filters.language import LanguageFilter
+        from dq.stages.curation.filters.language import LanguageFilter
         f = LanguageFilter(languages=["en"], language_threshold=0.65)
         f._model = self._make_mock_model("en", 0.30)
 
@@ -120,7 +120,7 @@ class TestLanguageFilter:
         assert failures[0]["value"] == 0.30
 
     def test_glotlid_parses_script(self):
-        from dq.filters.language import LanguageFilter
+        from dq.stages.curation.filters.language import LanguageFilter
         f = LanguageFilter(backend="glotlid", languages=None, language_threshold=0.5)
         mock = MagicMock()
         mock.predict.return_value = (

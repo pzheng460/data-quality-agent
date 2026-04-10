@@ -1,7 +1,7 @@
 """Tests for the Arxiv clean-then-judge filter."""
 
-from dq.filters import ensure_registered; ensure_registered()
-from dq.filters.arxiv import ArxivFilter, _clean_latex, _residual_frac
+from dq.stages.curation.filters import ensure_registered; ensure_registered()
+from dq.stages.curation.filters.arxiv import ArxivFilter, _clean_latex, _residual_frac
 
 
 class TestCleanLatex:

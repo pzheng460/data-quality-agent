@@ -1,7 +1,7 @@
 """Utility functions for benchmarking."""
 
 # Import canonical SFT field set from sft_rules — single source of truth
-from dq.filters.sft_rules import SFT_DETECT_FIELDS as SFT_FIELDS
+from dq.stages.curation.filters.sft_rules import SFT_DETECT_FIELDS as SFT_FIELDS
 
 
 def detect_data_type(docs: list[dict]) -> str:

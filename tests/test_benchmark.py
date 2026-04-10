@@ -3,7 +3,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
-from dq.filters import ensure_registered; ensure_registered()
+from dq.stages.curation.filters import ensure_registered; ensure_registered()
 from dq.benchmark import (
     BenchmarkReport,
     BenchmarkResult,

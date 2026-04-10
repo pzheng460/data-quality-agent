@@ -2,13 +2,13 @@
 
 import json
 
-from dq.filters import ensure_registered; ensure_registered()
+from dq.stages.curation.filters import ensure_registered; ensure_registered()
 from dq.benchmark import BenchmarkReport, RuleStats, run_benchmark
 from dq.benchmark_report import benchmark_to_json, benchmark_to_markdown, print_benchmark_report
-from dq.filters.c4 import C4Filter
-from dq.filters.fineweb import FineWebFilter
-from dq.filters.gopher import GopherQualityFilter, GopherRepetitionFilter
-from dq.filters.pii import PIIFilter
+from dq.stages.curation.filters.c4 import C4Filter
+from dq.stages.curation.filters.fineweb import FineWebFilter
+from dq.stages.curation.filters.gopher import GopherQualityFilter, GopherRepetitionFilter
+from dq.stages.curation.filters.pii import PIIFilter
 
 
 def _make_good_docs(n: int = 50) -> list[dict]:

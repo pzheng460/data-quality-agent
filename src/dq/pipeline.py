@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Iterator
 
 from dq.config import PipelineConfig
-from dq.filters.base import BaseFilter
+from dq.stages.curation.filters.base import BaseFilter
 
 
 # Registry mapping filter names to classes

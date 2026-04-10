@@ -1,7 +1,7 @@
 """Tests for deduplication modules."""
 
-from dq.dedup.exact import ExactDedup, sha256_hash
-from dq.dedup.minhash import MinHashDedup
+from dq.stages.curation.dedup.exact import ExactDedup, sha256_hash
+from dq.stages.curation.dedup.minhash import MinHashDedup
 
 
 class TestExactDedup:

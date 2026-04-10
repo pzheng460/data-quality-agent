@@ -11,7 +11,7 @@ import logging
 import math
 from typing import Any
 
-from dq.filters.base import BaseFilter
+from dq.stages.curation.filters.base import BaseFilter
 from dq.pipeline import register_filter
 
 logger = logging.getLogger(__name__)

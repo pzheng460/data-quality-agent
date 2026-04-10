@@ -16,8 +16,8 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from dq.runner.shard import ShardWriter, read_shards
-from dq.runner.stats import PhaseStats, PhaseTimer
+from dq.shared.shard import ShardWriter, read_shards
+from dq.shared.stats import PhaseStats, PhaseTimer
 
 if TYPE_CHECKING:
     from dq.runner.engine import PhaseEngine
@@ -123,7 +123,7 @@ def _filter_chunk(
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     os.environ.setdefault("MKL_NUM_THREADS", "1")
 
-    from dq.filters import ensure_registered
+    from dq.stages.curation.filters import ensure_registered
     ensure_registered()
     from dq.pipeline import get_filter_class
 
@@ -308,8 +308,8 @@ def phase2b_quality_score(engine: "PhaseEngine") -> "PhaseStats":
 
 def phase3_dedup(engine: PhaseEngine) -> PhaseStats:
     """Phase 3: Version dedup -> exact dedup -> MinHash dedup."""
-    from dq.dedup.exact import ExactDedup
-    from dq.dedup.minhash import MinHashDedup
+    from dq.stages.curation.dedup.exact import ExactDedup
+    from dq.stages.curation.dedup.minhash import MinHashDedup
 
     stats = PhaseStats(phase="phase3_dedup")
     phase3_cfg = engine.arxiv_config.get("phase3", {})
@@ -360,7 +360,7 @@ def phase3_dedup(engine: PhaseEngine) -> PhaseStats:
 
         # 3. MinHash dedup
         if engine.config.dedup.minhash.get("enabled", False):
-            from dq.dedup.minhash import MinHashDedup
+            from dq.stages.curation.dedup.minhash import MinHashDedup
             mh = MinHashDedup(
                 text_field=engine.config.text_field,
                 num_perm=minhash_cfg.get("num_perm", 112),
@@ -389,7 +389,7 @@ def phase3_dedup(engine: PhaseEngine) -> PhaseStats:
 
 def phase4_contamination(engine: PhaseEngine) -> PhaseStats:
     """Check for n-gram contamination against evaluation benchmarks."""
-    from dq.contamination.ngram import NgramContaminationDetector, load_benchmark
+    from dq.stages.curation.contamination.ngram import NgramContaminationDetector, load_benchmark
 
     stats = PhaseStats(phase="phase4_contamination")
     phase4_cfg = engine.arxiv_config.get("phase4", {})
@@ -445,7 +445,7 @@ def phase4_contamination(engine: PhaseEngine) -> PhaseStats:
 
 def phase5_package(engine: PhaseEngine) -> PhaseStats:
     """Sort docs by id, write final shards, and generate manifest."""
-    from dq.runner.shard import write_manifest
+    from dq.shared.shard import write_manifest
 
     stats = PhaseStats(phase="phase5_package")
     phase5_cfg = engine.arxiv_config.get("phase5", {})

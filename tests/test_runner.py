@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from dq.runner.shard import ShardWriter, read_shards
-from dq.runner.stats import PhaseStats, PhaseTimer
+from dq.shared.shard import ShardWriter, read_shards
+from dq.shared.stats import PhaseStats, PhaseTimer
 
 
 class TestShardWriter:
@@ -145,4 +145,4 @@ class TestPhaseEngine:
 
 
 # Import for test
-from dq.runner.shard import ShardWriter
+from dq.shared.shard import ShardWriter

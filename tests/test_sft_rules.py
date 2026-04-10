@@ -1,7 +1,7 @@
 """Tests for SFTRulesFilter (Layer 1)."""
 
-from dq.filters import ensure_registered; ensure_registered()
-from dq.filters.sft_rules import SFTRulesFilter, _cjk_ratio, _simple_similarity
+from dq.stages.curation.filters import ensure_registered; ensure_registered()
+from dq.stages.curation.filters.sft_rules import SFTRulesFilter, _cjk_ratio, _simple_similarity
 
 
 class TestSFTRulesFilter:

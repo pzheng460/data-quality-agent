@@ -177,7 +177,7 @@ def bench(input_path: str, config_path: str | None, num_samples: int, no_dedup: 
 
     # Optional contamination check
     if check_contamination:
-        from dq.contamination.ngram import NgramContaminationDetector, load_benchmark as load_bm, _BENCHMARK_CONFIGS
+        from dq.stages.curation.contamination.ngram import NgramContaminationDetector, load_benchmark as load_bm, _BENCHMARK_CONFIGS
 
         # Resolve benchmark list
         if check_contamination.lower() == "all":

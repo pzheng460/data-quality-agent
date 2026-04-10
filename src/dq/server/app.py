@@ -67,7 +67,7 @@ def _run_pipeline(req: RunRequest) -> None:
     """Run 4-stage pipeline in background thread."""
     from dq.runner.engine import PhaseEngine
     from dq.runner.stages import stage_ingest, stage_extract, stage_curate, stage_package
-    from dq.runner.stats import save_overview
+    from dq.shared.stats import save_overview
 
     with _lock:
         _state["status"] = "running"
@@ -292,7 +292,7 @@ def get_phase_stats(phase_name: str, output_dir: str):
 @app.get("/api/docs/{stage}/{sub}")
 def list_docs(stage: str, output_dir: str, sub: str = "", offset: int = 0, limit: int = 20):
     """Browse documents from a pipeline stage (kept/rejected)."""
-    from dq.runner.shard import read_shards
+    from dq.shared.shard import read_shards
 
     stage_path = Path(output_dir) / stage / sub if sub else Path(output_dir) / stage
     if not stage_path.exists():
@@ -362,7 +362,7 @@ def get_raw_input_doc(input_path: str, doc_id: str):
 @app.get("/api/doc")
 def get_full_doc(output_dir: str, stage: str, doc_id: str, sub: str = ""):
     """Get a single document by ID with full text."""
-    from dq.runner.shard import read_shards
+    from dq.shared.shard import read_shards
     stage_path = Path(output_dir) / stage / sub if sub else Path(output_dir) / stage
     for doc in read_shards(stage_path):
         if doc.get("id") == doc_id:
@@ -408,7 +408,7 @@ class QualityCheckRequest(BaseModel):
 @app.post("/api/quality-check")
 def run_quality_check(req: QualityCheckRequest):
     """Run dq bench on the final pipeline output to check quality."""
-    from dq.runner.shard import read_shards
+    from dq.shared.shard import read_shards
     import random
 
     final_dir = Path(req.output_dir) / "stage5_final"
@@ -424,7 +424,7 @@ def run_quality_check(req: QualityCheckRequest):
     sample = random.sample(docs, min(req.num_samples, len(docs)))
 
     # Run benchmark
-    from dq.filters import ensure_registered
+    from dq.stages.curation.filters import ensure_registered
     ensure_registered()
     from dq.config import PipelineConfig
     from dq.pipeline import Pipeline
@@ -496,7 +496,7 @@ _ingest_state: dict[str, Any] = {
 @app.get("/api/sources")
 def get_sources():
     """List available data sources grouped by domain."""
-    from dq.ingest import ensure_sources_registered, list_sources
+    from dq.stages.ingestion import ensure_sources_registered, list_sources
     ensure_sources_registered()
     return list_sources()
 
@@ -511,8 +511,8 @@ class IngestRequest(BaseModel):
 @app.post("/api/ingest")
 def start_ingest(req: IngestRequest):
     """Start ingestion from any registered source."""
-    from dq.ingest import ensure_sources_registered
-    from dq.ingest.registry import get_source_class
+    from dq.stages.ingestion import ensure_sources_registered
+    from dq.stages.ingestion.registry import get_source_class
     ensure_sources_registered()
 
     with _lock:

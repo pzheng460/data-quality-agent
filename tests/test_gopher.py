@@ -1,7 +1,7 @@
 """Tests for Gopher quality and repetition filters."""
 
-from dq.filters import ensure_registered; ensure_registered()
-from dq.filters.gopher import GopherQualityFilter, GopherRepetitionFilter
+from dq.stages.curation.filters import ensure_registered; ensure_registered()
+from dq.stages.curation.filters.gopher import GopherQualityFilter, GopherRepetitionFilter
 
 
 class TestGopherQualityFilter:

@@ -5,12 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from dq.contamination.report import (
+from dq.stages.curation.contamination.report import (
     BenchmarkContamination,
     ContaminationReport,
     ContaminationResult,
 )
-from dq.contamination.ngram import (
+from dq.stages.curation.contamination.ngram import (
     NgramContaminationDetector,
     _normalize,
     _extract_ngrams,
@@ -202,7 +202,7 @@ class TestLoadBenchmark:
 
     def test_load_from_text_file(self, tmp_path):
         """Load benchmark from a plain text file."""
-        from dq.contamination.ngram import load_benchmark
+        from dq.stages.curation.contamination.ngram import load_benchmark
 
         txt_file = tmp_path / "benchmark.txt"
         txt_file.write_text("question one\nquestion two\nquestion three\n")
@@ -213,7 +213,7 @@ class TestLoadBenchmark:
 
     def test_load_from_jsonl_file(self, tmp_path):
         """Load benchmark from a JSONL file."""
-        from dq.contamination.ngram import load_benchmark
+        from dq.stages.curation.contamination.ngram import load_benchmark
 
         jsonl_file = tmp_path / "benchmark.jsonl"
         lines = [
@@ -228,7 +228,7 @@ class TestLoadBenchmark:
 
     def test_load_from_jsonl_question_field(self, tmp_path):
         """Load benchmark from JSONL with 'question' field."""
-        from dq.contamination.ngram import load_benchmark
+        from dq.stages.curation.contamination.ngram import load_benchmark
 
         jsonl_file = tmp_path / "benchmark.jsonl"
         lines = [json.dumps({"question": "What is AI?"})]
@@ -239,7 +239,7 @@ class TestLoadBenchmark:
 
     def test_load_unknown_benchmark_raises(self):
         """Unknown benchmark name should raise ValueError."""
-        from dq.contamination.ngram import load_benchmark
+        from dq.stages.curation.contamination.ngram import load_benchmark
 
         with pytest.raises(ValueError, match="Unknown benchmark"):
             load_benchmark("nonexistent_benchmark_xyz")
@@ -361,7 +361,7 @@ class TestExports:
     """Tests that the contamination package exports everything."""
 
     def test_imports(self):
-        from dq.contamination import (
+        from dq.stages.curation.contamination import (
             NgramContaminationDetector,
             ContaminationReport,
             ContaminationResult,

@@ -104,7 +104,7 @@ class PhaseEngine:
         self.mark_stage_done(name)
 
     def iter_input(self) -> Iterator[dict]:
-        from dq.runner.shard import read_shards
+        from dq.shared.shard import read_shards
         from dq.utils.io import read_docs
 
         source = self.input_path
@@ -123,7 +123,7 @@ class PhaseEngine:
     def run_all(self, resume: bool = True) -> None:
         """Run all 4 stages."""
         from dq.runner.stages import stage_ingest, stage_extract, stage_curate, stage_package
-        from dq.runner.stats import save_overview
+        from dq.shared.stats import save_overview
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
 

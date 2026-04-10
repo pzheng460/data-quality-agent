@@ -5,7 +5,7 @@ import re
 
 import pytest
 
-from dq.filters import ensure_registered; ensure_registered()
+from dq.stages.curation.filters import ensure_registered; ensure_registered()
 from dq.pipeline import get_filter_class
 
 
@@ -14,7 +14,7 @@ class TestBadWordsFilter:
 
     def _make_filter_with_words(self, words, lang="en"):
         """Create a BadWordsFilter with pre-loaded regex cache."""
-        from dq.filters.badwords import BadWordsFilter, _CJK_LANGS
+        from dq.stages.curation.filters.badwords import BadWordsFilter, _CJK_LANGS
         f = BadWordsFilter(default_language=lang)
 
         escaped = [re.escape(w) for w in words]
@@ -80,7 +80,7 @@ class TestBadWordsFilter:
 
     def test_uses_doc_language_metadata(self):
         """Should use language from doc metadata if available."""
-        from dq.filters.badwords import BadWordsFilter
+        from dq.stages.curation.filters.badwords import BadWordsFilter
         f = BadWordsFilter(default_language="en")
         # Pre-load both English and French
         f._regex_cache["en"] = re.compile(r"(?:\W|^)(badword)(?:\W|$)")
@@ -94,7 +94,7 @@ class TestBadWordsFilter:
 
     def test_unknown_language_passes(self):
         """Unknown language (no wordlist) should pass through."""
-        from dq.filters.badwords import BadWordsFilter
+        from dq.stages.curation.filters.badwords import BadWordsFilter
         f = BadWordsFilter(default_language="xx_unknown")
         doc = {"text": "Any content here."}
         keep, info = f.filter(doc)
@@ -120,14 +120,14 @@ class TestBadWordsConstants:
     """Test constants and helper functions."""
 
     def test_supported_languages(self):
-        from dq.filters.badwords import BADWORDS_LANGS
+        from dq.stages.curation.filters.badwords import BADWORDS_LANGS
         assert "en" in BADWORDS_LANGS
         assert "zh" in BADWORDS_LANGS
         assert "ja" in BADWORDS_LANGS
         assert len(BADWORDS_LANGS) == 28
 
     def test_allowlist_entries(self):
-        from dq.filters.badwords import _ALLOWLISTS
+        from dq.stages.curation.filters.badwords import _ALLOWLISTS
         assert "ja" in _ALLOWLISTS
         assert "zh" in _ALLOWLISTS
         assert "性" in _ALLOWLISTS["zh"]

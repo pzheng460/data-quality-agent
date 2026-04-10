@@ -28,9 +28,9 @@ def _load_expected():
 
 def _run_pipeline_on_input():
     """Run the full pipeline on golden input and return final docs."""
-    from dq.filters import ensure_registered
+    from dq.stages.curation.filters import ensure_registered
     ensure_registered()
-    from dq.filters.arxiv import _clean_latex
+    from dq.stages.curation.filters.arxiv import _clean_latex
     from dq.config import PipelineConfig
     from dq.pipeline import Pipeline
 

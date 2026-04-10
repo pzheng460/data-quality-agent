@@ -12,8 +12,8 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from dq.runner.shard import ShardWriter, read_shards
-from dq.runner.stats import PhaseStats, PhaseTimer
+from dq.shared.shard import ShardWriter, read_shards
+from dq.shared.stats import PhaseStats, PhaseTimer
 
 if TYPE_CHECKING:
     from dq.runner.engine import PhaseEngine
@@ -46,8 +46,8 @@ def stage_extract(engine: PhaseEngine) -> PhaseStats:
     """Convert raw format to clean text via registered extractors."""
     stats = PhaseStats(phase="extraction")
 
-    from dq.extraction import ensure_extractors_registered
-    from dq.extraction.registry import get_extractor_for_format
+    from dq.stages.extraction import ensure_extractors_registered
+    from dq.stages.extraction.registry import get_extractor_for_format
     ensure_extractors_registered()
 
     # Determine extractor from config or auto-detect from first doc
@@ -69,12 +69,12 @@ def stage_extract(engine: PhaseEngine) -> PhaseStats:
             # Auto-detect extractor on first doc
             if extractor is None:
                 if extractor_name and extractor_name != "auto":
-                    from dq.extraction.registry import get_extractor_class
+                    from dq.stages.extraction.registry import get_extractor_class
                     extractor = get_extractor_class(extractor_name)()
                 else:
                     # Detect from source output_format or content
                     fmt = _detect_format(doc)
-                    from dq.extraction.registry import get_extractor_for_format
+                    from dq.stages.extraction.registry import get_extractor_for_format
                     extractor = get_extractor_for_format(fmt)()
                 logger.info("Using extractor: %s", extractor.name)
 
@@ -173,7 +173,7 @@ def stage_curate(engine: PhaseEngine) -> PhaseStats:
 def _filter_chunk(chunk, filter_configs, text_field):
     """Worker for parallel filtering (imported from phases.py logic)."""
     os.environ.setdefault("OMP_NUM_THREADS", "1")
-    from dq.filters import ensure_registered
+    from dq.stages.curation.filters import ensure_registered
     ensure_registered()
     from dq.pipeline import get_filter_class
 
@@ -258,7 +258,7 @@ def _substep_quality_score(engine, docs, quality_cfg):
 
 def _substep_dedup(engine, docs):
     """Exact + MinHash dedup."""
-    from dq.dedup.exact import ExactDedup
+    from dq.stages.curation.dedup.exact import ExactDedup
 
     rejected = []
 
@@ -288,7 +288,7 @@ def _substep_dedup(engine, docs):
     # MinHash dedup
     minhash_cfg = engine.config.dedup.get("minhash", {})
     if minhash_cfg.get("enabled", False):
-        from dq.dedup.minhash import MinHashDedup
+        from dq.stages.curation.dedup.minhash import MinHashDedup
         mh = MinHashDedup(
             text_field=engine.config.text_field,
             num_perm=minhash_cfg.get("num_perm", 112),
@@ -303,7 +303,7 @@ def _substep_dedup(engine, docs):
 
 def _substep_contamination(engine, docs, contam_cfg):
     """N-gram contamination check."""
-    from dq.contamination.ngram import NgramContaminationDetector, load_benchmark
+    from dq.stages.curation.contamination.ngram import NgramContaminationDetector, load_benchmark
 
     ngram_size = contam_cfg.get("ngram_size", 13)
     threshold = contam_cfg.get("threshold", 0.8)
@@ -338,7 +338,7 @@ def _substep_contamination(engine, docs, contam_cfg):
 
 def stage_package(engine: PhaseEngine) -> PhaseStats:
     """Sort, shard, and write manifest."""
-    from dq.runner.shard import ShardWriter, write_manifest
+    from dq.shared.shard import ShardWriter, write_manifest
 
     stats = PhaseStats(phase="packaging")
     pkg_cfg = engine.extra_config.get("phase5", {})
