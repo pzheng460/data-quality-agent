@@ -63,17 +63,28 @@ def html_to_text(html: str) -> str:
     for note in soup.select(".ltx_note_content, .ltx_note_outer"):
         note.decompose()
 
-    # ── Replace <math> with LaTeX source ──
+    # ── Convert equation tables to display math BEFORE generic math replacement ──
+    # LaTeXML wraps display equations in <table class="ltx_equation">.
+    # Process innermost first (reversed) to handle nesting correctly.
+    for eq_table in reversed(soup.select("table.ltx_equation, table.ltx_equationgroup")):
+        math_parts = []
+        for m in eq_table.find_all("math"):
+            alt = _math_to_latex(m)
+            if alt:
+                math_parts.append(alt)
+        if math_parts:
+            new_p = soup.new_tag("p")
+            new_p.string = f"$${ ' '.join(math_parts) }$$"
+            eq_table.replace_with(new_p)
+        else:
+            eq_table.decompose()
+
+    # ── Replace remaining <math> (inline) with LaTeX source ──
     for math_el in soup.find_all("math"):
         latex_src = _math_to_latex(math_el)
-        if latex_src:
-            display = math_el.get("display", "inline")
-            if display == "block":
-                math_el.replace_with(f"\n$${latex_src}$$\n")
-            else:
-                math_el.replace_with(f"${latex_src}$")
-        else:
-            math_el.replace_with(math_el.get_text())
+        if not latex_src:
+            latex_src = math_el.get_text()
+        math_el.replace_with(f"${latex_src}$")
 
     # ── Remove citations (LaTeXML <cite> tags) ──
     for cite_el in soup.find_all("cite"):
@@ -97,14 +108,13 @@ def html_to_text(html: str) -> str:
         for img in fig.find_all(["img", "embed", "object", "picture", "svg"]):
             img.decompose()
 
-    # ── Fix 2: Convert tables — handle LaTeXML's doubled headers ──
+    # ── Convert data tables — handle LaTeXML's doubled headers ──
     for table in soup.find_all("table"):
         rows = []
         for tr in table.find_all("tr"):
             cells = []
             for td in tr.find_all(["td", "th"]):
                 cell_text = td.get_text(strip=True)
-                # LaTeXML sometimes renders "Mainmain" — deduplicate
                 cell_text = _dedup_camelcase(cell_text)
                 cells.append(cell_text)
             if any(cells):
@@ -144,6 +154,7 @@ def html_to_text(html: str) -> str:
             lines.append(text)
 
     result = "\n\n".join(lines)
+
     result = re.sub(r"\n{3,}", "\n\n", result)
     return result.strip()
 
