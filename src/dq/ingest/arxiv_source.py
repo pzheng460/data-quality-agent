@@ -248,20 +248,24 @@ def _html_to_math_latex(el) -> str:
 
 
 def _html_to_text(html: str) -> str:
-    """Extract clean text from LaTeXML HTML output."""
-    from bs4 import BeautifulSoup, NavigableString
+    """Extract text from LaTeXML HTML. Pure format conversion only.
+
+    Converts HTML structure to readable markdown-like text.
+    All data cleaning (citations, footnotes, residual LaTeX) is
+    handled by ArxivFilter in the filter phase.
+    """
+    from bs4 import BeautifulSoup
 
     soup = BeautifulSoup(html, "lxml")
 
-    # Remove elements that don't contribute to readable text
+    # Remove non-content HTML elements (format conversion, not cleaning)
     for tag in soup.find_all(["style", "script", "nav", "header", "footer"]):
         tag.decompose()
 
-    # Replace <math> elements with their LaTeX source
+    # Replace <math> with LaTeX source (format conversion: MathML → LaTeX string)
     for math_el in soup.find_all("math"):
         latex_src = _html_to_math_latex(math_el)
         if latex_src:
-            # Check if display or inline math
             display = math_el.get("display", "inline")
             if display == "block":
                 math_el.replace_with(f"\n$${latex_src}$$\n")
@@ -270,41 +274,30 @@ def _html_to_text(html: str) -> str:
         else:
             math_el.replace_with(math_el.get_text())
 
-    # Remove citations (LaTeXML renders as <cite> tags)
-    for cite_el in soup.find_all("cite"):
-        cite_el.decompose()
-
-    # Remove footnote markers (repeated superscript numbers)
-    for note in soup.find_all(class_=re.compile(r"ltx_note_mark|ltx_tag_note")):
-        note.decompose()
-
-    # Remove figure images but keep captions
+    # Remove images (no text content to extract)
     for fig in soup.find_all("figure"):
         for img in fig.find_all(["img", "embed", "object", "picture", "svg"]):
             img.decompose()
 
-    # Remove table formatting but keep content as simple text
+    # Convert tables to pipe-delimited text (format conversion)
     for table in soup.find_all("table"):
         rows = []
         for tr in table.find_all("tr"):
             cells = [td.get_text(strip=True) for td in tr.find_all(["td", "th"])]
             if any(cells):
-                rows_text = " | ".join(cells)
-                rows_text = rows_text.strip()
-                if rows_text:
-                    rows.append(rows_text)
+                row_text = " | ".join(cells).strip()
+                if row_text:
+                    rows.append(row_text)
         table.replace_with("\n".join(rows) + "\n")
 
+    # Extract block elements into markdown-like structure
     lines = []
     for el in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6",
-                              "p", "li", "figcaption", "blockquote",
-                              "div"]):
-        # Skip nested block elements to avoid duplication
+                              "p", "li", "figcaption", "blockquote", "div"]):
         if el.find_parent(["p", "li", "figcaption", "blockquote"]):
             continue
-        # Skip divs that contain block children (they're just wrappers)
-        if el.name == "div" and el.find(["h1","h2","h3","h4","h5","h6",
-                                          "p","li","figcaption","blockquote"]):
+        if el.name == "div" and el.find(["h1", "h2", "h3", "h4", "h5", "h6",
+                                          "p", "li", "figcaption", "blockquote"]):
             continue
 
         text = el.get_text(separator=" ", strip=True)
@@ -312,16 +305,13 @@ def _html_to_text(html: str) -> str:
             continue
 
         tag = el.name
-        if tag in ("h1", "h2"):
-            level = "#" if tag == "h1" else "##"
-            # Strip leading section numbers (e.g. "1 Introduction" → "Introduction")
-            text = re.sub(r"^\d+(\.\d+)*\s+", "", text)
-            lines.append(f"\n{level} {text}\n")
+        if tag == "h1":
+            lines.append(f"\n# {text}\n")
+        elif tag == "h2":
+            lines.append(f"\n## {text}\n")
         elif tag == "h3":
-            text = re.sub(r"^\d+(\.\d+)*\s+", "", text)
             lines.append(f"\n### {text}\n")
         elif tag in ("h4", "h5", "h6"):
-            text = re.sub(r"^\d+(\.\d+)*\s+", "", text)
             lines.append(f"\n#### {text}\n")
         elif tag == "figcaption":
             lines.append(f"\n[Caption: {text}]\n")
@@ -331,10 +321,7 @@ def _html_to_text(html: str) -> str:
             lines.append(text)
 
     result = "\n\n".join(lines)
-
-    # Minimal normalization only — data cleaning is done by ArxivFilter
     result = re.sub(r"\n{3,}", "\n\n", result)
-
     return result.strip()
 
 

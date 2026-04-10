@@ -1,9 +1,13 @@
-"""Arxiv-specific quality filter.
+"""Arxiv-specific clean-then-judge filter.
 
-After LaTeXML-based conversion in the ingestion stage, text is mostly clean.
-This filter handles all data cleaning: citation artifacts, residual LaTeX
-commands, footnote markers, etc. Then rejects docs with too many residuals
-or missing structure.
+Handles all data cleaning for LaTeXML-converted text:
+- Citation text and artifacts (numeric [14], author-year keys, empty parens)
+- Footnote markers (repeated superscript numbers)
+- Section number stripping (1.2 Introduction → Introduction)
+- Residual LaTeX commands
+- Whitespace normalization
+
+Then rejects docs with too many residual LaTeX artifacts or missing structure.
 """
 
 import re
@@ -31,9 +35,23 @@ _INLINE_MATH_RE = re.compile(r"(?<!\$)\$(?!\$)(?!\s)[^$\n]+?\$(?!\$)")
 _ABSTRACT_RE = re.compile(r"(?:^|\n)#{1,4}\s*abstract", re.IGNORECASE)
 _HEADING_RE = re.compile(r"^#{1,4}\s+", re.MULTILINE)
 
+# ── Citation patterns ──
+
+# LaTeXML renders <cite> as inline text. Common forms after text extraction:
+#   "touvron2023llama2" (bare citation key)
+#   "[14]" or "[14, 15]" (numeric citations)
+#   "(Smith et al., 2023)" (already readable — leave these)
+_CITE_KEY_RE = re.compile(
+    r"\b[a-z]+\d{4}[a-z]*\b(?:\s*[,;]\s*\b[a-z]+\d{4}[a-z]*\b)*"
+)
+
+# ── Section number in headings ──
+
+_SECTION_NUM_RE = re.compile(r"^(#{1,4}\s+)\d+(?:\.\d+)*\s+", re.MULTILINE)
+
 
 def _protect_math(text: str):
-    """Replace math regions with placeholders."""
+    """Replace math regions with placeholders to avoid mangling them."""
     phs: list[tuple[str, str]] = []
     ctr = [0]
 
@@ -45,54 +63,60 @@ def _protect_math(text: str):
 
     for pat in _DISPLAY_MATH_PATS:
         text = pat.sub(_ph, text)
-    text = re.sub(r"(?<!\$)\$(?!\$)(?!\s)[^$\n]+?\$(?!\$)", _ph, text)
+    text = _INLINE_MATH_RE.sub(_ph, text)
     return text, phs
 
 
 def _clean_text(text: str) -> str:
-    """Clean LaTeXML-converted text: remove citation artifacts, residual
-    commands, footnote markers, and normalize formatting."""
+    """Clean LaTeXML-converted text. All cleaning logic lives here."""
 
     text, math_phs = _protect_math(text)
 
-    # --- Citation artifacts ---
-    # Citation keys like "touvron2023llama2" left after <cite> removal
-    text = re.sub(
-        r"\s*\b[a-z]+\d{4}[a-z]*\b(?:\s*[,;]\s*\b[a-z]+\d{4}[a-z]*\b)*",
-        " ", text,
-    )
-    # Empty parens/brackets from removed citations: (, ) (;) [ ] etc.
+    # --- Citations ---
+    # Remove bare citation keys (e.g. "touvron2023llama2")
+    text = _CITE_KEY_RE.sub("", text)
+    # Clean up empty/near-empty parens/brackets left after citation removal
     text = re.sub(r"\(\s*[,;]?\s*\)", "", text)
     text = re.sub(r"\[\s*[,;]?\s*\]", "", text)
     text = re.sub(r",\s*\)", ")", text)
     text = re.sub(r"\(\s*,", "(", text)
+    text = re.sub(r"\(\s*;\s*\)", "", text)
 
-    # --- Footnote artifacts ---
-    # Repeated footnote numbers "1 1 1" from LaTeXML superscripts
+    # ── Footnote markers ──
+    # LaTeXML renders footnote marks as repeated superscript numbers: "1 1 1"
     text = re.sub(r"(\d+)(?:\s+\1){1,}", r"\1", text)
 
-    # --- Residual LaTeX commands ---
+    # ── Section number stripping ──
+    # "## 2.1 Introduction" → "## Introduction"
+    text = _SECTION_NUM_RE.sub(r"\1 ", text)
+    # Also handle headings without markdown prefix (rare)
+    text = re.sub(r"^(#{1,4}\s+)\d+(?:\.\d+)*\s+", r"\1", text, flags=re.MULTILINE)
+
+    # ── Residual LaTeX commands ──
     text = re.sub(r"\\(?:begin|end)\{[^}]+\}", "", text)
     text = re.sub(r"\\[a-zA-Z]{2,}\b", "", text)
 
-    # --- Bullet duplication ---
+    # ── Bullet duplication ──
     text = re.sub(r"^-\s*[•·]\s*", "- ", text, flags=re.MULTILINE)
 
-    # --- Whitespace normalization ---
+    # ── Whitespace normalization ──
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"[ \t]+$", "", text, flags=re.MULTILINE)
     text = re.sub(r"\n{3,}", "\n\n", text)
 
+    # Restore math
     for key, val in math_phs:
         text = text.replace(key, val)
+
     return text.strip()
 
 
 def _residual_frac(text: str) -> float:
     """Fraction of non-math characters that are LaTeX commands."""
     no_math = text
-    for pat in [_DISPLAY_MATH_PATS[0], _DISPLAY_MATH_PATS[1], _INLINE_MATH_RE]:
+    for pat in _DISPLAY_MATH_PATS:
         no_math = pat.sub("", no_math)
+    no_math = _INLINE_MATH_RE.sub("", no_math)
     if not no_math:
         return 0.0
     latex_chars = sum(
@@ -105,8 +129,8 @@ def _residual_frac(text: str) -> float:
 class ArxivFilter(BaseFilter):
     """Arxiv clean-then-judge filter.
 
-    Step 1: Clean citation artifacts, residual LaTeX commands, footnote markers.
-    Step 2: Reject if residual LaTeX fraction still exceeds threshold.
+    Step 1: Clean citations, footnotes, section numbering, residual LaTeX.
+    Step 2: Reject if residual LaTeX fraction exceeds threshold.
     Step 3: Reject if structural checks fail.
     """
 
