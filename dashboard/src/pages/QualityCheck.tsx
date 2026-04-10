@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '@/context'
 import { api } from '@/hooks/useApi'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts'
 
 interface FilterData {
@@ -14,18 +19,17 @@ interface DatasetResult {
   per_filter: Record<string, FilterData>
   dataset_stats?: {
     avg_word_count: number; min_word_count: number; max_word_count: number
-    avg_word_length: number; exact_duplicates?: number; duplicate_rate?: number
+    avg_word_length: number; fields: string[]
+    exact_duplicates?: number; duplicate_rate?: number
   }
 }
 
-interface BenchResult {
-  datasets: Record<string, DatasetResult>
-}
+interface BenchResult { datasets: Record<string, DatasetResult> }
 
 function passColor(rate: number) {
-  if (rate >= 0.95) return '#22c55e'
-  if (rate >= 0.8) return '#eab308'
-  return '#ef4444'
+  if (rate >= 0.95) return 'hsl(var(--chart-2))'
+  if (rate >= 0.8) return 'hsl(var(--chart-4))'
+  return 'hsl(var(--destructive))'
 }
 
 export default function QualityCheck() {
@@ -51,7 +55,6 @@ export default function QualityCheck() {
     } catch (e: any) { setStatus('error'); setError(e.message) }
   }
 
-  // Poll
   useEffect(() => {
     if (status !== 'running') return
     const timer = setInterval(async () => {
@@ -70,8 +73,7 @@ export default function QualityCheck() {
   const filterNames = Object.keys(filters)
 
   const chartData = filterNames.map(name => ({
-    name: name.length > 18 ? name.slice(0, 17) + '...' : name,
-    fullName: name,
+    name: name.length > 15 ? name.slice(0, 14) + '...' : name,
     pass_rate: Math.round((filters[name].pass_rate || 0) * 100),
   }))
 
@@ -80,97 +82,109 @@ export default function QualityCheck() {
       <h2 className="text-2xl font-bold">Quality Benchmark</h2>
 
       {/* Config */}
-      <div className="bg-white rounded-lg shadow p-5">
-        <h3 className="font-semibold text-lg mb-3">Configuration</h3>
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <label className="block text-sm text-gray-600">Input path
-            <input value={inputPath} onChange={e => setInputPath(e.target.value)} className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-sm font-mono" />
-          </label>
-          <label className="block text-sm text-gray-600">Config YAML
-            <input value={configPath} onChange={e => setConfigPath(e.target.value)} className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-sm font-mono" />
-          </label>
-          <div className="flex gap-3">
-            <label className="block text-sm text-gray-600 flex-1">Samples
-              <input type="number" value={numSamples} onChange={e => setNumSamples(Number(e.target.value))} className="mt-1 block w-full rounded border border-gray-300 px-3 py-1.5 text-sm" />
-            </label>
-            <label className="block text-sm text-gray-600 flex-1">Workers
-              <input type="number" value={workers} onChange={e => setWorkers(Number(e.target.value))} className="mt-1 block w-full rounded border border-gray-300 px-3 py-1.5 text-sm" />
-            </label>
-            <label className="block text-sm text-gray-600 flex-1">Data type
-              <select value={dataType} onChange={e => setDataType(e.target.value)} className="mt-1 block w-full rounded border border-gray-300 px-2 py-1.5 text-sm">
+      <Card>
+        <CardHeader>
+          <CardTitle>Configuration</CardTitle>
+          <CardDescription>Run quality analysis on any JSONL dataset</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Input path</Label>
+              <Input value={inputPath} onChange={e => setInputPath(e.target.value)} className="font-mono text-sm" />
+            </div>
+            <div className="space-y-2">
+              <Label>Config YAML</Label>
+              <Input value={configPath} onChange={e => setConfigPath(e.target.value)} className="font-mono text-sm" />
+            </div>
+          </div>
+          <div className="flex gap-4 items-end">
+            <div className="space-y-2">
+              <Label>Samples</Label>
+              <Input type="number" value={numSamples} onChange={e => setNumSamples(Number(e.target.value))} className="w-24" />
+            </div>
+            <div className="space-y-2">
+              <Label>Workers</Label>
+              <Input type="number" value={workers} onChange={e => setWorkers(Number(e.target.value))} className="w-24" />
+            </div>
+            <div className="space-y-2">
+              <Label>Data type</Label>
+              <select value={dataType} onChange={e => setDataType(e.target.value)} className="h-9 rounded-md border px-3 text-sm bg-background">
                 <option value="auto">auto</option>
                 <option value="pretrain">pretrain</option>
                 <option value="sft">sft</option>
               </select>
-            </label>
+            </div>
+            <Button onClick={startBench} disabled={status === 'running'}>
+              {status === 'running' ? 'Running...' : 'Run Benchmark'}
+            </Button>
           </div>
-        </div>
-        <button onClick={startBench} disabled={status === 'running'}
-          className={`px-4 py-2 rounded font-medium text-white text-sm ${status === 'running' ? 'bg-gray-400' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
-          {status === 'running' ? 'Running...' : 'Run Benchmark'}
-        </button>
-        {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
-      </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </CardContent>
+      </Card>
 
       {ds && (
         <>
-          {/* KPI cards */}
+          {/* KPIs */}
           <div className="grid grid-cols-4 gap-4">
             {[
               { label: 'Documents', value: ds.num_docs },
-              { label: 'Overall Pass Rate', value: `${(ds.overall_pass_rate * 100).toFixed(1)}%`, color: passColor(ds.overall_pass_rate) },
-              { label: 'Avg Word Count', value: stats?.avg_word_count?.toFixed(0) ?? '—' },
+              { label: 'Overall Pass Rate', value: `${(ds.overall_pass_rate * 100).toFixed(1)}%`, color: ds.overall_pass_rate >= 0.9 ? 'text-green-600' : 'text-yellow-600' },
+              { label: 'Avg Word Count', value: stats?.avg_word_count?.toFixed(0) ?? '--' },
               { label: 'Data Type', value: ds.data_type, className: 'capitalize' },
             ].map((kpi, i) => (
-              <div key={i} className="bg-white rounded-lg shadow p-4">
-                <div className="text-xs text-gray-500 uppercase tracking-wide">{kpi.label}</div>
-                <div className={`text-2xl font-bold mt-1 ${kpi.className || ''}`} style={{ color: kpi.color }}>{kpi.value}</div>
-              </div>
+              <Card key={i}>
+                <CardContent className="pt-4">
+                  <p className="text-xs text-muted-foreground uppercase">{kpi.label}</p>
+                  <p className={`text-2xl font-bold mt-1 ${kpi.color || ''} ${kpi.className || ''}`}>{kpi.value}</p>
+                </CardContent>
+              </Card>
             ))}
           </div>
 
-          {/* Stats detail */}
+          {/* Stats */}
           {stats && (
-            <div className="bg-white rounded-lg shadow p-5">
-              <h3 className="font-semibold mb-3">Dataset Statistics</h3>
-              <div className="grid grid-cols-4 gap-4 text-sm">
-                <div><span className="text-gray-500">Min words:</span> {stats.min_word_count}</div>
-                <div><span className="text-gray-500">Max words:</span> {stats.max_word_count}</div>
-                <div><span className="text-gray-500">Avg word len:</span> {stats.avg_word_length?.toFixed(1)}</div>
-                {stats.exact_duplicates !== undefined && (
-                  <div>
-                    <span className="text-gray-500">Exact dupes:</span> {stats.exact_duplicates}
-                    {stats.duplicate_rate !== undefined && <span className="text-gray-400 ml-1">({(stats.duplicate_rate * 100).toFixed(1)}%)</span>}
-                  </div>
-                )}
-              </div>
-            </div>
+            <Card>
+              <CardHeader><CardTitle className="text-base">Dataset Statistics</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-4 gap-3 text-sm">
+                  <div><span className="text-muted-foreground">Min words:</span> {stats.min_word_count}</div>
+                  <div><span className="text-muted-foreground">Max words:</span> {stats.max_word_count}</div>
+                  <div><span className="text-muted-foreground">Avg word len:</span> {stats.avg_word_length?.toFixed(1)}</div>
+                  {stats.exact_duplicates !== undefined && (
+                    <div><span className="text-muted-foreground">Exact dupes:</span> {stats.exact_duplicates} ({((stats.duplicate_rate ?? 0) * 100).toFixed(1)}%)</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           )}
 
-          {/* Bar chart */}
+          {/* Chart */}
           {chartData.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-5">
-              <h3 className="font-semibold mb-3">Filter Pass Rates</h3>
-              <ResponsiveContainer width="100%" height={Math.max(200, chartData.length * 40)}>
-                <BarChart data={chartData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={140} />
-                  <Tooltip formatter={(v: number) => [`${v}%`, 'Pass Rate']} />
-                  <Bar dataKey="pass_rate" radius={[0, 4, 4, 0]}>
-                    {chartData.map((entry, i) => (
-                      <Cell key={i} fill={passColor(entry.pass_rate / 100)} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <Card>
+              <CardHeader><CardTitle className="text-base">Filter Pass Rates</CardTitle></CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={Math.max(200, chartData.length * 40)}>
+                  <BarChart data={chartData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={120} />
+                    <Tooltip formatter={(v: number) => [`${v}%`, 'Pass Rate']} />
+                    <Bar dataKey="pass_rate" radius={[0, 4, 4, 0]}>
+                      {chartData.map((entry, i) => (
+                        <Cell key={i} fill={passColor(entry.pass_rate / 100)} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
           )}
 
-          {/* Filter detail with rule breakdown */}
-          <div className="bg-white rounded-lg shadow p-5">
-            <h3 className="font-semibold mb-3">Filter Details</h3>
-            <div className="space-y-1">
+          {/* Filter details */}
+          <Card>
+            <CardHeader><CardTitle className="text-base">Filter Details</CardTitle></CardHeader>
+            <CardContent className="space-y-1">
               {filterNames.map(fname => {
                 const f = filters[fname]
                 const rules = f.rules || {}
@@ -180,40 +194,34 @@ export default function QualityCheck() {
                 return (
                   <div key={fname}>
                     <button onClick={() => setExpandedFilter(isOpen ? null : fname)}
-                      className="flex items-center gap-3 w-full px-3 py-2 rounded hover:bg-gray-50 text-left">
-                      <span className="text-xs text-gray-400 w-4">{isOpen ? '▼' : '▶'}</span>
+                      className="flex items-center gap-3 w-full px-3 py-2 rounded-md hover:bg-muted text-left">
+                      <span className="text-xs text-muted-foreground w-4">{isOpen ? '▼' : '▶'}</span>
                       <span className="font-medium text-sm flex-1">{fname}</span>
-                      <span className="text-xs text-gray-500">{f.failed} failed / {f.total}</span>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${f.pass_rate >= 0.95 ? 'bg-green-100 text-green-700' : f.pass_rate >= 0.8 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                      <span className="text-xs text-muted-foreground">{f.failed} failed / {f.total}</span>
+                      <Badge variant={f.pass_rate >= 0.95 ? 'default' : f.pass_rate >= 0.8 ? 'secondary' : 'destructive'}>
                         {(f.pass_rate * 100).toFixed(1)}%
-                      </span>
+                      </Badge>
                     </button>
 
-                    {isOpen && (
-                      <div className="ml-8 mb-3">
-                        {ruleNames.length > 0 && (
-                          <table className="w-full text-xs mt-1">
-                            <thead><tr className="text-gray-500 border-b"><th className="text-left py-1 pr-4">Rule</th><th className="text-right pr-4">Failed</th><th className="text-right">Pass Rate</th></tr></thead>
+                    {expandedFilter === fname && (
+                      <div className="ml-8 mb-3 space-y-2">
+                        {f.rules && Object.keys(f.rules).length > 0 && (
+                          <table className="w-full text-xs">
+                            <thead><tr className="text-muted-foreground"><th className="text-left py-1">Rule</th><th className="text-right">Failed</th><th className="text-right">Pass Rate</th></tr></thead>
                             <tbody>
                               {ruleNames.map(rule => (
-                                <tr key={rule} className="border-b border-gray-50">
-                                  <td className="py-1 pr-4 font-mono">{rule}</td>
-                                  <td className="text-right pr-4 text-red-600">{rules[rule].failed}</td>
-                                  <td className="text-right">{(rules[rule].pass_rate * 100).toFixed(1)}%</td>
-                                </tr>
+                                <tr key={rule} className="border-t"><td className="py-1 font-mono">{rule}</td><td className="text-right text-destructive">{rules[rule].failed}</td><td className="text-right">{(rules[rule].pass_rate * 100).toFixed(1)}%</td></tr>
                               ))}
                             </tbody>
                           </table>
                         )}
-
                         {f.sample_failed && f.sample_failed.length > 0 && (
-                          <div className="mt-2 space-y-1">
-                            <div className="text-xs font-medium text-gray-500">Sample failures:</div>
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-1">Sample failures:</p>
                             {f.sample_failed.map((s, i) => (
-                              <div key={i} className="bg-red-50 rounded p-2 text-xs">
-                                <span className="text-red-700 font-medium">{s.reason?.reason || 'unknown'}</span>
-                                {s.reason?.value && <span className="text-gray-500 ml-2">({String(s.reason.value).slice(0, 50)})</span>}
-                                <div className="text-gray-500 mt-0.5 font-mono text-[11px] truncate">{s.text_preview?.slice(0, 150)}</div>
+                              <div key={i} className="bg-destructive/10 rounded p-2 mb-1 text-xs">
+                                <p className="text-destructive font-medium">{s.reason?.reason || 'unknown'}</p>
+                                <p className="text-muted-foreground mt-0.5 font-mono text-[11px] truncate">{s.text_preview?.slice(0, 150)}</p>
                               </div>
                             ))}
                           </div>
@@ -223,10 +231,11 @@ export default function QualityCheck() {
                   </div>
                 )
               })}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </>
       )}
     </div>
   )
 }
+

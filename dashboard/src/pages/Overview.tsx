@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useApp } from '@/context'
 import { api } from '@/hooks/useApi'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
 interface StageInfo {
@@ -15,16 +17,6 @@ const STAGE_LABELS: Record<string, string> = {
   ingestion: 'Ingestion', extraction: 'Extraction', curation: 'Curation', packaging: 'Packaging',
 }
 
-function KPI({ label, value, color, sub }: { label: string; value: string; color?: string; sub?: string }) {
-  return (
-    <div className="bg-white rounded-lg shadow p-4">
-      <div className="text-xs text-gray-500 uppercase tracking-wide">{label}</div>
-      <div className="text-3xl font-bold mt-1" style={color ? { color } : undefined}>{value}</div>
-      {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
-    </div>
-  )
-}
-
 export default function Overview() {
   const { outputDir, refreshKey } = useApp()
   const [overview, setOverview] = useState<OverviewData | null>(null)
@@ -32,16 +24,15 @@ export default function Overview() {
   const [error, setError] = useState(false)
 
   useEffect(() => {
-    // Single request for all stages + stats
     api<any[]>(`/api/stages/all?output_dir=${encodeURIComponent(outputDir)}`).then(data => {
       setStages(data.filter((s: any) => s.stats).map((s: any) => s.stats))
     }).catch(() => setError(true))
 
     api<OverviewData>(`/api/overview?output_dir=${encodeURIComponent(outputDir)}`)
       .then(setOverview).catch(() => {})
-  }, [outputDir, refreshKey])
+  }, [outputDir])
 
-  if (error && !overview && !stages.length) return <p className="text-gray-400 p-8">No pipeline data yet. Run the pipeline first.</p>
+  if (error && !stages.length) return <p className="text-muted-foreground p-8">No pipeline data yet. Run the pipeline first.</p>
 
   const raw = stages[0]?.input_count ?? 0
   const final_ = stages.length ? stages[stages.length - 1]?.output_count ?? 0 : 0
@@ -60,67 +51,74 @@ export default function Overview() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-5 gap-4">
-        <KPI label="Input Docs" value={raw.toLocaleString()} />
-        <KPI label="Final Output" value={final_.toLocaleString()} />
-        <KPI label="Retention" value={`${retention}%`} sub={`${(raw - final_).toLocaleString()} rejected`}
-          color={Number(retention) >= 80 ? '#22c55e' : Number(retention) >= 50 ? '#eab308' : '#ef4444'} />
-        <KPI label="Total Time" value={`${totalTime.toFixed(1)}s`} />
-        <KPI label="Version" value={overview?.version || '—'} />
+        {[
+          { label: 'Input Docs', value: raw.toLocaleString() },
+          { label: 'Final Output', value: final_.toLocaleString() },
+          { label: 'Retention', value: `${retention}%`, color: Number(retention) >= 80 ? 'text-green-600' : Number(retention) >= 50 ? 'text-yellow-600' : 'text-red-600' },
+          { label: 'Total Time', value: `${totalTime.toFixed(1)}s` },
+          { label: 'Version', value: overview?.version || '—' },
+        ].map((kpi, i) => (
+          <Card key={i}>
+            <CardContent className="pt-4 pb-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">{kpi.label}</p>
+              <p className={`text-2xl font-bold mt-1 ${kpi.color || ''}`}>{kpi.value}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Funnel chart */}
       {funnelData.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-5">
-          <h3 className="font-semibold mb-3">Pipeline Funnel</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={funnelData} barGap={-20}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="Input" fill="#bfdbfe" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Output" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <Card>
+          <CardHeader><CardTitle>Pipeline Funnel</CardTitle></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={funnelData} barGap={-20}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="Input" fill="hsl(var(--muted))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Output" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Per-stage details with reject reasons */}
+      {/* Per-stage details */}
       {stages.map(s => {
         const reasons = Object.entries(s.reject_reasons || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
-        const label = STAGE_LABELS[s.phase] || s.phase
-
         return (
-          <div key={s.phase} className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
-              <div className="flex-1">
-                <h3 className="font-bold text-lg">{label}</h3>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  {s.input_count.toLocaleString()} in &rarr; {s.output_count.toLocaleString()} kept, {s.rejected_count.toLocaleString()} rejected
-                  <span className="text-gray-400 ml-2">({s.duration_seconds?.toFixed(1)}s)</span>
+          <Card key={s.phase}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle>{STAGE_LABELS[s.phase] || s.phase}</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {s.input_count.toLocaleString()} in &rarr; {s.output_count.toLocaleString()} kept, {s.rejected_count.toLocaleString()} rejected ({s.duration_seconds?.toFixed(1)}s)
                 </p>
               </div>
-              <span className={`px-3 py-1 rounded text-sm font-medium ${s.keep_rate >= 0.9 ? 'bg-green-100 text-green-700' : s.keep_rate >= 0.7 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+              <Badge variant={s.keep_rate >= 0.9 ? 'default' : s.keep_rate >= 0.7 ? 'secondary' : 'destructive'}>
                 {(s.keep_rate * 100).toFixed(1)}% kept
-              </span>
-            </div>
+              </Badge>
+            </CardHeader>
             {reasons.length > 0 && (
-              <div className="p-5">
-                <div className="text-sm font-medium text-gray-500 mb-2">Rejection Reasons</div>
+              <CardContent>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Rejection Reasons</p>
                 <ResponsiveContainer width="100%" height={Math.max(80, reasons.length * 32)}>
                   <BarChart data={reasons.map(([rule, count]) => ({ rule, count }))} layout="vertical" margin={{ left: 180 }}>
                     <XAxis type="number" />
                     <YAxis type="category" dataKey="rule" tick={{ fontSize: 11 }} width={170} />
                     <Tooltip />
-                    <Bar dataKey="count" fill="#ef4444" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="count" fill="hsl(var(--destructive))" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
+              </CardContent>
             )}
             {reasons.length === 0 && (
-              <div className="px-5 py-3 text-sm text-green-600">No rejections</div>
+              <CardContent><p className="text-sm text-green-600">No rejections</p></CardContent>
             )}
-          </div>
+          </Card>
         )
       })}
     </div>

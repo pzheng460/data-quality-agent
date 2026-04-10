@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '@/context'
 import { api } from '@/hooks/useApi'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
