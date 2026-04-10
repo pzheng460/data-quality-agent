@@ -1,0 +1,614 @@
+latexml (LaTeXML version 0.8.6) processing /tmp/tmpjmvmzm3q/paper.tex
+(Digesting TeX paper...
+(Loading /usr/share/perl5/LaTeXML/Package/TeX.pool.ltxml...
+(Loading /usr/share/perl5/LaTeXML/Package/eTeX.pool.ltxml... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/pdfTeX.pool.ltxml... 0.00 sec) 0.07 sec)
+(Processing content /tmp/tmpjmvmzm3q/paper.tex...
+(Loading /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml...
+(Loading /usr/share/perl5/LaTeXML/Package/textcomp.sty.ltxml...
+(Processing definitions /usr/share/texlive/texmf-dist/tex/latex/base/ts1enc.dfu... 0.01 sec) 0.04 sec) 0.14 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/article.cls.ltxml... 0.00 sec)
+Info:fallback:neurips_2021.sty Interpreted _2021 as a versioned package/class name, falling back to generic neurips.sty
+	at paper.tex; line 5 col 0 - line 5 col 1
+(Loading /usr/share/perl5/LaTeXML/Package/neurips.sty.ltxml...
+(Loading /usr/share/perl5/LaTeXML/Package/natbib.sty.ltxml... 0.01 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/geometry.sty.ltxml...
+(Loading /usr/share/perl5/LaTeXML/Package/keyval.sty.ltxml...
+(Processing definitions /usr/share/texlive/texmf-dist/tex/latex/graphics/keyval.sty... 0.01 sec) 0.01 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/ifpdf.sty.ltxml... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/ifvtex.sty.ltxml... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/ifxetex.sty.ltxml... 0.00 sec) 0.02 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/lineno.sty.ltxml... 0.00 sec) 0.03 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/inputenc.sty.ltxml...
+(Loading /usr/share/perl5/LaTeXML/Package/utf8.def.ltxml... 0.00 sec) 0.01 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/fontenc.sty.ltxml...
+(Loading /usr/share/perl5/LaTeXML/Package/t1enc.def.ltxml...
+(Processing definitions /usr/share/texlive/texmf-dist/tex/latex/base/t1enc.def...
+(Processing definitions /usr/share/texlive/texmf-dist/tex/latex/base/t1enc.dfu... 0.03 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/t1.fontmap.ltxml... 0.00 sec) 0.07 sec) 0.07 sec) 0.07 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/hyperref.sty.ltxml...
+(Loading /usr/share/perl5/LaTeXML/Package/nameref.sty.ltxml... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/url.sty.ltxml... 0.00 sec) 0.02 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/booktabs.sty.ltxml... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/amsfonts.sty.ltxml... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/nicefrac.sty.ltxml... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/microtype.sty.ltxml... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/xcolor.sty.ltxml...
+(Loading /usr/share/perl5/LaTeXML/Package/color.sty.ltxml... 0.00 sec) 0.03 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/graphicx.sty.ltxml...
+(Loading /usr/share/perl5/LaTeXML/Package/graphics.sty.ltxml... 0.00 sec) 0.01 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/longtable.sty.ltxml... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/caption.sty.ltxml... 0.00 sec)
+Warning:missing_file:mdframed Can't find binding for package mdframed
+	at paper.tex; line 19 col 11 - line 19 col 11
+	Anticipate undefined macros or environments
+	search paths are /tmp/tmpjmvmzm3q, /home/zhengpeizhen/data-quality-agent
+	In Core::Definition::Constructor[\usepac... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 806
+(Loading /usr/share/perl5/LaTeXML/Package/subcaption.sty.ltxml... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/multirow.sty.ltxml... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/placeins.sty.ltxml... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/multicol.sty.ltxml... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/makecell.sty.ltxml...
+Warning:missing_file:makecell Can't find package makecell
+	at makecell.sty.ltxml; line 18
+	Anticipate undefined macros or environments
+	In Core::Gullet[@0x55b4fcb337d8] /usr/share/perl5/LaTeXML/Package/makecell.sty.ltxml; line 18
+ 0.01 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/ulem.sty.ltxml... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/wrapfig.sty.ltxml... 0.00 sec)
+Warning:missing_file:overpic Can't find binding for package overpic
+	at paper.tex; line 27 col 11 - line 27 col 11
+	Anticipate undefined macros or environments
+	In Core::Definition::Constructor[\usepac... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 806
+(Loading /usr/share/perl5/LaTeXML/Package/lipsum.sty.ltxml...
+Warning:missing_file:lipsum Can't find package lipsum
+	at lipsum.sty.ltxml; line 19
+	Anticipate undefined macros or environments
+	In Core::Gullet[@0x55b4fcb337d8] /usr/share/perl5/LaTeXML/Package/lipsum.sty.ltxml; line 19
+ 0.02 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml...
+Warning:missing_file:csquotes Can't find package csquotes
+	at csquotes.sty.ltxml; line 25
+	Anticipate undefined macros or environments
+	In Core::Gullet[@0x55b4fcb337d8] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 25
+Error:undefined:\newrobustcmd The token T_CS[\newrobustcmd] is not defined.
+	at csquotes.sty.ltxml; line 141
+	Defining it now as <ltx:ERROR/>
+	Next token is T_OTHER[*] ( == T_OTHER[*])
+	In Core::Gullet[@0x55b4fcb337d8] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Definition::Constructor[\usepac... <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:undefined:\csq@addbspecial The token T_CS[\csq@addbspecial] is not defined.
+	at csquotes.sty.ltxml; line 141
+	Defining it now as <ltx:ERROR/>
+	Next token is T_BEGIN[{] ( == T_BEGIN[{])
+	In Core::Gullet[@0x55b4fcb337d8] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:misdefined:# The token T_PARAM[#] should never reach Stomach!
+	at csquotes.sty.ltxml; line 141
+	In Core::Stomach[@0x55b4fcb32f20] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= ...
+Error:misdefined:# The token T_PARAM[#] should never reach Stomach!
+	at csquotes.sty.ltxml; line 141
+	In Core::Stomach[@0x55b4fcb32f20] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= ...
+Error:misdefined:# The token T_PARAM[#] should never reach Stomach!
+	at csquotes.sty.ltxml; line 141
+	In Core::Stomach[@0x55b4fcb32f20] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= ...
+Error:undefined:\csq@bquote The token T_CS[\csq@bquote] is not defined.
+	at csquotes.sty.ltxml; line 141
+	Defining it now as <ltx:ERROR/>
+	Next token is T_BEGIN[{] ( == T_BEGIN[{])
+	In Core::Gullet[@0x55b4fcb337d8] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:undefined:\ltxml@mkcitation The token T_CS[\ltxml@mkcitation] is not defined.
+	at csquotes.sty.ltxml; line 141
+	Defining it now as <ltx:ERROR/>
+	Next token is T_END[}] ( == T_END[}])
+	In Core::Gullet[@0x55b4fcb337d8] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:misdefined:# The token T_PARAM[#] should never reach Stomach!
+	at csquotes.sty.ltxml; line 141
+	In Core::Stomach[@0x55b4fcb32f20] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= ...
+Error:misdefined:# The token T_PARAM[#] should never reach Stomach!
+	at csquotes.sty.ltxml; line 141
+	In Core::Stomach[@0x55b4fcb32f20] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= ...
+Error:misdefined:# The token T_PARAM[#] should never reach Stomach!
+	at csquotes.sty.ltxml; line 141
+	In Core::Stomach[@0x55b4fcb32f20] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= ...
+Error:undefined:\csq@lang The token T_CS[\csq@lang] is not defined.
+	at csquotes.sty.ltxml; line 141
+	Defining it now as <ltx:ERROR/>
+	Next token is T_BEGIN[{] ( == T_BEGIN[{])
+	In Core::Gullet[@0x55b4fcb337d8] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:misdefined:# The token T_PARAM[#] should never reach Stomach!
+	at csquotes.sty.ltxml; line 141
+	In Core::Stomach[@0x55b4fcb32f20] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= ...
+Error:undefined:\csq@endlang The token T_CS[\csq@endlang] is not defined.
+	at csquotes.sty.ltxml; line 141
+	Defining it now as <ltx:ERROR/>
+	Next token is T_END[}] ( == T_END[}])
+	In Core::Gullet[@0x55b4fcb337d8] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:misdefined:# The token T_PARAM[#] should never reach Stomach!
+	at csquotes.sty.ltxml; line 141
+	In Core::Stomach[@0x55b4fcb32f20] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= ...
+Error:misdefined:# The token T_PARAM[#] should never reach Stomach!
+	at csquotes.sty.ltxml; line 141
+	In Core::Stomach[@0x55b4fcb32f20] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= ...
+Error:misdefined:# The token T_PARAM[#] should never reach Stomach!
+	at csquotes.sty.ltxml; line 141
+	In Core::Stomach[@0x55b4fcb32f20] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= ...
+Error:undefined:\csq@hyph The token T_CS[\csq@hyph] is not defined.
+	at csquotes.sty.ltxml; line 141
+	Defining it now as <ltx:ERROR/>
+	Next token is T_BEGIN[{] ( == T_BEGIN[{])
+	In Core::Gullet[@0x55b4fcb337d8] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:misdefined:# The token T_PARAM[#] should never reach Stomach!
+	at csquotes.sty.ltxml; line 141
+	In Core::Stomach[@0x55b4fcb32f20] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= ...
+Error:undefined:\csq@endhyph The token T_CS[\csq@endhyph] is not defined.
+	at csquotes.sty.ltxml; line 141
+	Defining it now as <ltx:ERROR/>
+	Next token is T_END[}] ( == T_END[}])
+	In Core::Gullet[@0x55b4fcb337d8] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:misdefined:# The token T_PARAM[#] should never reach Stomach!
+	at csquotes.sty.ltxml; line 141
+	In Core::Stomach[@0x55b4fcb32f20] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= ...
+Error:misdefined:# The token T_PARAM[#] should never reach Stomach!
+	at csquotes.sty.ltxml; line 141
+	In Core::Stomach[@0x55b4fcb32f20] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= ...
+Error:misdefined:# The token T_PARAM[#] should never reach Stomach!
+	at csquotes.sty.ltxml; line 141
+	In Core::Stomach[@0x55b4fcb32f20] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= ...
+Error:undefined:\iftoggle The token T_CS[\iftoggle] is not defined.
+	at csquotes.sty.ltxml; line 141
+	Defining it now as with \newif
+	Next token is T_BEGIN[{] ( == T_BEGIN[{])
+	In Core::Gullet[@0x55b4fcb337d8] /usr/share/perl5/LaTeXML/Package/csquotes.sty.ltxml; line 141
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:expected:\fi Missing \fi or \else, conditional fell off end
+	at csquotes.sty.ltxml; line 141
+	Conditional started at csquotes.sty.ltxml; line 141
+	Input is empty
+	In Core::Definition::Conditional[\iffalse] /usr/share/perl5/LaTeXML/Package/TeX.pool.ltxml; line 798
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+ 0.20 sec)
+Info:unexpected:options Option clash for file fontenc.sty with options 'OT2,T1'
+	at paper.tex; line 30 col 11 - line 30 col 11
+	previously loaded with 'T1'
+(Loading /usr/share/perl5/LaTeXML/Package/babel.sty.ltxml...
+(Processing definitions /usr/share/texlive/texmf-dist/tex/generic/babel/babel.sty...
+(Processing definitions /usr/share/texlive/texmf-dist/tex/generic/config/language.def... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/txtbabel.def.ltxml...
+(Processing definitions /usr/share/texlive/texmf-dist/tex/generic/babel/txtbabel.def... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/babel_support.sty.ltxml... 0.00 sec) 0.01 sec)
+(Processing definitions /usr/share/texlive/texmf-dist/tex/generic/babel-english/english.ldf... 0.10 sec) 0.92 sec) 0.92 sec)
+Warning:missing_file:devanagari Can't find binding for package devanagari
+	at paper.tex; line 32 col 11 - line 32 col 11
+	Anticipate undefined macros or environments
+	In Core::Definition::Constructor[\usepac... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 806
+(Loading /usr/share/perl5/LaTeXML/Package/tablefootnote.sty.ltxml... 0.00 sec)
+(Loading /usr/share/perl5/LaTeXML/Package/pdfpages.sty.ltxml... 0.00 sec)
+Warning:missing_file:macros Can't find binding for package macros
+	at paper.tex; line 37 col 0 - line 37 col 1
+	Anticipate undefined macros or environments
+	In Core::Definition::Constructor[\usepac... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 806
+Error:undefined:\newmdenv The token T_CS[\newmdenv] is not defined.
+	at paper.tex; line 38 col 9 - line 38 col 9
+	Defining it now as <ltx:ERROR/>
+	Next token is T_OTHER[[] ( == T_OTHER[[])
+	In Core::Gullet[@0x55b4fcb337d8] /tmp/tmpjmvmzm3q/paper.tex; from line 38 col 0 to line 38 col 10
+	 <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\small Unrecognized tabular template 'T_CS[\small]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\small Unrecognized tabular template 'T_CS[\small]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\small Unrecognized tabular template 'T_CS[\small]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\small Unrecognized tabular template 'T_CS[\small]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 237 col 0 - line 237 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 261 col 0 - line 261 col 200
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 261 col 0 - line 261 col 200
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 261 col 0 - line 261 col 200
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 261 col 0 - line 261 col 200
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 261 col 0 - line 261 col 200
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 261 col 0 - line 261 col 200
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 261 col 0 - line 261 col 200
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 261 col 0 - line 261 col 200
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 261 col 0 - line 261 col 200
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 261 col 0 - line 261 col 200
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 261 col 0 - line 261 col 200
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 261 col 0 - line 261 col 200
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 261 col 0 - line 261 col 200
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 261 col 0 - line 261 col 200
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 261 col 0 - line 261 col 200
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Error:undefined:{monobox} The environment {monobox} is not defined.
+	at paper.tex; line 818 col 0 - line 818 col 15
+	Next token is T_SPACE[U+000a/LF] ( == T_SPACE[U+000a/LF])
+	In Core::Definition::Expandable[\begin {}] /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 180
+	 <= Core::Gullet[@0x55b4fcb337d8] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 925 col 0 - line 925 col 130
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 925 col 0 - line 925 col 130
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 925 col 0 - line 925 col 130
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 925 col 0 - line 925 col 130
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 925 col 0 - line 925 col 130
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 925 col 0 - line 925 col 130
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 925 col 0 - line 925 col 130
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 925 col 0 - line 925 col 130
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 925 col 0 - line 925 col 130
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 981 col 0 - line 981 col 202
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 981 col 0 - line 981 col 202
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 981 col 0 - line 981 col 202
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 981 col 0 - line 981 col 202
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 981 col 0 - line 981 col 202
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 981 col 0 - line 981 col 202
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 981 col 0 - line 981 col 202
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 981 col 0 - line 981 col 202
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 981 col 0 - line 981 col 202
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 981 col 0 - line 981 col 202
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 981 col 0 - line 981 col 202
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 981 col 0 - line 981 col 202
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 981 col 0 - line 981 col 202
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 981 col 0 - line 981 col 202
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 981 col 0 - line 981 col 202
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Error:undefined:\makecell The token T_CS[\makecell] is not defined.
+	at paper.tex; line 985 col 23 - line 985 col 23
+	Defining it now as <ltx:ERROR/>
+	Next token is T_OTHER[[] ( == T_OTHER[[])
+	In Core::Gullet[@0x55b4fcb337d8] /tmp/tmpjmvmzm3q/paper.tex; from line 985 col 24 to line 985 col 24
+	 <= Core::Definition::Constructor[\@start... <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Constructor[\@@tabu... <= ...
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 1084 col 0 - line 1084 col 14
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:> Unrecognized tabular template 'T_OTHER[>]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\centering Unrecognized tabular template 'T_CS[\centering]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Warning:unexpected:\arraybackslash Unrecognized tabular template 'T_CS[\arraybackslash]'
+	at paper.tex; line 1097 col 0 - line 1097 col 234
+	In Core::Definition::Primitive[\@tabular... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 3489
+Error:undefined:\dn The token T_CS[\dn] is not defined.
+	at paper.tex; line 1181 col 4 - line 1181 col 4
+	Defining it now as <ltx:ERROR/>
+	Next token is T_LETTER[a] ( == T_LETTER[a])
+	In Core::Gullet[@0x55b4fcb337d8] /tmp/tmpjmvmzm3q/paper.tex; from line 1181 col 6 to line 1181 col 6
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:undefined:\3 The token T_CS[\3] is not defined.
+	at paper.tex; line 1181 col 15 - line 1181 col 15
+	Defining it now as <ltx:ERROR/>
+	Next token is T_OTHER[0] ( == T_OTHER[0])
+	In Core::Gullet[@0x55b4fcb337d8] /tmp/tmpjmvmzm3q/paper.tex; from line 1181 col 16 to line 1181 col 16
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:undefined:\? The token T_CS[\?] is not defined.
+	at paper.tex; line 1181 col 20 - line 1181 col 20
+	Defining it now as <ltx:ERROR/>
+	Next token is T_SPACE[ ] ( == T_SPACE[ ])
+	In Core::Gullet[@0x55b4fcb337d8] /tmp/tmpjmvmzm3q/paper.tex; from line 1181 col 21 to line 1181 col 21
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:undefined:\rs The token T_CS[\rs] is not defined.
+	at paper.tex; line 1181 col 33 - line 1181 col 33
+	Defining it now as <ltx:ERROR/>
+	Next token is T_OTHER[?] ( == T_OTHER[?])
+	In Core::Gullet[@0x55b4fcb337d8] /tmp/tmpjmvmzm3q/paper.tex; from line 1181 col 35 to line 1181 col 35
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:undefined:\re The token T_CS[\re] is not defined.
+	at paper.tex; line 1181 col 38 - line 1181 col 38
+	Defining it now as <ltx:ERROR/>
+	Next token is T_END[}] ( == T_END[}])
+	In Core::Gullet[@0x55b4fcb337d8] /tmp/tmpjmvmzm3q/paper.tex; from line 1181 col 39 to line 1181 col 39
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:undefined:\9 The token T_CS[\9] is not defined.
+	at paper.tex; line 1182 col 15 - line 1182 col 15
+	Defining it now as <ltx:ERROR/>
+	Next token is T_BEGIN[{] ( == T_BEGIN[{])
+	In Core::Gullet[@0x55b4fcb337d8] /tmp/tmpjmvmzm3q/paper.tex; from line 1182 col 16 to line 1182 col 16
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:undefined:\0 The token T_CS[\0] is not defined.
+	at paper.tex; line 1182 col 49 - line 1182 col 49
+	Defining it now as <ltx:ERROR/>
+	Next token is T_SPACE[ ] ( == T_SPACE[ ])
+	In Core::Gullet[@0x55b4fcb337d8] /tmp/tmpjmvmzm3q/paper.tex; from line 1182 col 50 to line 1182 col 50
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:undefined:\8 The token T_CS[\8] is not defined.
+	at paper.tex; line 1182 col 55 - line 1182 col 55
+	Defining it now as <ltx:ERROR/>
+	Next token is T_BEGIN[{] ( == T_BEGIN[{])
+	In Core::Gullet[@0x55b4fcb337d8] /tmp/tmpjmvmzm3q/paper.tex; from line 1182 col 56 to line 1182 col 56
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:undefined:\2 The token T_CS[\2] is not defined.
+	at paper.tex; line 1182 col 60 - line 1182 col 60
+	Defining it now as <ltx:ERROR/>
+	Next token is T_LETTER[c] ( == T_LETTER[c])
+	In Core::Gullet[@0x55b4fcb337d8] /tmp/tmpjmvmzm3q/paper.tex; from line 1182 col 61 to line 1182 col 61
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:undefined:\7 The token T_CS[\7] is not defined.
+	at paper.tex; line 1184 col 29 - line 1184 col 29
+	Defining it now as <ltx:ERROR/>
+	Next token is T_BEGIN[{] ( == T_BEGIN[{])
+	In Core::Gullet[@0x55b4fcb337d8] /tmp/tmpjmvmzm3q/paper.tex; from line 1184 col 30 to line 1184 col 30
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Definition::Primitive[Begin] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:unexpected:_ Script _ can only appear in math mode
+	at paper.tex; line 1370 col 0 - line 1370 col 51
+	In Core::Definition::Primitive[Subscript] /usr/share/perl5/LaTeXML/Package/TeX.pool.ltxml; line 4061
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Gullet[@0x55b4fcb337d8] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:unexpected:_ Script _ can only appear in math mode
+	at paper.tex; line 1370 col 0 - line 1370 col 51
+	In Core::Definition::Primitive[Subscript] /usr/share/perl5/LaTeXML/Package/TeX.pool.ltxml; line 4061
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Gullet[@0x55b4fcb337d8] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Error:unexpected:_ Script _ can only appear in math mode
+	at paper.tex; line 1370 col 0 - line 1370 col 51
+	In Core::Definition::Primitive[Subscript] /usr/share/perl5/LaTeXML/Package/TeX.pool.ltxml; line 4061
+	 <= Core::Stomach[@0x55b4fcb32f20] <= Core::Gullet[@0x55b4fcb337d8] <= Core::Stomach[@0x55b4fcb32f20] <= ...
+Warning:unexpected:\end{document} Attempt to end document with open groups, environments or conditionals
+	at paper.tex; line 1375 col 0 - line 1375 col 14
+	Conditional \iftogglestarted csquotes.sty.ltxml; line 141
+	In Core::Definition::Constructor[\end{do... /usr/share/perl5/LaTeXML/Package/LaTeX.pool.ltxml; line 395
+ 6.35 sec) 6.45 sec)
+(Building...
+(Loading compiled schema /usr/share/perl5/LaTeXML/resources/RelaxNG/LaTeXML.model... 0.01 sec) 4.40 sec)
+(Rewriting... 0.01 sec)
+(Math Parsing 33 formulae ......
+Warning:not_parsed:NUMBER.PUNCT.NUMBER>MULOP MathParser failed to match rule 'Anything'
+	at paper.tex; line 135 col 478 - line 135 col 489
+	In "$1,000\times$"
+	1[[NUMBER]] ,[[PUNCT]] 000[[NUMBER]]
+	        > ×[[MULOP]]
+Warning:not_parsed:NUMBER.PUNCT.NUMBER>MULOP MathParser failed to match rule 'Anything'
+	at paper.tex; line 135 col 495 - line 135 col 507
+	In "$10,000\times$"
+	10[[NUMBER]] ,[[PUNCT]] 000[[NUMBER]]
+	        > ×[[MULOP]]
+Warning:not_parsed:NUMBER.PUNCT.NUMBER>MULOP MathParser failed to match rule 'Anything'
+	at paper.tex; line 154 col 529 - line 154 col 540
+	In "$1,000\times$"
+	1[[NUMBER]] ,[[PUNCT]] 000[[NUMBER]]
+	        > ×[[MULOP]]
+ 0.16 sec)
+Math parsing succeeded:
+   ltx:XMArg: 14/14
+   ltx:XMath: 30/33
+Symbols assumed as simple identifiers (with # of occurences):
+   'C' (2), 'C{italic}' (9), 'E' (1), 'L{italic}' (6), 'T{italic}' (22), '_' (2), 'alpha' (1), 'a{italic}' (1), 'b{italic}' (5), 'c{italic}' (1), 'd{italic}' (4), 'k{italic}' (1), 'pass' (2), 'rate' (2), 'x{italic}' (8)
+Set MATHPARSER_SPECULATE to speculate on possible notations.
+(Finalizing... 0.26 sec)
+Conversion complete 105 warnings; 40 errors; 22 undefined macros[\ltxml@mkcitation, \newmdenv, \3, \dn, \csq@bquote, \7, \makecell, \csq@lang, \0, \csq@addbspecial, \rs, \9, \csq@hyph, \newrobustcmd, \csq@endlang, \re, \2, \csq@endhyph, {monobox}, \?, \8, \iftoggle]; 7 missing files[mdframed.sty, overpic.sty, devanagari.sty, macros.sty, makecell.sty, lipsum.sty, csquotes.sty] (See /home/zhengpeizhen/data-quality-agent/paper.latexml.log) (reqd. 11.54s)

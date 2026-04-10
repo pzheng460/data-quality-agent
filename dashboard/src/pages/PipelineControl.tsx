@@ -173,23 +173,25 @@ export default function PipelineControl() {
       <div className="space-y-4">
         {STAGES.map(stage => {
           const result = stageResults[stage.key]
-          const isDone = !!result
+          const isSkipped = result && (result as any).skipped
+          const isDone = !!result && !isSkipped
           const isRunning = pipeStatus === 'running'
 
           return (
-            <div key={stage.key} className={`bg-white rounded-lg shadow overflow-hidden ${isDone ? 'ring-1 ring-green-200' : ''}`}>
+            <div key={stage.key} className={`bg-white rounded-lg shadow overflow-hidden ${isDone ? 'ring-1 ring-green-200' : isSkipped ? 'ring-1 ring-yellow-200' : ''}`}>
               {/* Stage header */}
               <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${isDone ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${isDone ? 'bg-green-500 text-white' : isSkipped ? 'bg-yellow-400 text-white' : 'bg-gray-200 text-gray-600'}`}>
                   {stage.num}
                 </div>
                 <div className="flex-1">
                   <div className="font-semibold text-sm">{stage.label}</div>
-                  <div className="text-xs text-gray-400">{stage.desc || stage.desc}</div>
+                  <div className="text-xs text-gray-400">{stage.desc}</div>
                 </div>
-                {result && (
+                {isSkipped && <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded">skipped (resume)</span>}
+                {isDone && result && (
                   <div className="text-xs text-gray-500">
-                    {result.input_count} in → {result.output_count} kept ({(result.keep_rate * 100).toFixed(1)}%, {result.duration_seconds.toFixed(1)}s)
+                    {result.input_count} in → {result.output_count} kept ({(result.keep_rate * 100).toFixed(1)}%, {result.duration_seconds?.toFixed(1)}s)
                   </div>
                 )}
                 <button disabled={pipeStatus === 'running'} onClick={() => runStage(stage.num)}

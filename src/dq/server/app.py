@@ -99,6 +99,8 @@ def _run_pipeline(req: RunRequest) -> None:
         for name, func in stage_list:
             if req.resume and engine.is_stage_done(name):
                 _push_event({"type": "phase_skip", "phase": name})
+                with _lock:
+                    _state["progress"].append({"phase": name, "skipped": True})
                 continue
 
             with _lock:
