@@ -92,6 +92,10 @@ def _clean_text(text: str) -> str:
     # Also handle headings without markdown prefix (rare)
     text = re.sub(r"^(#{1,4}\s+)\d+(?:\.\d+)*\s+", r"\1", text, flags=re.MULTILINE)
 
+    # ── Fix \$ → % (LaTeXML renders \% as \$ in some contexts) ──
+    text = re.sub(r"(\d)\\(\$)", r"\1%", text)  # "37\$" → "37%"
+    text = re.sub(r"\\(\$)\s*\.", r"%.", text)  # "R\$ ." → "R%."
+
     # ── Residual LaTeX commands ──
     text = re.sub(r"\\(?:begin|end)\{[^}]+\}", "", text)
     text = re.sub(r"\\[a-zA-Z]{2,}\b", "", text)

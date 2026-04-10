@@ -174,6 +174,10 @@ def _math_to_latex(el) -> str:
         # Strip LaTeX line-continuation comments (%\n or trailing %)
         alt = re.sub(r"%\s*\n\s*", "", alt)
         alt = alt.rstrip("%").strip()
+        # Strip trailing LaTeX hard space "\ " or lone "\" that breaks $...$
+        alt = re.sub(r"\\[ \t]*$", "", alt)
+        # Fix LaTeXML rendering \% as \$ in some contexts
+        alt = alt.replace("\\$", "\\%")
         # Fix LaTeXML delimiter syntax for KaTeX compatibility:
         # \big{(} → \big(   \Big{\{} → \Big\{   \big{\lceil} → \big\lceil
         alt = re.sub(
