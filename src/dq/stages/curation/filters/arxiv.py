@@ -37,12 +37,12 @@ _HEADING_RE = re.compile(r"^#{1,4}\s+", re.MULTILINE)
 
 # ── Citation patterns ──
 
-# LaTeXML renders <cite> as inline text. Common forms after text extraction:
-#   "touvron2023llama2" (bare citation key)
-#   "[14]" or "[14, 15]" (numeric citations)
-#   "(Smith et al., 2023)" (already readable — leave these)
+# Citation key patterns — LaTeXML renders \cite{key} as plain text.
+# Matches: "touvron2023llama2", "Radford2018ImprovingLU", "chen2024eagle3"
+# Requires at least 2 alpha chars before the year to avoid false positives
 _CITE_KEY_RE = re.compile(
-    r"\b[a-z]+\d{4}[a-z]*\b(?:\s*[,;]\s*\b[a-z]+\d{4}[a-z]*\b)*"
+    r"\b[A-Za-z]{2,}\d{4}[A-Za-z]{2,}\b(?:\s*[,;]\s*\b[A-Za-z]{2,}\d{4}[A-Za-z]*\b)*"
+    r"|\b[a-z]{2,}\d{4}[a-z]*\b(?:\s*[,;]\s*\b[a-z]+\d{4}[a-z]*\b)*"
 )
 
 # ── Section number in headings ──

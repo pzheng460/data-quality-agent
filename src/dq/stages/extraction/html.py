@@ -163,6 +163,9 @@ def _math_to_latex(el) -> str:
     """Extract LaTeX source from a LaTeXML <math> element."""
     alt = el.get("alttext", "")
     if alt:
+        # Strip LaTeX line-continuation comments (%\n or trailing %)
+        alt = re.sub(r"%\s*\n\s*", "", alt)
+        alt = alt.rstrip("%").strip()
         return alt
     tex = el.get("tex", "")
     if tex:
