@@ -78,10 +78,12 @@ def _clean_latex(text: str) -> str:
     cleaned = _ENV_OPTION_RE.sub("", cleaned)
     cleaned = _ORPHANED_BRACE_RE.sub("", cleaned)
 
-    # Table formatting
+    # Table / figure formatting junk
     cleaned = _COL_SPEC_RE.sub("", cleaned)
     cleaned = _WRAPFIG_ARGS_RE.sub("", cleaned)
     cleaned = _TABLE_JUNK_RE.sub("", cleaned)
+    # pandoc may leave \textwidth, \linewidth etc as literal text
+    cleaned = re.sub(r"\b(?:textwidth|linewidth|columnwidth|paperwidth)\b", "", cleaned)
 
     # Step 3: Regex fallback for commands pylatexenc didn't recognize
     # Protect math regions first

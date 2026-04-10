@@ -17,21 +17,10 @@ pipeline:
         max_symbol_ratio: 0.1
         max_ellipsis_lines_ratio: 0.3
         min_stopwords: 2             # academic text has fewer stopwords
-        min_alpha_ratio: 0.7         # formulas lower alpha ratio
+        min_alpha_ratio: 0.4         # pandoc markdown + math lowers alpha ratio
 
     - name: gopher_repetition
-      params:
-        max_top_2gram: 0.20
-        max_top_3gram: 0.18
-        max_top_4gram: 0.16
-        max_dup_line_ratio: 0.30
-        max_dup_para_ratio: 0.30
-        max_dup_5gram_frac: 0.15
-        max_dup_6gram_frac: 0.14
-        max_dup_7gram_frac: 0.13
-        max_dup_8gram_frac: 0.12
-        max_dup_9gram_frac: 0.11
-        max_dup_10gram_frac: 0.10
+      enabled: false  # academic papers have high ngram repetition from tables/formulas
 
     - name: c4
       params:

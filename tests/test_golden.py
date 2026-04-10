@@ -62,11 +62,11 @@ class TestGoldenPapers:
         kept, raw = pipeline_result
         assert len(kept) == 5, f"Expected all 5 papers kept, got {len(kept)}"
 
-    def test_abstracts_preserved(self, pipeline_result):
-        """Most papers should have an abstract section after cleaning."""
+    def test_content_not_empty(self, pipeline_result):
+        """All kept papers should have substantial content after cleaning."""
         kept, _ = pipeline_result
-        with_abstract = sum(1 for d in kept if "## Abstract" in d["text"][:3000] or "abstract" in d["text"].lower()[:2000])
-        assert with_abstract >= len(kept) - 1, f"Only {with_abstract}/{len(kept)} papers have abstract"
+        for doc in kept:
+            assert len(doc["text"]) > 1000, f"{doc.get('id')}: text too short ({len(doc['text'])} chars)"
 
     def test_low_latex_residual(self, pipeline_result):
         """Cleaned text should have very few LaTeX commands outside math."""

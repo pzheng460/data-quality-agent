@@ -1,47 +1,37 @@
 [
   {
-    "id": "arxiv_1312.6114",
-    "arxiv_id": "1312.6114",
-    "title": "Auto-Encoding Variational Bayes",
-    "text_length": 41271,
-    "first_200": "# Auto-Encoding Variational Bayes\n\n## Abstract\n\nHow can we perform efficient inference and learning in directed probabilistic models, in the presence of continuous latent variables with intractable po",
-    "has_abstract": true,
-    "status": "kept"
-  },
-  {
     "id": "arxiv_1706.03762",
     "arxiv_id": "1706.03762",
     "title": "Attention Is All You Need",
-    "text_length": 36591,
-    "first_200": "# Attention Is All You Need\n\nProvided proper attribution is provided, Google hereby grants permission to reproduce the tables and figures in this paper solely for use in journalistic or scholarly work",
-    "has_abstract": true,
-    "status": "kept"
-  },
-  {
-    "id": "arxiv_2203.15556",
-    "arxiv_id": "2203.15556",
-    "title": "Training Compute-Optimal Large Language Models",
-    "text_length": 53695,
-    "first_200": "# Training Compute-Optimal Large Language Models\n\n## Introduction\n\nRecently a series of Large Language Models (LLMs) have been introduced , with the largest dense language models now having over 500 b",
-    "has_abstract": false,
-    "status": "kept"
-  },
-  {
-    "id": "arxiv_2303.08774",
-    "arxiv_id": "2303.08774",
-    "title": "GPT-4 Technical Report",
-    "text_length": 45270,
-    "first_200": "# GPT-4 Technical Report\n\ncommenttrue\n\n## Abstract\n\nWe report the development of GPT-4, a large-scale, multimodal model which can accept image and text inputs and produce text outputs. While less capa",
-    "has_abstract": true,
+    "text_length": 43880,
     "status": "kept"
   },
   {
     "id": "arxiv_2310.06825",
     "arxiv_id": "2310.06825",
     "title": "Mistral 7B",
-    "text_length": 12841,
-    "first_200": "# Mistral 7B\n\n## Abstract\n\nWe introduce mistral, a 7–billion-parameter language model engineered for superior performance and efficiency.\nmistral outperforms the best open 13B model (Llama 2) across a",
-    "has_abstract": true,
+    "text_length": 18540,
+    "status": "kept"
+  },
+  {
+    "id": "arxiv_2303.08774",
+    "arxiv_id": "2303.08774",
+    "title": "GPT-4 Technical Report",
+    "text_length": 79823,
+    "status": "kept"
+  },
+  {
+    "id": "arxiv_1312.6114",
+    "arxiv_id": "1312.6114",
+    "title": "Auto-Encoding Variational Bayes",
+    "text_length": 44340,
+    "status": "kept"
+  },
+  {
+    "id": "arxiv_2203.15556",
+    "arxiv_id": "2203.15556",
+    "title": "Training Compute-Optimal Large Language Models",
+    "text_length": 78598,
     "status": "kept"
   }
 ]

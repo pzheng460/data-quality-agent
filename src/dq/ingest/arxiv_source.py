@@ -151,45 +151,37 @@ def _download_latex(arxiv_id: str) -> str | None:
         return data.decode("utf-8", errors="replace")
 
 
+
 def _tex_to_text(tex: str, title: str) -> str:
-    """Convert LaTeX to text. Leaves some residuals for ArxivFilter to clean."""
-    tex = re.sub(r"(?<!\\)%.*$", "", tex, flags=re.MULTILINE)  # comments
+    """Convert LaTeX to clean markdown using pandoc.
+
+    Falls back to basic regex stripping if pandoc is unavailable.
+    """
+    # Extract document body
     m = re.search(r"\\begin\{document\}", tex)
     if m:
         tex = tex[m.end():]
     tex = re.sub(r"\\end\{document\}.*", "", tex, flags=re.DOTALL)
 
-    # Sections → markdown headings
-    tex = re.sub(r"\\title\{[^}]*\}", "", tex)
-    tex = re.sub(r"\\section\*?\{([^}]+)\}", r"\n## \1\n", tex)
-    tex = re.sub(r"\\subsection\*?\{([^}]+)\}", r"\n### \1\n", tex)
-    tex = re.sub(r"\\subsubsection\*?\{([^}]+)\}", r"\n#### \1\n", tex)
-    tex = re.sub(r"\\paragraph\*?\{([^}]+)\}", r"\n**\1**\n", tex)
-    tex = re.sub(r"\\begin\{abstract\}", "\n## Abstract\n", tex)
-    tex = re.sub(r"\\end\{abstract\}", "\n", tex)
+    try:
+        import pypandoc
+        md = pypandoc.convert_text(
+            tex, "markdown", format="latex",
+            extra_args=["--wrap=none", "--strip-comments"],
+        )
+    except Exception:
+        # Fallback: basic comment stripping
+        md = re.sub(r"(?<!\\)%.*$", "", tex, flags=re.MULTILINE)
+        logger.warning("pandoc conversion failed, using raw text")
 
-    # Remove author/date metadata
-    tex = re.sub(r"\\(?:author|date|affiliation|institute|email)\b[^{]*(?:\{[^}]*\})?", "", tex)
-    tex = re.sub(r"\\maketitle", "", tex)
+    # Clean pandoc artifacts
+    md = re.sub(r"\{[^}]*reference-type[^}]*\}", "", md)  # ref attrs
+    md = re.sub(r"\[@[^\]]*\]", "", md)                    # pandoc citations
+    md = re.sub(r"^:::.*$", "", md, flags=re.MULTILINE)    # pandoc divs
+    md = re.sub(r"^\[(?:Figure|Table)\]\s*$", "", md, flags=re.MULTILINE)
+    md = re.sub(r"\n{3,}", "\n\n", md)
 
-    # Figures/tables → placeholders (ArxivFilter will strip [Figure] and preserve captions)
-    tex = re.sub(r"\\begin\{figure\*?\}.*?\\end\{figure\*?\}", "[Figure]", tex, flags=re.DOTALL)
-    tex = re.sub(r"\\begin\{table\*?\}.*?\\end\{table\*?\}", "[Table]", tex, flags=re.DOTALL)
-
-    # Math environments → $$
-    for env in ["equation", "align", "alignat", "gather", "multline", "eqnarray"]:
-        tex = re.sub(rf"\\begin\{{{env}\*?\}}", "$$", tex)
-        tex = re.sub(rf"\\end\{{{env}\*?\}}", "$$", tex)
-
-    # List environments → strip markers, keep \item
-    for env in ["itemize", "enumerate", "description"]:
-        tex = re.sub(rf"\\begin\{{{env}\*?\}}(?:\[[^\]]*\])?", "", tex)
-        tex = re.sub(rf"\\end\{{{env}\*?\}}", "", tex)
-    tex = re.sub(r"\\item\b\s*(?:\[[^\]]*\])?\s*", "\n- ", tex)
-
-    # Cleanup
-    tex = re.sub(r"\n{3,}", "\n\n", tex)
-    return f"# {title}\n\n{tex.strip()}"
+    return f"# {title}\n\n{md.strip()}"
 
 
 # ── Metadata & OAI-PMH ──
