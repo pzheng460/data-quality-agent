@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts'
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from 'recharts'
 
 interface FilterData {
   total: number; passed: number; failed: number; pass_rate: number
@@ -25,6 +26,10 @@ interface DatasetResult {
 }
 
 interface BenchResult { datasets: Record<string, DatasetResult> }
+
+const passRateConfig: ChartConfig = {
+  pass_rate: { label: 'Pass Rate', color: '#3b82f6' },
+}
 
 function passColor(rate: number) {
   if (rate >= 0.95) return '#22c55e'
@@ -166,19 +171,19 @@ export default function QualityCheck() {
             <Card>
               <CardHeader><CardTitle className="text-base">Filter Pass Rates</CardTitle></CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={Math.max(200, chartData.length * 40)}>
+                <ChartContainer config={passRateConfig} className="w-full" style={{ height: Math.max(200, chartData.length * 40) }}>
                   <BarChart data={chartData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} />
+                    <XAxis type="number" domain={[0, 100]} tickFormatter={(v: number) => `${v}%`} />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={120} />
-                    <Tooltip formatter={(v: number) => [`${v}%`, 'Pass Rate']} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
                     <Bar dataKey="pass_rate" radius={[0, 4, 4, 0]}>
                       {chartData.map((entry, i) => (
                         <Cell key={i} fill={passColor(entry.pass_rate / 100)} />
                       ))}
                     </Bar>
                   </BarChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               </CardContent>
             </Card>
           )}

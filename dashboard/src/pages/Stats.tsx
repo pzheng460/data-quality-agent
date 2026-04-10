@@ -3,7 +3,8 @@ import { useApp } from '@/context'
 import { api } from '@/hooks/useApi'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 interface StageInfo {
   phase: string; input_count: number; output_count: number
@@ -14,10 +15,19 @@ interface StageInfo {
 interface OverviewData { version: string; phases: Record<string, { input: number; output: number; keep_rate: number }> }
 
 const STAGE_LABELS: Record<string, string> = {
-  ingestion: 'Ingestion', extraction: 'Extraction', curation: 'Curation', packaging: 'Packaging',
+  ingestion: 'Ingest', extraction: 'Extract', curation: 'Curate', packaging: 'Package',
 }
 
-export default function Overview() {
+const funnelConfig = {
+  Input: { label: 'Input', color: '#93c5fd' },
+  Output: { label: 'Output', color: '#3b82f6' },
+} as ChartConfig
+
+const rejectConfig = {
+  count: { label: 'Count', color: '#ef4444' },
+} as ChartConfig
+
+export default function Stats() {
   const { outputDir, refreshKey } = useApp()
   const [overview, setOverview] = useState<OverviewData | null>(null)
   const [stages, setStages] = useState<StageInfo[]>([])
@@ -30,7 +40,7 @@ export default function Overview() {
 
     api<OverviewData>(`/api/overview?output_dir=${encodeURIComponent(outputDir)}`)
       .then(setOverview).catch(() => {})
-  }, [outputDir])
+  }, [outputDir, refreshKey])
 
   if (error && !stages.length) return <p className="text-muted-foreground p-8">No pipeline data yet. Run the pipeline first.</p>
 
@@ -47,19 +57,18 @@ export default function Overview() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Overview</h2>
+      <h2 className="text-2xl font-bold">Stats</h2>
 
-      {/* KPI cards */}
       <div className="grid grid-cols-5 gap-4">
         {[
           { label: 'Input Docs', value: raw.toLocaleString() },
           { label: 'Final Output', value: final_.toLocaleString() },
-          { label: 'Retention', value: `${retention}%`, color: Number(retention) >= 80 ? 'text-green-600' : Number(retention) >= 50 ? 'text-yellow-600' : 'text-red-600' },
+          { label: 'Retention', value: `${retention}%`, color: Number(retention) >= 80 ? 'text-green-600' : 'text-yellow-600' },
           { label: 'Total Time', value: `${totalTime.toFixed(1)}s` },
           { label: 'Version', value: overview?.version || '—' },
         ].map((kpi, i) => (
           <Card key={i}>
-            <CardContent className="pt-4 pb-3">
+            <CardContent className="pt-4">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">{kpi.label}</p>
               <p className={`text-2xl font-bold mt-1 ${kpi.color || ''}`}>{kpi.value}</p>
             </CardContent>
@@ -67,28 +76,28 @@ export default function Overview() {
         ))}
       </div>
 
-      {/* Funnel chart */}
       {funnelData.length > 0 && (
         <Card>
           <CardHeader><CardTitle>Pipeline Funnel</CardTitle></CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
+            <ChartContainer config={funnelConfig} className="h-[250px] w-full">
               <BarChart data={funnelData} barGap={4} barCategoryGap="20%">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} />
                 <YAxis />
-                <Tooltip />
-                <Bar dataKey="Input" fill="#bfdbfe" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Output" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="Input" fill="var(--color-Input)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Output" fill="var(--color-Output)" radius={[4, 4, 0, 0]} />
               </BarChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           </CardContent>
         </Card>
       )}
 
-      {/* Per-stage details */}
       {stages.map(s => {
         const reasons = Object.entries(s.reject_reasons || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
+        const rejectData = reasons.map(([rule, count]) => ({ rule, count }))
+
         return (
           <Card key={s.phase}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -102,21 +111,20 @@ export default function Overview() {
                 {(s.keep_rate * 100).toFixed(1)}% kept
               </Badge>
             </CardHeader>
-            {reasons.length > 0 && (
+            {rejectData.length > 0 ? (
               <CardContent>
                 <p className="text-sm font-medium text-muted-foreground mb-2">Rejection Reasons</p>
-                <ResponsiveContainer width="100%" height={Math.max(80, reasons.length * 32)}>
-                  <BarChart data={reasons.map(([rule, count]) => ({ rule, count }))} layout="vertical" margin={{ left: 180 }}>
+                <ChartContainer config={rejectConfig} className="w-full" style={{ height: Math.max(80, rejectData.length * 32) }}>
+                  <BarChart data={rejectData} layout="vertical" margin={{ left: 120 }}>
                     <XAxis type="number" />
-                    <YAxis type="category" dataKey="rule" tick={{ fontSize: 11 }} width={170} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#ef4444" radius={[0, 4, 4, 0]} />
+                    <YAxis type="category" dataKey="rule" tick={{ fontSize: 11 }} width={110} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="count" fill="var(--color-count)" radius={[0, 4, 4, 0]} />
                   </BarChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               </CardContent>
-            )}
-            {reasons.length === 0 && (
-              <CardContent><p className="text-sm text-green-600">No rejections</p></CardContent>
+            ) : (
+              <CardContent><p className="text-sm text-green-600">No rejections.</p></CardContent>
             )}
           </Card>
         )
