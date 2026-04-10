@@ -182,7 +182,7 @@ export default function PipelineControl() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <span className="text-sm text-muted-foreground">Source:</span>
                 {sourcesInDomain.map(s => (
                   <Button key={s.name} variant={activeSource === s.name ? 'default' : 'outline'} size="sm"
@@ -195,6 +195,9 @@ export default function PipelineControl() {
                     className="w-20" placeholder="0" />
                 </div>
               </div>
+              {activeSource === 'arxiv_hf_bulk' && paramValues['ids'] && (
+                <p className="text-xs text-amber-600">Note: HF Bulk scans the full dataset sequentially — slow for individual IDs. Use ar5iv or latexml for specific papers.</p>
+              )}
             </div>
           )}
 
