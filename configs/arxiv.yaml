@@ -32,7 +32,7 @@ pipeline:
         min_sentences: 3             # papers may have short sections
 
     - name: language
-      enabled: true
+      enabled: false   # requires fasttext: uv sync --extra lid
       params:
         languages: ["en"]
         language_threshold: 0.5
@@ -66,6 +66,15 @@ arxiv:
     min_text_length: 200
     max_latex_residual: 0.20
     preview_length: 500
+
+  quality_scoring:
+    enabled: true
+    method: llm           # "llm" (API-based) or "classifier" (local model)
+    llm_samples: 50       # how many docs to score with LLM (0 = all, expensive)
+    min_score: 0           # reject docs below this score (0 = no rejection, just tag)
+    # For classifier method (future):
+    # classifier_model: "HuggingFaceFW/fineweb-edu-classifier"
+    # classifier_threshold: 3.0
 
   phase3:
     version_dedup: true

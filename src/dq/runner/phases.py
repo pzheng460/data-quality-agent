@@ -219,6 +219,90 @@ def _run_parallel_filter(
         return pool.map(worker_fn, chunks)
 
 
+# ── Phase 2.5: Quality Scoring (Nemotron-CC style) ──────────────────
+
+
+def phase2b_quality_score(engine: "PhaseEngine") -> "PhaseStats":
+    """Score documents using LLM judge and/or classifier ensemble.
+
+    Follows Nemotron-CC approach:
+    - Score every document with quality classifier(s)
+    - Store score in doc metadata (quality_score: 0-5)
+    - Optionally reject docs below a threshold
+    - For LLM judge: sample N docs (API calls are expensive)
+
+    This is an optional phase — skipped if no quality scoring is configured.
+    """
+    stats = PhaseStats(phase="phase2b_quality_score")
+    quality_cfg = engine.arxiv_config.get("quality_scoring", {})
+
+    if not quality_cfg.get("enabled", False):
+        # Pass through all docs unchanged
+        input_dir = engine.stage_dir("stage2_filtered", "kept")
+        kept_dir = engine.stage_dir("stage2b_scored", "kept")
+        with PhaseTimer(stats), \
+             ShardWriter(kept_dir, target_bytes=engine.shard_target_bytes) as kw:
+            for doc in read_shards(input_dir):
+                kw.write(doc)
+                stats.input_count += 1
+                stats.output_count += 1
+        return stats
+
+    min_score = quality_cfg.get("min_score", 0)
+    sample_size = quality_cfg.get("llm_samples", 0)
+    method = quality_cfg.get("method", "llm")  # "llm" or "classifier"
+
+    input_dir = engine.stage_dir("stage2_filtered", "kept")
+    kept_dir = engine.stage_dir("stage2b_scored", "kept")
+    rejected_dir = engine.stage_dir("stage2b_scored", "rejected")
+
+    with PhaseTimer(stats), \
+         ShardWriter(kept_dir, target_bytes=engine.shard_target_bytes) as kept_w, \
+         ShardWriter(rejected_dir, target_bytes=engine.shard_target_bytes) as rej_w:
+
+        docs = list(read_shards(engine.stage_dir("stage2_filtered", "kept")))
+        stats.input_count = len(docs)
+
+        if method == "llm" and sample_size > 0:
+            # LLM judge on a sample (expensive, use for validation)
+            import random
+            sample_idx = set(random.sample(range(len(docs)), min(sample_size, len(docs))))
+            try:
+                from dq.judge import LLMJudge
+                judge = LLMJudge()
+                for i, doc in enumerate(docs):
+                    if i in sample_idx:
+                        result = judge.judge_text(doc.get("text", "")[:3000])
+                        score = 5 if result.get("quality") == "high" else 2
+                        doc.setdefault("quality_scores", {})["llm_judge"] = {
+                            "score": score,
+                            "quality": result.get("quality", "unknown"),
+                            "failed_rules": result.get("failed_rules", []),
+                        }
+                    # Write all docs (scoring is metadata enrichment, not filtering)
+                    if min_score > 0 and doc.get("quality_scores", {}).get("llm_judge", {}).get("score", 5) < min_score:
+                        doc["__dq_rejections"] = [{"filter": "quality_score", "rule": "low_quality", "value": score}]
+                        rej_w.write(doc)
+                        stats.rejected_count += 1
+                    else:
+                        kept_w.write(doc)
+                        stats.output_count += 1
+            except Exception as e:
+                logger.warning("LLM judge failed: %s. Passing all docs through.", e)
+                for doc in docs:
+                    kept_w.write(doc)
+                    stats.output_count += 1
+        else:
+            # No scoring — pass all through with metadata tag
+            for doc in docs:
+                kept_w.write(doc)
+                stats.output_count += 1
+
+    stats.extra["method"] = method
+    stats.extra["sample_size"] = sample_size
+    return stats
+
+
 # ── Phase 3: Dedup ──────────────────────────────────────────────────
 
 
@@ -231,7 +315,11 @@ def phase3_dedup(engine: PhaseEngine) -> PhaseStats:
     phase3_cfg = engine.arxiv_config.get("phase3", {})
     minhash_cfg = engine.config.dedup.minhash
 
-    input_dir = engine.stage_dir("stage2_filtered", "kept")
+    # Read from scored stage if it exists, otherwise from filtered
+    scored_dir = engine.stage_dir("stage2b_scored", "kept")
+    filtered_dir = engine.stage_dir("stage2_filtered", "kept")
+    input_dir = scored_dir if scored_dir.exists() else filtered_dir
+    logger.info("Phase 3: reading from %s", input_dir)
     kept_dir = engine.stage_dir("stage3_dedup", "kept")
     rejected_dir = engine.stage_dir("stage3_dedup", "rejected")
 

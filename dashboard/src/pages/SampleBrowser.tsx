@@ -15,6 +15,7 @@ const STAGES = [
   { stage: 'stage1_parsed', sub: 'rejected', label: 'P1 Rejected', color: 'red' },
   { stage: 'stage2_filtered', sub: 'kept', label: 'P2 Kept', color: 'green' },
   { stage: 'stage2_filtered', sub: 'rejected', label: 'P2 Rejected', color: 'red' },
+  { stage: 'stage2b_scored', sub: 'kept', label: 'Scored', color: 'green' },
   { stage: 'stage3_dedup', sub: 'kept', label: 'P3 Kept', color: 'green' },
   { stage: 'stage5_final', sub: '', label: 'Final', color: 'blue' },
 ]

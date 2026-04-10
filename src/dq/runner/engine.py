@@ -105,6 +105,7 @@ class PhaseEngine:
         from dq.runner.phases import (
             phase1_parse,
             phase2_filter,
+            phase2b_quality_score,
             phase3_dedup,
             phase4_contamination,
             phase5_package,
@@ -116,6 +117,7 @@ class PhaseEngine:
         phase_list = [
             ("phase1_parse", phase1_parse),
             ("phase2_filter", phase2_filter),
+            ("phase2b_quality_score", phase2b_quality_score),
             ("phase3_dedup", phase3_dedup),
             ("phase4_contamination", phase4_contamination),
             ("phase5_package", phase5_package),
@@ -147,18 +149,19 @@ class PhaseEngine:
             save_overview(stats_dir, all_stats, self.version, config_hash=self._config_hash)
 
     def run_phase(self, phase_num: int) -> None:
-        """Run a specific phase by number (1-5)."""
+        """Run a specific phase by number (1-6)."""
         from dq.runner import phases as pm
 
         phase_map = {
             1: ("phase1_parse", pm.phase1_parse),
             2: ("phase2_filter", pm.phase2_filter),
-            3: ("phase3_dedup", pm.phase3_dedup),
-            4: ("phase4_contamination", pm.phase4_contamination),
-            5: ("phase5_package", pm.phase5_package),
+            3: ("phase2b_quality_score", pm.phase2b_quality_score),
+            4: ("phase3_dedup", pm.phase3_dedup),
+            5: ("phase4_contamination", pm.phase4_contamination),
+            6: ("phase5_package", pm.phase5_package),
         }
         if phase_num not in phase_map:
-            raise ValueError(f"Invalid phase: {phase_num}. Must be 1-5.")
+            raise ValueError(f"Invalid phase: {phase_num}. Must be 1-6.")
 
         name, func = phase_map[phase_num]
         self.output_dir.mkdir(parents=True, exist_ok=True)
