@@ -286,7 +286,7 @@ def _substep_dedup(engine, docs):
     docs = list(exact.dedup(docs))
 
     # MinHash dedup
-    minhash_cfg = engine.config.dedup.get("minhash", {})
+    minhash_cfg = engine.config.dedup.minhash
     if minhash_cfg.get("enabled", False):
         from dq.stages.curation.dedup.minhash import MinHashDedup
         mh = MinHashDedup(
