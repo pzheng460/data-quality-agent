@@ -322,10 +322,6 @@ export default function PipelineControl() {
             <Button onClick={startFullPipeline} disabled={pipeStatus === 'running'}>
               {pipeStatus === 'running' ? 'Running...' : 'Run All Stages'}
             </Button>
-            <div className="flex items-center gap-2">
-              <Checkbox id="resume-bottom" checked={resume} onCheckedChange={(v) => setResume(!!v)} />
-              <Label htmlFor="resume-bottom" className="text-sm">Resume from checkpoint</Label>
-            </div>
             {pipeError && <p className="text-sm text-destructive">{pipeError}</p>}
             {pipeStatus === 'finished' && <p className="text-sm text-green-600">Pipeline complete!</p>}
           </div>
