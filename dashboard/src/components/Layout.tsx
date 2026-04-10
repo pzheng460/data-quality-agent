@@ -3,9 +3,9 @@ import { NavLink, Outlet } from 'react-router-dom'
 const navItems = [
   { to: '/', label: 'Pipeline Control' },
   { to: '/overview', label: 'Overview' },
-  { to: '/phases', label: 'Phase Details' },
+  { to: '/phases', label: 'Stage Details' },
   { to: '/samples', label: 'Sample Browser' },
-  { to: '/signals', label: 'Quality Check' },
+  { to: '/signals', label: 'Benchmark' },
 ]
 
 export default function Layout() {
@@ -14,7 +14,7 @@ export default function Layout() {
       <aside className="w-56 bg-white border-r border-gray-200 flex flex-col">
         <div className="px-4 py-5 border-b border-gray-200">
           <h1 className="text-lg font-bold text-gray-900">dq Dashboard</h1>
-          <p className="text-xs text-gray-500 mt-1">Arxiv Pipeline</p>
+          <p className="text-xs text-gray-500 mt-1">Data Quality Agent</p>
         </div>
         <nav className="flex-1 px-2 py-4 space-y-1">
           {navItems.map(({ to, label }) => (
