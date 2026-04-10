@@ -4,7 +4,7 @@ import { Separator } from '@/components/ui/separator'
 
 const navItems = [
   { to: '/', label: 'Pipeline' },
-  { to: '/overview', label: 'Overview' },
+  { to: '/stats', label: 'Stats' },
   { to: '/samples', label: 'Samples' },
   { to: '/benchmark', label: 'Benchmark' },
 ]
