@@ -16,7 +16,12 @@ DATASET_ID = "marin-community/ar5iv-no-problem-markdown"
 
 @register_source("arxiv_hf_bulk")
 class HfBulkSource(IngestSource):
-    """Stream ar5iv-converted papers from HuggingFace dataset."""
+    """Stream ar5iv-converted papers from HuggingFace dataset.
+
+    Supports two modes:
+    - By IDs: pass `ids=["2310.06825", ...]` to fetch specific papers
+    - Bulk: omit `ids` to stream all papers (with optional limit)
+    """
 
     domain = "arxiv"
     priority = 100
@@ -25,16 +30,19 @@ class HfBulkSource(IngestSource):
     @classmethod
     def params_schema(cls):
         return {
+            "ids": {"type": "list", "label": "Arxiv IDs (empty = all)", "required": False},
             "dataset_id": {"type": "string", "label": "HF dataset ID", "default": DATASET_ID},
             "categories": {"type": "list", "label": "Category filter (e.g. cs., math.)", "required": False},
         }
 
     def __init__(
         self,
+        ids: list[str] | None = None,
         dataset_id: str = DATASET_ID,
         categories: list[str] | None = None,
         **kwargs,
     ) -> None:
+        self.ids = set(ids) if ids else None
         self.dataset_id = dataset_id
         self.categories = categories
 
@@ -44,13 +52,26 @@ class HfBulkSource(IngestSource):
 
         from datasets import load_dataset
 
-        logger.info("Streaming %s from HuggingFace...", self.dataset_id)
+        if self.ids:
+            logger.info("Fetching %d specific papers from %s...", len(self.ids), self.dataset_id)
+        else:
+            logger.info("Streaming %s from HuggingFace...", self.dataset_id)
+
         ds = load_dataset(self.dataset_id, split="train", streaming=True)
 
+        remaining = set(self.ids) if self.ids else None
         count = 0
+
         for sample in ds:
             arxiv_id = _extract_id(sample.get("id", ""))
             text = sample.get("text", "")
+
+            # If filtering by IDs, check match
+            if remaining is not None:
+                if arxiv_id not in remaining:
+                    continue
+                remaining.discard(arxiv_id)
+
             if not text or len(text) < 200:
                 continue
 
@@ -70,11 +91,17 @@ class HfBulkSource(IngestSource):
                 logger.info("Streamed %d papers...", count)
             if limit > 0 and count >= limit:
                 break
+            # If we found all requested IDs, stop early
+            if remaining is not None and len(remaining) == 0:
+                break
 
+        if remaining:
+            logger.warning("IDs not found in dataset: %s", remaining)
         logger.info("Done: %d papers from %s", count, self.dataset_id)
 
 
 def _extract_id(doc_id: str) -> str:
+    """Extract arxiv ID from HF dataset doc ID."""
     name = doc_id.split("/")[-1].replace(".html", "")
     if re.match(r"\d{4}\.\d+", name):
         return name
