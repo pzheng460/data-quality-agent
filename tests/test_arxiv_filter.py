@@ -1,75 +1,75 @@
 """Tests for the Arxiv clean-then-judge filter."""
 
 from dq.stages.curation.filters import ensure_registered; ensure_registered()
-from dq.stages.curation.filters.arxiv import ArxivFilter, _clean_latex, _residual_frac
+from dq.stages.curation.filters.arxiv import ArxivFilter, _clean_text, _residual_frac
 
 
 class TestCleanLatex:
     def test_cite_removed(self):
-        result = _clean_latex(r"As shown in \cite{vaswani2017}, transformers work well.")
+        result = _clean_text(r"As shown in \cite{vaswani2017}, transformers work well.")
         assert r"\cite" not in result
         assert "transformers work well" in result
 
     def test_cite_with_multiple_keys(self):
-        result = _clean_latex(r"See \cite{a,b,c} for details.")
+        result = _clean_text(r"See \cite{a,b,c} for details.")
         assert r"\cite" not in result
         assert "details" in result
 
     def test_ref_removed(self):
-        result = _clean_latex(r"See Figure \ref{fig:main} for the architecture.")
+        result = _clean_text(r"See Figure \ref{fig:main} for the architecture.")
         assert r"\ref" not in result
         assert "architecture" in result
 
     def test_textbf_keeps_content(self):
-        result = _clean_latex(r"This is \textbf{important} text.")
+        result = _clean_text(r"This is \textbf{important} text.")
         assert "important" in result
         assert r"\textbf" not in result
 
     def test_textit_keeps_content(self):
-        result = _clean_latex(r"The \textit{key insight} is simple.")
+        result = _clean_text(r"The \textit{key insight} is simple.")
         assert "key insight" in result
         assert r"\textit" not in result
 
     def test_emph_keeps_content(self):
-        result = _clean_latex(r"We \emph{emphasize} this point.")
+        result = _clean_text(r"We \emph{emphasize} this point.")
         assert "emphasize" in result
         assert r"\emph" not in result
 
     def test_begin_end_removed(self):
-        result = _clean_latex(r"\begin{theorem} The proof is trivial. \end{theorem}")
+        result = _clean_text(r"\begin{theorem} The proof is trivial. \end{theorem}")
         assert "The proof is trivial" in result
         assert r"\begin" not in result
         assert r"\end" not in result
 
     def test_layout_commands_removed(self):
-        result = _clean_latex(r"\noindent This paragraph starts here. \vspace{1em}")
+        result = _clean_text(r"\noindent This paragraph starts here. \vspace{1em}")
         assert "This paragraph starts here" in result
         assert r"\noindent" not in result
         assert r"\vspace" not in result
 
     def test_inline_math_protected(self):
-        result = _clean_latex(r"We have $E=mc^2$ and \cite{einstein1905}.")
+        result = _clean_text(r"We have $E=mc^2$ and \cite{einstein1905}.")
         assert "$E=mc^2$" in result
         assert "\\cite" not in result
 
     def test_display_math_protected(self):
-        result = _clean_latex(r"\noindent $$\int_0^1 f(x) dx$$ is the integral.")
+        result = _clean_text(r"\noindent $$\int_0^1 f(x) dx$$ is the integral.")
         assert "$$\\int_0^1 f(x) dx$$" in result
         assert "\\noindent" not in result
 
     def test_footnote_keeps_content(self):
-        result = _clean_latex(r"Main text\footnote{A footnote.} continues.")
+        result = _clean_text(r"Main text\footnote{A footnote.} continues.")
         assert "A footnote." in result
 
     def test_multi_blank_lines_collapsed(self):
-        result = _clean_latex("Line 1.\n\n\n\n\nLine 2.")
+        result = _clean_text("Line 1.\n\n\n\n\nLine 2.")
         assert "\n\n\n" not in result
         assert "Line 1." in result
         assert "Line 2." in result
 
     def test_clean_text_unchanged(self):
         text = "# Title\n\n## Abstract\n\nThis is a clean paper about machine learning."
-        result = _clean_latex(text)
+        result = _clean_text(text)
         assert result == text
 
 

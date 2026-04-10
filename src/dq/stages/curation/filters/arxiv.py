@@ -148,6 +148,9 @@ class ArxivFilter(BaseFilter):
             return False, {"filter": self.name, "rule": "latex_residual",
                            "value": round(frac, 4), "threshold": max_residual}
 
+        if self.params.get("require_abstract", False) and not _ABSTRACT_RE.search(cleaned):
+            return False, {"filter": self.name, "rule": "missing_abstract"}
+
         min_sections = self.params.get("min_sections", 2)
         num_sections = len(_HEADING_RE.findall(cleaned))
         if num_sections < min_sections:
