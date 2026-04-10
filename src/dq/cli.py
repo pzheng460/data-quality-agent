@@ -232,13 +232,14 @@ def bench(input_path: str, config_path: str | None, num_samples: int, no_dedup: 
 @click.option("-o", "--output-dir", required=True, type=click.Path(), help="Output base directory")
 @click.option("-c", "--config", "config_path", required=True, type=click.Path(exists=True),
               help="Pipeline config YAML (e.g. configs/arxiv.yaml)")
-@click.option("--phase", default=None, type=int, help="Run specific phase (1-5), default: all")
+@click.option("--stage", default=None, type=int, help="Run specific stage (1=ingest, 2=extract, 3=curate, 4=package)")
+@click.option("--phase", default=None, type=int, hidden=True, help="Deprecated alias for --stage")
 @click.option("--resume/--no-resume", default=True, help="Resume from last completed phase")
 @click.option("-w", "--workers", default=None, type=int, help="Parallel workers (default: auto)")
 @click.option("-n", "--num-docs", default=0, type=int, help="Limit input docs (0=all, for testing)")
 @click.option("--dry-run", is_flag=True, default=False, help="Show plan without executing")
-def run(input_path: str, output_dir: str, config_path: str, phase: int | None,
-        resume: bool, workers: int | None, num_docs: int, dry_run: bool):
+def run(input_path: str, output_dir: str, config_path: str, stage: int | None,
+        phase: int | None, resume: bool, workers: int | None, num_docs: int, dry_run: bool):
     """Run production data cleaning pipeline.
 
     INPUT_PATH can be a directory of shards, a single JSONL file, or a .jsonl.zst file.
@@ -246,7 +247,7 @@ def run(input_path: str, output_dir: str, config_path: str, phase: int | None,
     \b
     Examples:
       dq run /data/raw -o /data/arxiv -c configs/arxiv.yaml
-      dq run /data/raw -o /data/arxiv -c configs/arxiv.yaml --phase 2
+      dq run /data/raw -o /data/arxiv -c configs/arxiv.yaml --stage 3
       dq run /data/raw -o /data/arxiv -c configs/arxiv.yaml --no-resume
       dq run /data/raw -o /data/arxiv -c configs/arxiv.yaml -n 1000 --dry-run
     """
@@ -264,7 +265,8 @@ def run(input_path: str, output_dir: str, config_path: str, phase: int | None,
         engine.show_plan()
         return
 
-    if phase is not None:
-        engine.run_phase(phase)
+    target = stage or phase  # --phase is deprecated alias for --stage
+    if target is not None:
+        engine.run_stage(target)
     else:
         engine.run_all(resume=resume)

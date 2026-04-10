@@ -20,6 +20,7 @@ class HfBulkSource(IngestSource):
 
     domain = "arxiv"
     priority = 100
+    output_format = "text"
 
     @classmethod
     def params_schema(cls):

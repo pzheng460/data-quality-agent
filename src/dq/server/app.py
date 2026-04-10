@@ -64,12 +64,9 @@ class PhaseRunRequest(BaseModel):
 # ── Pipeline execution in background thread ──
 
 def _run_pipeline(req: RunRequest) -> None:
-    """Run full pipeline in background thread."""
+    """Run 4-stage pipeline in background thread."""
     from dq.runner.engine import PhaseEngine
-    from dq.runner.phases import (
-        phase1_parse, phase2_filter, phase2b_quality_score,
-        phase3_dedup, phase4_contamination, phase5_package,
-    )
+    from dq.runner.stages import stage_ingest, stage_extract, stage_curate, stage_package
     from dq.runner.stats import save_overview
 
     with _lock:
@@ -91,18 +88,16 @@ def _run_pipeline(req: RunRequest) -> None:
         )
         engine.output_dir.mkdir(parents=True, exist_ok=True)
 
-        phase_funcs = [
-            ("phase1_parse", phase1_parse),
-            ("phase2_filter", phase2_filter),
-            ("phase2b_quality_score", phase2b_quality_score),
-            ("phase3_dedup", phase3_dedup),
-            ("phase4_contamination", phase4_contamination),
-            ("phase5_package", phase5_package),
+        stage_list = [
+            ("ingestion", stage_ingest),
+            ("extraction", stage_extract),
+            ("curation", stage_curate),
+            ("packaging", stage_package),
         ]
 
         all_stats = []
-        for name, func in phase_funcs:
-            if req.resume and engine.is_phase_done(name):
+        for name, func in stage_list:
+            if req.resume and engine.is_stage_done(name):
                 _push_event({"type": "phase_skip", "phase": name})
                 continue
 
@@ -111,7 +106,7 @@ def _run_pipeline(req: RunRequest) -> None:
             _push_event({"type": "phase_start", "phase": name})
 
             stats = func(engine)
-            engine.mark_phase_done(name)
+            engine.mark_stage_done(name)
             all_stats.append(stats)
 
             stats_dir = engine.output_dir / "stats" / engine.version
@@ -175,14 +170,13 @@ def start_phase(req: PhaseRunRequest):
 
     def _run():
         from dq.runner.engine import PhaseEngine
-        from dq.runner import phases as phase_mod
+        from dq.runner.stages import stage_ingest, stage_extract, stage_curate, stage_package
 
-        phase_map = {
-            1: ("phase1_parse", phase_mod.phase1_parse),
-            2: ("phase2_filter", phase_mod.phase2_filter),
-            3: ("phase3_dedup", phase_mod.phase3_dedup),
-            4: ("phase4_contamination", phase_mod.phase4_contamination),
-            5: ("phase5_package", phase_mod.phase5_package),
+        stage_map = {
+            1: ("ingestion", stage_ingest),
+            2: ("extraction", stage_extract),
+            3: ("curation", stage_curate),
+            4: ("packaging", stage_package),
         }
 
         try:
@@ -197,13 +191,13 @@ def start_phase(req: PhaseRunRequest):
                 num_samples=req.num_samples,
             )
             engine.output_dir.mkdir(parents=True, exist_ok=True)
-            name, func = phase_map[req.phase]
+            name, func = stage_map[req.phase]
             with _lock:
                 _state["current_phase"] = name
             _push_event({"type": "phase_start", "phase": name})
 
             stats = func(engine)
-            engine.mark_phase_done(name)
+            engine.mark_stage_done(name)
 
             stats_dir = engine.output_dir / "stats" / engine.version
             stats_dir.mkdir(parents=True, exist_ok=True)
@@ -267,21 +261,19 @@ def save_config(path: str, body: dict):
 
 @app.get("/api/phases")
 def list_phases(output_dir: str):
-    """List pipeline phases and their completion status."""
+    """List pipeline stages and their completion status."""
     out = Path(output_dir)
-    phases = []
-    for num, name in [(1, "phase1_parse"), (2, "phase2_filter"), (3, "phase2b_quality_score"),
-                       (4, "phase3_dedup"), (5, "phase4_contamination"), (6, "phase5_package")]:
+    stages = []
+    for num, name in [(1, "ingestion"), (2, "extraction"), (3, "curation"), (4, "packaging")]:
         done = (out / f".{name}_SUCCESS").exists()
         stats_file = None
-        # Try to find stats
         for stats_dir in out.glob("stats/*/"):
             sf = stats_dir / f"{name}.json"
             if sf.exists():
                 stats_file = str(sf)
                 break
-        phases.append({"phase": num, "name": name, "done": done, "stats_file": stats_file})
-    return phases
+        stages.append({"phase": num, "name": name, "done": done, "stats_file": stats_file})
+    return stages
 
 
 @app.get("/api/phase-stats/{phase_name}")

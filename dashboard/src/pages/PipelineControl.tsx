@@ -7,8 +7,8 @@ interface PhaseResult { phase: string; input_count: number; output_count: number
 interface ParamDef { type: string; label: string; default?: any; required?: boolean }
 interface SourceDef { name: string; domain: string; priority: number; params: Record<string, ParamDef> }
 
-const phaseOrder = ['phase1_parse', 'phase2_filter', 'phase2b_quality_score', 'phase3_dedup', 'phase4_contamination', 'phase5_package']
-const LABELS: Record<string, string> = { phase1_parse: '1. Parse', phase2_filter: '2. Filter', phase2b_quality_score: '2b. Quality', phase3_dedup: '3. Dedup', phase4_contamination: '4. Contam.', phase5_package: '5. Package' }
+const phaseOrder = ['ingestion', 'extraction', 'curation', 'packaging']
+const LABELS: Record<string, string> = { ingestion: '1. Ingest', extraction: '2. Extract', curation: '3. Curate', packaging: '4. Package' }
 
 const DOMAIN_COLORS: Record<string, string> = {
   arxiv: 'bg-blue-100 text-blue-700',
@@ -272,8 +272,8 @@ export default function PipelineControl() {
           <button onClick={startPipeline} disabled={pipeStatus === 'running'} className={`px-4 py-2 rounded font-medium text-white ${pipeStatus === 'running' ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}>
             {pipeStatus === 'running' ? 'Running...' : 'Run All Phases'}
           </button>
-          {[1,2,3,4,5,6].map(n => (
-            <button key={n} disabled={pipeStatus === 'running'} onClick={() => runPhase(n)} className="px-3 py-2 text-xs rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50">P{n}</button>
+          {[1,2,3,4].map(n => (
+            <button key={n} disabled={pipeStatus === 'running'} onClick={() => runPhase(n)} className="px-3 py-2 text-xs rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50">S{n}</button>
           ))}
         </div>
       </div>

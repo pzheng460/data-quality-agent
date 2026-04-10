@@ -15,6 +15,7 @@ class IngestSource(ABC):
     name: str = "base"
     domain: str = "generic"
     priority: int = 100  # lower = higher priority within same domain
+    output_format: str = "text"  # "text", "latex", "html" — determines which extractor to use
 
     @classmethod
     def params_schema(cls) -> dict[str, dict[str, Any]]:
