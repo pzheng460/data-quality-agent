@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useApp } from '../context'
-import { api } from '../hooks/useApi'
+import { useApp } from '@/context'
+import { api } from '@/hooks/useApi'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
 interface StageInfo {

@@ -1,4 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
 
 const navItems = [
   { to: '/', label: 'Pipeline' },
@@ -9,22 +11,23 @@ const navItems = [
 
 export default function Layout() {
   return (
-    <div className="flex h-screen bg-gray-50">
-      <aside className="w-56 bg-white border-r border-gray-200 flex flex-col">
-        <div className="px-4 py-5 border-b border-gray-200">
-          <h1 className="text-lg font-bold text-gray-900">dq Dashboard</h1>
-          <p className="text-xs text-gray-500 mt-1">Data Quality Agent</p>
+    <div className="flex h-screen bg-muted/30">
+      <aside className="w-56 bg-background border-r flex flex-col">
+        <div className="px-4 py-5">
+          <h1 className="text-lg font-bold">dq Dashboard</h1>
+          <p className="text-xs text-muted-foreground mt-1">Data Quality Agent</p>
         </div>
+        <Separator />
         <nav className="flex-1 px-2 py-4 space-y-1">
           {navItems.map(({ to, label }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
-                `block px-3 py-2 rounded-md text-sm ${
+                `block px-3 py-2 rounded-md text-sm transition-colors ${
                   isActive
-                    ? 'bg-blue-50 text-blue-700 font-medium'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'text-muted-foreground hover:bg-muted'
                 }`
               }
             >

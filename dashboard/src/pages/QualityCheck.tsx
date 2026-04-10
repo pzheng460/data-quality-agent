@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useApp } from '../context'
-import { api } from '../hooks/useApi'
+import { useApp } from '@/context'
+import { api } from '@/hooks/useApi'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts'
 
 interface FilterData {
