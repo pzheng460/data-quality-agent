@@ -31,7 +31,7 @@ class HfBulkSource(IngestSource):
     """
 
     domain = "arxiv"
-    priority = 100
+    priority = 300
     output_format = "text"
 
     @classmethod

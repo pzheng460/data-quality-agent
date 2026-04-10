@@ -14,7 +14,7 @@ export default function Layout() {
     <div className="flex h-screen bg-muted/30">
       <aside className="w-56 bg-background border-r flex flex-col">
         <div className="px-4 py-5">
-          <h1 className="text-lg font-bold">dq Dashboard</h1>
+          <h1 className="text-lg font-bold">DQ Dashboard</h1>
           <p className="text-xs text-muted-foreground mt-1">Data Quality Agent</p>
         </div>
         <Separator />

@@ -37,7 +37,7 @@ class ArxivSource(IngestSource):
 
     name = "arxiv_latexml"
     domain = "arxiv"
-    priority = 300
+    priority = 100
     output_format = "latex"
 
     @classmethod

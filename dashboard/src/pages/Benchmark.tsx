@@ -79,7 +79,7 @@ export default function QualityCheck() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Quality Benchmark</h2>
+      <h2 className="text-2xl font-bold">Benchmark</h2>
 
       {/* Config */}
       <Card>
@@ -98,26 +98,28 @@ export default function QualityCheck() {
               <Input value={configPath} onChange={e => setConfigPath(e.target.value)} className="font-mono text-sm" />
             </div>
           </div>
-          <div className="flex gap-4 items-end">
+          <div className="grid grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label>Samples</Label>
-              <Input type="number" value={numSamples} onChange={e => setNumSamples(Number(e.target.value))} className="w-24" />
+              <Input type="number" value={numSamples} onChange={e => setNumSamples(Number(e.target.value))} />
             </div>
             <div className="space-y-2">
               <Label>Workers</Label>
-              <Input type="number" value={workers} onChange={e => setWorkers(Number(e.target.value))} className="w-24" />
+              <Input type="number" value={workers} onChange={e => setWorkers(Number(e.target.value))} />
             </div>
             <div className="space-y-2">
               <Label>Data type</Label>
-              <select value={dataType} onChange={e => setDataType(e.target.value)} className="h-9 rounded-md border px-3 text-sm bg-background">
+              <select value={dataType} onChange={e => setDataType(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs">
                 <option value="auto">auto</option>
                 <option value="pretrain">pretrain</option>
                 <option value="sft">sft</option>
               </select>
             </div>
-            <Button onClick={startBench} disabled={status === 'running'}>
-              {status === 'running' ? 'Running...' : 'Run Benchmark'}
-            </Button>
+            <div className="flex items-end">
+              <Button onClick={startBench} disabled={status === 'running'} className="w-full">
+                {status === 'running' ? 'Running...' : 'Run Benchmark'}
+              </Button>
+            </div>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
         </CardContent>

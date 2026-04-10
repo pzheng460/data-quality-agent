@@ -26,6 +26,7 @@ class Ar5ivSource(IngestSource):
 
     domain = "arxiv"
     priority = 200
+
     output_format = "html"
 
     @classmethod
