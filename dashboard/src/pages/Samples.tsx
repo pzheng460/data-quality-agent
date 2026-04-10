@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useApp } from '@/context'
 import { api } from '@/hooks/useApi'
 import { Button } from '@/components/ui/button'
@@ -239,17 +240,23 @@ export default function Samples() {
     } catch { setCurDoc(doc); setCompareDoc(null) }
   }
 
+  const headerEl = typeof document !== 'undefined' ? document.getElementById('header-actions') : null
+
   return (
+    <>
+      {headerEl && createPortal(
+        <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          {sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+        </Button>,
+        headerEl
+      )}
     <div className="flex h-[calc(100vh-6rem)] gap-2">
       {sidebarOpen && (
         <div className="flex gap-2 shrink-0">
           {/* Stages */}
           <Card className="w-36 overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-2 py-1 border-b">
+            <div className="px-2 py-1 border-b">
               <span className="text-xs font-medium text-muted-foreground">Stages</span>
-              <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setSidebarOpen(false)}>
-                <span className="text-xs">✕</span>
-              </Button>
             </div>
             <ScrollArea className="flex-1">
               {STAGES.map(s => (
@@ -289,11 +296,6 @@ export default function Samples() {
 
       {/* Detail */}
       <Card className="flex-1 overflow-hidden flex flex-col min-w-0">
-        {!sidebarOpen && (
-          <div className="shrink-0 px-2 py-1 border-b">
-            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSidebarOpen(true)}>← Show sidebar</Button>
-          </div>
-        )}
         <div className="flex-1 overflow-auto">
           {curDoc ? (
             <DocDetail doc={curDoc} compareDoc={compareDoc} isRawInput={curStage?.stage === 'stage1_ingested'} />
@@ -305,5 +307,6 @@ export default function Samples() {
         </div>
       </Card>
     </div>
+    </>
   )
 }
