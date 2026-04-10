@@ -10,6 +10,9 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { FormField } from '@/components/form-field'
+import { StageRow } from '@/components/stage-row'
+import { StatusMessage } from '@/components/status-message'
 
 interface ParamDef { type: string; label: string; default?: any; required?: boolean }
 interface SourceDef { name: string; domain: string; priority: number; params: Record<string, ParamDef> }
@@ -255,23 +258,19 @@ export default function PipelineControl() {
         <CardContent className="space-y-4">
           {/* Config */}
           <div className="grid grid-cols-4 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Input path</Label>
+            <FormField label="Input path">
               <Input value={pipeInput} onChange={e => setPipeInput(e.target.value)} className="font-mono text-xs" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Output directory</Label>
+            </FormField>
+            <FormField label="Output directory">
               <Input value={outputDir} onChange={e => setOutputDir(e.target.value)} className="font-mono text-xs" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Config YAML</Label>
+            </FormField>
+            <FormField label="Config YAML">
               <Input value={configPath} onChange={e => setConfigPath(e.target.value)} className="font-mono text-xs" />
-            </div>
+            </FormField>
             <div className="flex gap-3 items-end">
-              <div className="space-y-1.5 flex-1">
-                <Label className="text-xs">Workers</Label>
+              <FormField label="Workers" className="flex-1">
                 <Input type="number" value={workers} onChange={e => setWorkers(Number(e.target.value))} />
-              </div>
+              </FormField>
               <div className="flex items-center gap-2 pb-2">
                 <Checkbox id="resume" checked={resume} onCheckedChange={(v) => setResume(!!v)} />
                 <Label htmlFor="resume" className="text-xs">Resume</Label>
@@ -290,28 +289,10 @@ export default function PipelineControl() {
               const io = stageIO[stage.key]
 
               return (
-                <div key={stage.key} className={`flex items-center gap-3 px-4 py-3 rounded-lg ${isDone ? 'bg-green-50' : isSkipped ? 'bg-yellow-50' : 'bg-muted/50'}`}>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isDone ? 'bg-green-500 text-white' : isSkipped ? 'bg-yellow-400 text-white' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
-                    {stage.num}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm">{stage.label}</span>
-                      <span className="text-xs text-muted-foreground">{stage.desc}</span>
-                    </div>
-                    <div className="flex gap-4 mt-0.5 text-[11px] text-muted-foreground">
-                      <span>in: <code className="bg-muted px-1 rounded">{stageIO[stage.key].input}</code></span>
-                      <span>out: <code className="bg-muted px-1 rounded">{stageIO[stage.key].output}</code></span>
-                    </div>
-                  </div>
-                  {result && !isSkipped && (
-                    <span className="text-xs text-muted-foreground shrink-0">
-                      {result.input_count}→{result.output_count} ({(result.keep_rate * 100).toFixed(1)}%, {result.duration_seconds?.toFixed(1)}s)
-                    </span>
-                  )}
-                  {isSkipped && <Badge variant="outline" className="text-yellow-600 border-yellow-300">skipped</Badge>}
-                  <Button variant="outline" size="sm" disabled={pipeStatus === 'running'} onClick={() => runStage(stage.num)}>Run</Button>
-                </div>
+                <StageRow key={stage.key} num={stage.num} label={stage.label} desc={stage.desc}
+                  input={stageIO[stage.key].input} output={stageIO[stage.key].output}
+                  result={result ? { ...result, skipped: isSkipped } : undefined}
+                  onRun={() => runStage(stage.num)} disabled={pipeStatus === 'running'} />
               )
             })}
           </div>
@@ -322,8 +303,8 @@ export default function PipelineControl() {
             <Button onClick={startFullPipeline} disabled={pipeStatus === 'running'}>
               {pipeStatus === 'running' ? 'Running...' : 'Run All Stages'}
             </Button>
-            {pipeError && <p className="text-sm text-destructive">{pipeError}</p>}
-            {pipeStatus === 'finished' && <p className="text-sm text-green-600">Pipeline complete!</p>}
+            <StatusMessage status={pipeError ? 'error' : pipeStatus === 'finished' ? 'success' : 'idle'}
+              message={pipeError || (pipeStatus === 'finished' ? 'Pipeline complete!' : null)} />
           </div>
         </CardContent>
       </Card>

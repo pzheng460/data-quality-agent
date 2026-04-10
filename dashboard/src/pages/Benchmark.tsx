@@ -4,13 +4,15 @@ import { api } from '@/hooks/useApi'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from 'recharts'
+import { KpiCard, KpiGrid } from '@/components/kpi-card'
+import { FormField } from '@/components/form-field'
+import { StatusMessage } from '@/components/status-message'
 
 interface FilterData {
   total: number; passed: number; failed: number; pass_rate: number
@@ -29,9 +31,7 @@ interface DatasetResult {
 
 interface BenchResult { datasets: Record<string, DatasetResult> }
 
-const passRateConfig: ChartConfig = {
-  pass_rate: { label: 'Pass Rate', color: '#3b82f6' },
-}
+const chartConfig: ChartConfig = { pass_rate: { label: 'Pass Rate', color: '#3b82f6' } }
 
 function passColor(rate: number) {
   if (rate >= 0.95) return '#22c55e'
@@ -41,7 +41,6 @@ function passColor(rate: number) {
 
 export default function Benchmark() {
   const { outputDir } = useApp()
-
   const [inputPath, setInputPath] = useState('/tmp/arxiv_pipeline/input.jsonl')
   const [configPath, setConfigPath] = useState('configs/arxiv.yaml')
   const [numSamples, setNumSamples] = useState(100)
@@ -78,7 +77,6 @@ export default function Benchmark() {
   const stats = ds?.dataset_stats
   const filters = ds?.per_filter || {}
   const filterNames = Object.keys(filters)
-
   const chartData = filterNames.map(name => ({
     name: name.length > 15 ? name.slice(0, 14) + '…' : name,
     pass_rate: Math.round((filters[name].pass_rate || 0) * 100),
@@ -88,7 +86,6 @@ export default function Benchmark() {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Benchmark</h2>
 
-      {/* Config */}
       <Card>
         <CardHeader>
           <CardTitle>Configuration</CardTitle>
@@ -96,26 +93,21 @@ export default function Benchmark() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Input path</Label>
+            <FormField label="Input path">
               <Input value={inputPath} onChange={e => setInputPath(e.target.value)} className="font-mono text-sm" />
-            </div>
-            <div className="space-y-2">
-              <Label>Config YAML</Label>
+            </FormField>
+            <FormField label="Config YAML">
               <Input value={configPath} onChange={e => setConfigPath(e.target.value)} className="font-mono text-sm" />
-            </div>
+            </FormField>
           </div>
           <div className="grid grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label>Samples</Label>
+            <FormField label="Samples">
               <Input type="number" value={numSamples} onChange={e => setNumSamples(Number(e.target.value))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Workers</Label>
+            </FormField>
+            <FormField label="Workers">
               <Input type="number" value={workers} onChange={e => setWorkers(Number(e.target.value))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Data type</Label>
+            </FormField>
+            <FormField label="Data type">
               <Select value={dataType} onValueChange={setDataType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -124,37 +116,27 @@ export default function Benchmark() {
                   <SelectItem value="sft">sft</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </FormField>
             <div className="flex items-end">
               <Button onClick={startBench} disabled={status === 'running'} className="w-full">
                 {status === 'running' ? 'Running…' : 'Run Benchmark'}
               </Button>
             </div>
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          <StatusMessage status={status === 'error' ? 'error' : 'idle'} message={error} />
         </CardContent>
       </Card>
 
       {ds && (
         <>
-          {/* KPIs */}
-          <div className="grid grid-cols-4 gap-4">
-            {[
-              { label: 'Documents', value: String(ds.num_docs) },
-              { label: 'Overall Pass Rate', value: `${(ds.overall_pass_rate * 100).toFixed(1)}%`, color: ds.overall_pass_rate >= 0.9 ? 'text-green-600' : 'text-yellow-600' },
-              { label: 'Avg Word Count', value: stats?.avg_word_count?.toFixed(0) ?? '—' },
-              { label: 'Data Type', value: ds.data_type, className: 'capitalize' },
-            ].map((kpi, i) => (
-              <Card key={i}>
-                <CardContent className="pt-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{kpi.label}</p>
-                  <p className={`text-2xl font-bold mt-1 ${kpi.color || ''} ${kpi.className || ''}`}>{kpi.value}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <KpiGrid cols={4}>
+            <KpiCard label="Documents" value={String(ds.num_docs)} />
+            <KpiCard label="Overall Pass Rate" value={`${(ds.overall_pass_rate * 100).toFixed(1)}%`}
+              color={ds.overall_pass_rate >= 0.9 ? 'text-green-600' : 'text-yellow-600'} />
+            <KpiCard label="Avg Word Count" value={stats?.avg_word_count?.toFixed(0) ?? '—'} />
+            <KpiCard label="Data Type" value={ds.data_type} className="capitalize" />
+          </KpiGrid>
 
-          {/* Dataset Stats */}
           {stats && (
             <Card>
               <CardHeader><CardTitle className="text-base">Dataset Statistics</CardTitle></CardHeader>
@@ -171,12 +153,11 @@ export default function Benchmark() {
             </Card>
           )}
 
-          {/* Chart */}
           {chartData.length > 0 && (
             <Card>
               <CardHeader><CardTitle className="text-base">Filter Pass Rates</CardTitle></CardHeader>
               <CardContent>
-                <ChartContainer config={passRateConfig} className="w-full" style={{ height: Math.max(200, chartData.length * 40) }}>
+                <ChartContainer config={chartConfig} className="w-full" style={{ height: Math.max(200, chartData.length * 40) }}>
                   <BarChart data={chartData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" domain={[0, 100]} tickFormatter={(v: number) => `${v}%`} />
@@ -193,7 +174,6 @@ export default function Benchmark() {
             </Card>
           )}
 
-          {/* Filter Details */}
           <Card>
             <CardHeader><CardTitle className="text-base">Filter Details</CardTitle></CardHeader>
             <CardContent className="space-y-1">
@@ -204,28 +184,21 @@ export default function Benchmark() {
                 const isOpen = expandedFilter === fname
 
                 return (
-                  <Collapsible key={fname} open={isOpen} onOpenChange={(open) => setExpandedFilter(open ? fname : null)}>
+                  <Collapsible key={fname} open={isOpen} onOpenChange={open => setExpandedFilter(open ? fname : null)}>
                     <CollapsibleTrigger asChild>
-                      <Button variant="ghost" className="w-full justify-start gap-3 px-3 py-2 h-auto">
+                      <Button variant="ghost" className="w-full justify-start gap-3 px-3 py-2">
                         <span className="text-xs text-muted-foreground w-4">{isOpen ? '▼' : '▶'}</span>
                         <span className="font-medium text-sm flex-1 text-left">{fname}</span>
-                        <span className="text-xs text-muted-foreground">{f.failed} failed / {f.total}</span>
+                        <span className="text-xs text-muted-foreground">{f.failed} / {f.total}</span>
                         <Badge variant={f.pass_rate >= 0.95 ? 'default' : f.pass_rate >= 0.8 ? 'secondary' : 'destructive'}>
                           {(f.pass_rate * 100).toFixed(1)}%
                         </Badge>
                       </Button>
                     </CollapsibleTrigger>
-
                     <CollapsibleContent className="ml-8 mb-3 space-y-2">
                       {ruleNames.length > 0 && (
                         <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Rule</TableHead>
-                              <TableHead className="text-right">Failed</TableHead>
-                              <TableHead className="text-right">Pass Rate</TableHead>
-                            </TableRow>
-                          </TableHeader>
+                          <TableHeader><TableRow><TableHead>Rule</TableHead><TableHead className="text-right">Failed</TableHead><TableHead className="text-right">Pass Rate</TableHead></TableRow></TableHeader>
                           <TableBody>
                             {ruleNames.map(rule => (
                               <TableRow key={rule}>
@@ -236,19 +209,6 @@ export default function Benchmark() {
                             ))}
                           </TableBody>
                         </Table>
-                      )}
-                      {f.sample_failed && f.sample_failed.length > 0 && (
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-1">Sample failures:</p>
-                          {f.sample_failed.map((s, i) => (
-                            <Card key={i} className="bg-destructive/5 mb-1">
-                              <CardContent className="py-2 px-3 text-xs">
-                                <p className="text-destructive font-medium">{s.reason?.reason || 'unknown'}</p>
-                                <p className="text-muted-foreground mt-0.5 font-mono text-[11px] truncate">{s.text_preview?.slice(0, 150)}</p>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
                       )}
                     </CollapsibleContent>
                   </Collapsible>
