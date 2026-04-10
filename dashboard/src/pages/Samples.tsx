@@ -240,70 +240,68 @@ export default function Samples() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-3rem)] gap-3">
-      {sidebarOpen ? (
-        <div className="flex gap-2 shrink-0">
-          {/* Stages list */}
-          <Card className="w-40 overflow-hidden">
-            <CardHeader className="py-2 px-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm">Stages</CardTitle>
-              <Button variant="ghost" size="sm" className="h-6 px-1 text-xs" onClick={() => setSidebarOpen(false)}>Hide</Button>
-            </CardHeader>
-            <ScrollArea className="h-[calc(100vh-8rem)]">
-              {STAGES.map(s => (
-                <Button key={`${s.stage}/${s.sub}`} variant={curStage?.stage === s.stage && curStage?.sub === s.sub ? 'secondary' : 'ghost'}
-                  className="w-full justify-start rounded-none text-sm h-auto py-2 px-3" onClick={() => loadDocs(s)}>
-                  <span className={`inline-block w-2 h-2 rounded-full mr-2 ${s.color === 'green' ? 'bg-green-500' : s.color === 'red' ? 'bg-red-500' : s.color === 'blue' ? 'bg-blue-500' : 'bg-amber-500'}`} />
-                  {s.label}
-                </Button>
-              ))}
-            </ScrollArea>
-          </Card>
+    <div className="flex flex-col h-[calc(100vh-3rem)]">
+      {/* Top bar with toggle */}
+      <div className="flex items-center justify-between px-2 py-1 shrink-0">
+        <h2 className="text-lg font-bold">Samples</h2>
+        <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          {sidebarOpen ? 'Hide sidebar' : '← Show sidebar'}
+        </Button>
+      </div>
 
-          {/* Docs list */}
-          <Card className="w-56 overflow-hidden">
-            <CardHeader className="py-2 px-3">
-              <CardTitle className="text-sm">Docs <span className="text-muted-foreground font-normal">({docs.length})</span></CardTitle>
-            </CardHeader>
-            <ScrollArea className="h-[calc(100vh-8rem)]">
-              {loading && <div className="p-3 space-y-2"><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-3/4" /></div>}
-              {docs.map((d, i) => (
-                <Button key={d.id || i} variant={curDoc?.id === d.id ? 'secondary' : 'ghost'}
-                  className="w-full justify-start rounded-none h-auto py-2 px-3 text-left block"
-                  onClick={() => selectDoc(d)}>
-                  <p className="text-xs font-mono truncate">{d.id}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{d.metadata?.title || d.text_preview?.slice(0, 50)}</p>
-                  {(d.__dq_rejections?.length ?? 0) > 0 && (
-                    <div className="flex flex-wrap gap-0.5 mt-0.5">
-                      {d.__dq_rejections!.map((r, j) => <Badge key={j} variant="destructive" className="text-[10px] px-1 py-0">{r.rule}</Badge>)}
-                    </div>
-                  )}
-                </Button>
-              ))}
-            </ScrollArea>
-          </Card>
-        </div>
-      ) : null}
+      <div className="flex flex-1 gap-2 min-h-0">
+        {sidebarOpen && (
+          <div className="flex gap-2 shrink-0">
+            {/* Stages */}
+            <Card className="w-40 overflow-hidden flex flex-col">
+              <div className="px-3 py-1.5 border-b text-xs font-semibold text-muted-foreground">Stages</div>
+              <ScrollArea className="flex-1">
+                {STAGES.map(s => (
+                  <Button key={`${s.stage}/${s.sub}`} variant={curStage?.stage === s.stage && curStage?.sub === s.sub ? 'secondary' : 'ghost'}
+                    className="w-full justify-start rounded-none text-sm h-auto py-1.5 px-3" onClick={() => loadDocs(s)}>
+                    <span className={`w-2 h-2 rounded-full mr-2 shrink-0 ${s.color === 'green' ? 'bg-green-500' : s.color === 'red' ? 'bg-red-500' : s.color === 'blue' ? 'bg-blue-500' : 'bg-amber-500'}`} />
+                    {s.label}
+                  </Button>
+                ))}
+              </ScrollArea>
+            </Card>
 
-      {/* Detail panel */}
-      <Card className="flex-1 overflow-hidden flex flex-col min-w-0">
-        {!sidebarOpen && (
-          <div className="shrink-0 border-b px-4 py-2">
-            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(true)}>← Show Stages</Button>
+            {/* Docs */}
+            <Card className="w-56 overflow-hidden flex flex-col">
+              <div className="px-3 py-1.5 border-b text-xs font-semibold text-muted-foreground">Docs ({docs.length})</div>
+              <ScrollArea className="flex-1">
+                {loading && <div className="p-2 space-y-2"><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-3/4" /></div>}
+                {docs.map((d, i) => (
+                  <Button key={d.id || i} variant={curDoc?.id === d.id ? 'secondary' : 'ghost'}
+                    className="w-full justify-start rounded-none h-auto py-1.5 px-3 text-left block"
+                    onClick={() => selectDoc(d)}>
+                    <p className="text-xs font-mono truncate">{d.id}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{d.metadata?.title || d.text_preview?.slice(0, 50)}</p>
+                    {(d.__dq_rejections?.length ?? 0) > 0 && (
+                      <div className="flex flex-wrap gap-0.5 mt-0.5">
+                        {d.__dq_rejections!.map((r, j) => <Badge key={j} variant="destructive" className="text-[10px] px-1 py-0">{r.rule}</Badge>)}
+                      </div>
+                    )}
+                  </Button>
+                ))}
+              </ScrollArea>
+            </Card>
           </div>
         )}
-        <div className="flex-1 overflow-auto">
-        {curDoc ? (
-          <DocDetail doc={curDoc} compareDoc={compareDoc} isRawInput={curStage?.stage === 'stage1_ingested'} />
-        ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground">
-            {sidebarOpen ? 'Select a stage → document' : (
-              <Button variant="link" onClick={() => setSidebarOpen(true)}>← Open sidebar to select a document</Button>
+
+        {/* Detail */}
+        <Card className="flex-1 overflow-hidden flex flex-col min-w-0">
+          <div className="flex-1 overflow-auto">
+            {curDoc ? (
+              <DocDetail doc={curDoc} compareDoc={compareDoc} isRawInput={curStage?.stage === 'stage1_ingested'} />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                Select a stage → document
+              </div>
             )}
           </div>
-        )}
-        </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   )
 }
