@@ -10,3 +10,4 @@ build/
 # LLM credentials (use configs/llm.yaml.example as template)
 configs/llm.yaml
 node_modules/
+*.log
