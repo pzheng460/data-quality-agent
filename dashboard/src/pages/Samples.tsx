@@ -252,46 +252,49 @@ export default function Samples() {
       )}
     <div className="flex h-[calc(100vh-6rem)] gap-2">
       {sidebarOpen && (
-        <div className="flex gap-2 shrink-0">
-          {/* Stages */}
-          <Card className="w-36 overflow-hidden flex flex-col">
-            <div className="px-2 py-1 border-b">
-              <span className="text-xs font-medium text-muted-foreground">Stages</span>
-            </div>
-            <ScrollArea className="flex-1">
-              {STAGES.map(s => (
-                <Button key={`${s.stage}/${s.sub}`} variant={curStage?.stage === s.stage && curStage?.sub === s.sub ? 'secondary' : 'ghost'}
-                  className="w-full justify-start rounded-none text-xs h-auto py-1 px-2" onClick={() => loadDocs(s)}>
-                  <span className={`w-1.5 h-1.5 rounded-full mr-1.5 shrink-0 ${s.color === 'green' ? 'bg-green-500' : s.color === 'red' ? 'bg-red-500' : s.color === 'blue' ? 'bg-blue-500' : 'bg-amber-500'}`} />
+        <aside className="w-64 shrink-0 border-r bg-sidebar flex flex-col">
+          <div className="px-3 py-2">
+            <p className="text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wider">Stages</p>
+          </div>
+          <nav className="px-2 space-y-0.5">
+            {STAGES.map(s => {
+              const isActive = curStage?.stage === s.stage && curStage?.sub === s.sub
+              return (
+                <button key={`${s.stage}/${s.sub}`} onClick={() => loadDocs(s)}
+                  className={`flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-sm transition-colors ${isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : 'text-sidebar-foreground hover:bg-sidebar-accent/50'}`}>
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${s.color === 'green' ? 'bg-green-500' : s.color === 'red' ? 'bg-red-500' : s.color === 'blue' ? 'bg-blue-500' : 'bg-amber-500'}`} />
                   {s.label}
-                </Button>
-              ))}
-            </ScrollArea>
-          </Card>
+                </button>
+              )
+            })}
+          </nav>
+
+          <Separator className="my-2" />
 
           {/* Docs */}
-          <Card className="w-52 overflow-hidden flex flex-col">
-            <div className="px-2 py-1 border-b">
-              <span className="text-xs font-medium text-muted-foreground">Docs ({docs.length})</span>
-            </div>
-            <ScrollArea className="flex-1">
-              {loading && <div className="p-2 space-y-1"><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-full" /><Skeleton className="h-6 w-3/4" /></div>}
-              {docs.map((d, i) => (
-                <Button key={d.id || i} variant={curDoc?.id === d.id ? 'secondary' : 'ghost'}
-                  className="w-full justify-start rounded-none h-auto py-1 px-3 text-left block"
-                  onClick={() => selectDoc(d)}>
+          <div className="px-3 py-1 flex items-center justify-between">
+            <p className="text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wider">Documents</p>
+            <span className="text-xs text-muted-foreground">{docs.length}</span>
+          </div>
+          <ScrollArea className="flex-1 px-1">
+            {loading && <div className="p-2 space-y-1"><Skeleton className="h-10 w-full rounded-md" /><Skeleton className="h-10 w-full rounded-md" /><Skeleton className="h-10 w-3/4 rounded-md" /></div>}
+            {docs.map((d, i) => {
+              const isActive = curDoc?.id === d.id
+              return (
+                <button key={d.id || i} onClick={() => selectDoc(d)}
+                  className={`w-full text-left rounded-md px-2 py-1.5 mb-0.5 transition-colors ${isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'hover:bg-sidebar-accent/50'}`}>
                   <p className="text-xs font-mono truncate">{d.id}</p>
-                  <p className="text-[10px] text-muted-foreground truncate">{d.metadata?.title || d.text_preview?.slice(0, 50)}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{d.metadata?.title || d.text_preview?.slice(0, 60)}</p>
                   {(d.__dq_rejections?.length ?? 0) > 0 && (
                     <div className="flex flex-wrap gap-0.5 mt-0.5">
                       {d.__dq_rejections!.map((r, j) => <Badge key={j} variant="destructive" className="text-[9px] px-1 py-0">{r.rule}</Badge>)}
                     </div>
                   )}
-                </Button>
-              ))}
-            </ScrollArea>
-          </Card>
-        </div>
+                </button>
+              )
+            })}
+          </ScrollArea>
+        </aside>
       )}
 
       {/* Detail */}
