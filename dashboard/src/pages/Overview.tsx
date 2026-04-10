@@ -78,8 +78,8 @@ export default function Overview() {
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="Input" fill="hsl(var(--muted))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Output" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Input" fill="#bfdbfe" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Output" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -110,7 +110,7 @@ export default function Overview() {
                     <XAxis type="number" />
                     <YAxis type="category" dataKey="rule" tick={{ fontSize: 11 }} width={170} />
                     <Tooltip />
-                    <Bar dataKey="count" fill="hsl(var(--destructive))" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="count" fill="#ef4444" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>

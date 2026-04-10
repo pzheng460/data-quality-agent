@@ -27,9 +27,9 @@ interface DatasetResult {
 interface BenchResult { datasets: Record<string, DatasetResult> }
 
 function passColor(rate: number) {
-  if (rate >= 0.95) return 'hsl(var(--chart-2))'
-  if (rate >= 0.8) return 'hsl(var(--chart-4))'
-  return 'hsl(var(--destructive))'
+  if (rate >= 0.95) return '#22c55e'
+  if (rate >= 0.8) return '#eab308'
+  return '#ef4444'
 }
 
 export default function QualityCheck() {
