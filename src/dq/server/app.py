@@ -397,85 +397,73 @@ def get_overview(output_dir: str):
     raise HTTPException(404, "No stats found")
 
 
-# ── Quality Check (dq bench on final output) ──
+# ── Benchmark (dq bench) ──
 
-class QualityCheckRequest(BaseModel):
-    output_dir: str
-    num_samples: int = 50
+_bench_state: dict[str, Any] = {
+    "status": "idle",  # idle | running | done | error
+    "result": None,
+    "error": None,
+}
+
+
+class BenchRequest(BaseModel):
+    input_path: str
     config_path: str = ""
+    num_samples: int = 100
+    data_type: str = "auto"
+    workers: int = 4
+    with_llm_scoring: bool = False
+    llm_samples: int = 50
 
 
-@app.post("/api/quality-check")
-def run_quality_check(req: QualityCheckRequest):
-    """Run dq bench on the final pipeline output to check quality."""
-    from dq.shared.shard import read_shards
-    import random
+@app.post("/api/bench")
+def start_bench(req: BenchRequest):
+    """Run dq bench in background. Poll /api/bench/status for results."""
+    with _lock:
+        if _bench_state.get("status") == "running":
+            raise HTTPException(400, "Benchmark already running")
+        _bench_state.update(status="running", result=None, error=None)
 
-    final_dir = Path(req.output_dir) / "stage5_final"
-    if not final_dir.exists():
-        raise HTTPException(404, "stage5_final not found")
+    def _run():
+        try:
+            from dq.benchmark.runner import run_benchmark
+            from dq.benchmark_report import benchmark_to_json
+            from dq.utils.io import read_docs
 
-    # Load docs from final output
-    docs = list(read_shards(final_dir))
-    if not docs:
-        raise HTTPException(404, "No documents in stage5_final")
+            docs = list(read_docs(Path(req.input_path)))
+            if req.num_samples > 0 and len(docs) > req.num_samples:
+                import random
+                docs = random.sample(docs, req.num_samples)
 
-    # Sample
-    sample = random.sample(docs, min(req.num_samples, len(docs)))
+            report = run_benchmark(
+                config_path=req.config_path or None,
+                datasets={"input": docs},
+                n=0,
+                data_type=req.data_type,
+                workers=req.workers,
+                sft_samples=req.llm_samples if req.with_llm_scoring else 0,
+                save_rejected=False,
+            )
 
-    # Run benchmark
-    from dq.stages.curation.filters import ensure_registered
-    ensure_registered()
-    from dq.config import PipelineConfig
-    from dq.pipeline import Pipeline
+            result_json = json.loads(benchmark_to_json(report))
+            with _lock:
+                _bench_state["status"] = "done"
+                _bench_state["result"] = result_json
+        except Exception as e:
+            logger.exception("Benchmark failed")
+            with _lock:
+                _bench_state["status"] = "error"
+                _bench_state["error"] = str(e)
 
-    if req.config_path:
-        config = PipelineConfig.from_yaml(req.config_path)
-    else:
-        config = PipelineConfig.default()
+    threading.Thread(target=_run, daemon=True).start()
+    return {"status": "started"}
 
-    pipeline = Pipeline(config)
 
-    per_filter: dict[str, dict] = {}
-    per_rule: dict[str, dict[str, int]] = {}
-    total_pass = 0
-    total_words = 0
-
-    for doc in sample:
-        pass_all = True
-        for f in pipeline.filters:
-            fname = f.name
-            keep, failures = f.filter_detailed(doc)
-            if fname not in per_filter:
-                per_filter[fname] = {"total": 0, "passed": 0, "failed": 0}
-            per_filter[fname]["total"] += 1
-            if keep:
-                per_filter[fname]["passed"] += 1
-            else:
-                per_filter[fname]["failed"] += 1
-                pass_all = False
-            for fail in failures:
-                rule = fail.get("rule", "unknown")
-                key = f"{fname}.{rule}"
-                per_rule.setdefault(fname, {})
-                per_rule[fname][key] = per_rule[fname].get(key, 0) + 1
-        if pass_all:
-            total_pass += 1
-        text = doc.get("text", "")
-        total_words += len(text.split())
-
-    for fname in per_filter:
-        t = per_filter[fname]["total"]
-        per_filter[fname]["pass_rate"] = per_filter[fname]["passed"] / t if t > 0 else 0
-
-    return {
-        "total_docs": len(docs),
-        "sampled": len(sample),
-        "per_filter": per_filter,
-        "per_rule": per_rule,
-        "dataset_stats": {"avg_word_count": total_words / len(sample) if sample else 0},
-        "overall_pass_rate": total_pass / len(sample) if sample else 0,
-    }
+@app.get("/api/bench/status")
+def bench_status():
+    """Poll benchmark status and results."""
+    with _lock:
+        return dict(_bench_state)
 
 
 # ── Ingestion state ──
