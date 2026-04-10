@@ -173,6 +173,8 @@ def _math_to_latex(el) -> str:
             r"\\\1\2",
             alt,
         )
+        # Strip \\[Xpt] line spacing hints — breaks remark-math parser
+        alt = re.sub(r"\\\\\[[\d.]+(?:pt|em|ex|mm|cm)?\]", r"\\\\", alt)
         return alt
     tex = el.get("tex", "")
     if tex:

@@ -123,11 +123,13 @@ def _clean_text(text: str) -> str:
     for key, val in math_phs:
         val = re.sub(r"%.*?\n", "\n", val)  # strip % line comments
         val = val.rstrip("%")
-        # For display math: remove nested single $ that break rendering
+        # For display math: fix rendering issues
         if val.startswith("$$") and val.endswith("$$"):
             inner = val[2:-2]
-            # Replace $...$ inside display math with just the content
+            # Remove nested $...$ that break rendering
             inner = re.sub(r"(?<!\$)\$(?!\$)(.*?)\$(?!\$)", r"\1", inner)
+            # Collapse to single line (multi-line $$ breaks remark-math)
+            inner = inner.replace("\n", " ")
             val = f"$${inner}$$"
         text = text.replace(key, val)
 
