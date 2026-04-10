@@ -100,7 +100,7 @@ export default function Benchmark() {
               <Input value={configPath} onChange={e => setConfigPath(e.target.value)} className="font-mono text-sm" />
             </FormField>
           </div>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <FormField label="Samples">
               <Input type="number" value={numSamples} onChange={e => setNumSamples(Number(e.target.value))} />
             </FormField>
@@ -117,13 +117,13 @@ export default function Benchmark() {
                 </SelectContent>
               </Select>
             </FormField>
-            <div className="flex items-end">
-              <Button onClick={startBench} disabled={status === 'running'} className="w-full">
-                {status === 'running' ? 'Running…' : 'Run Benchmark'}
-              </Button>
-            </div>
           </div>
-          <StatusMessage status={status === 'error' ? 'error' : 'idle'} message={error} />
+          <div className="flex items-center gap-4">
+            <Button onClick={startBench} disabled={status === 'running'} size="lg">
+              {status === 'running' ? 'Running…' : 'Run Benchmark'}
+            </Button>
+            <StatusMessage status={status === 'error' ? 'error' : 'idle'} message={error} />
+          </div>
         </CardContent>
       </Card>
 

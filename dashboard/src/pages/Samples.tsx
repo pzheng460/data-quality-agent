@@ -148,13 +148,23 @@ function DocDetail({ doc, compareDoc, isRawInput = false }: { doc: Doc; compareD
 
             {compareView === 'split' && (
               <div className="grid grid-cols-2 gap-3 h-[70vh]">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Original</p>
-                  <OriginalPanel className="h-full" />
+                <div className="flex flex-col min-h-0">
+                  <p className="text-xs font-medium text-muted-foreground mb-1 shrink-0">Original</p>
+                  <div className="flex-1 overflow-auto rounded-lg border bg-muted/50 p-4">
+                    {arxivPdf ? (
+                      <iframe src={arxivPdf} className="w-full h-full rounded border-0" title="Original PDF" />
+                    ) : compareDoc ? (
+                      <pre className="text-xs leading-relaxed font-mono whitespace-pre-wrap">{compareDoc.text}</pre>
+                    ) : (
+                      <p className="text-muted-foreground text-sm text-center pt-8">No original. Select a Stage 2+ document.</p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Cleaned</p>
-                  <CleanedPanel className="h-full" />
+                <div className="flex flex-col min-h-0">
+                  <p className="text-xs font-medium text-muted-foreground mb-1 shrink-0">Cleaned</p>
+                  <div className="flex-1 overflow-auto rounded-lg border p-4">
+                    <Md>{doc.text}</Md>
+                  </div>
                 </div>
               </div>
             )}
@@ -276,12 +286,13 @@ export default function Samples() {
       ) : null}
 
       {/* Detail panel */}
-      <Card className="flex-1 overflow-auto">
+      <Card className="flex-1 overflow-hidden flex flex-col min-w-0">
         {!sidebarOpen && (
-          <div className="sticky top-0 z-10 bg-background border-b px-4 py-2">
+          <div className="shrink-0 border-b px-4 py-2">
             <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(true)}>← Show Stages</Button>
           </div>
         )}
+        <div className="flex-1 overflow-auto">
         {curDoc ? (
           <DocDetail doc={curDoc} compareDoc={compareDoc} isRawInput={curStage?.stage === 'stage1_ingested'} />
         ) : (
@@ -291,6 +302,7 @@ export default function Samples() {
             )}
           </div>
         )}
+        </div>
       </Card>
     </div>
   )
