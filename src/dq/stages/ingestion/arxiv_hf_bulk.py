@@ -1,15 +1,17 @@
 """Bulk ingest arxiv papers from HuggingFace ar5iv dataset.
 
-Supports:
-- By IDs: stream dataset, filter for specific papers
-- By date: discover IDs via OAI-PMH, then filter from dataset
-- Bulk: stream all papers (with optional limit)
+Optimization: dataset files are named by YYMM (e.g. 2310.jsonl.gz).
+For ID-based lookup, we download only the relevant shard file instead
+of streaming the entire dataset.
 """
 
 from __future__ import annotations
 
+import gzip
+import json
 import logging
 import re
+from pathlib import Path
 from typing import Iterator
 
 from dq.stages.ingestion.base import IngestSource
@@ -22,7 +24,11 @@ DATASET_ID = "marin-community/ar5iv-no-problem-markdown"
 
 @register_source("arxiv_hf_bulk")
 class HfBulkSource(IngestSource):
-    """Stream ar5iv-converted papers from HuggingFace dataset."""
+    """Stream ar5iv-converted papers from HuggingFace dataset.
+
+    Optimized: when searching by IDs, downloads only the relevant YYMM
+    shard files instead of scanning the entire dataset.
+    """
 
     domain = "arxiv"
     priority = 100
@@ -38,15 +44,8 @@ class HfBulkSource(IngestSource):
             "dataset_id": {"type": "string", "label": "HF dataset ID", "default": DATASET_ID},
         }
 
-    def __init__(
-        self,
-        ids: list[str] | None = None,
-        from_date: str | None = None,
-        to_date: str | None = None,
-        categories: list[str] | None = None,
-        dataset_id: str = DATASET_ID,
-        **kwargs,
-    ) -> None:
+    def __init__(self, ids=None, from_date=None, to_date=None, categories=None,
+                 dataset_id=DATASET_ID, **kwargs):
         self.ids = ids
         self.from_date = from_date
         self.to_date = to_date
@@ -56,7 +55,6 @@ class HfBulkSource(IngestSource):
     def fetch(self, limit: int = 0) -> Iterator[dict]:
         import os
         os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
-        from datasets import load_dataset
 
         # Resolve IDs from date range if needed
         target_ids = None
@@ -65,30 +63,104 @@ class HfBulkSource(IngestSource):
         elif self.from_date:
             from dq.stages.ingestion.arxiv_source import _oai_list_ids
             id_list = _oai_list_ids(self.from_date, self.to_date, self.categories, max_results=limit or 1000)
-            logger.info("OAI-PMH returned %d IDs for date range", len(id_list))
+            logger.info("OAI-PMH returned %d IDs", len(id_list))
             target_ids = set(id_list)
 
-        if target_ids is not None:
-            logger.info("Filtering HF dataset for %d specific IDs...", len(target_ids))
+        if target_ids:
+            # Fast path: download only relevant shard files
+            yield from self._fetch_by_shard(target_ids, limit)
         else:
-            logger.info("Streaming all from %s...", self.dataset_id)
+            # Bulk path: stream entire dataset
+            yield from self._fetch_stream(limit)
 
-        ds = load_dataset(self.dataset_id, split="train", streaming=True)
-        remaining = set(target_ids) if target_ids is not None else None
+    def _fetch_by_shard(self, target_ids: set[str], limit: int) -> Iterator[dict]:
+        """Fast ID lookup: group IDs by YYMM prefix, download only those shards."""
+        from huggingface_hub import hf_hub_download
+
+        # Group IDs by YYMM shard
+        shards: dict[str, set[str]] = {}
+        for aid in target_ids:
+            # New-style IDs: 2310.06825 → shard "2310"
+            m = re.match(r"(\d{4})\.\d+", aid)
+            if m:
+                shards.setdefault(m.group(1), set()).add(aid)
+            else:
+                # Old-style IDs: hep-ph/0001001 → shard "0001" (approximate)
+                parts = aid.split("/")
+                if len(parts) == 2:
+                    shards.setdefault(parts[1][:4], set()).add(aid)
+                else:
+                    shards.setdefault("unknown", set()).add(aid)
+
+        logger.info("Looking up %d IDs across %d shard(s): %s",
+                     len(self.ids) if hasattr(self, 'ids') and self.ids else len(target_ids),
+                     len(shards), list(shards.keys()))
+
         count = 0
+        remaining = set(target_ids)
 
+        for shard_name, shard_ids in shards.items():
+            if not remaining:
+                break
+            if shard_name == "unknown":
+                logger.warning("Cannot determine shard for IDs: %s", shard_ids)
+                continue
+
+            try:
+                path = hf_hub_download(
+                    self.dataset_id,
+                    f"{shard_name}.jsonl.gz",
+                    repo_type="dataset",
+                )
+                logger.info("Downloaded shard %s.jsonl.gz", shard_name)
+            except Exception as e:
+                logger.warning("Shard %s.jsonl.gz not found: %s", shard_name, e)
+                continue
+
+            # Scan shard for matching IDs
+            import gzip, json
+            with gzip.open(path, 'rt') as f:
+                for line in f:
+                    doc = json.loads(line)
+                    arxiv_id = _extract_id(doc.get("id", ""))
+                    if arxiv_id in remaining:
+                        remaining.discard(arxiv_id)
+                        text = doc.get("text", "")
+                        if not text or len(text) < 200:
+                            continue
+                        yield {
+                            "id": f"arxiv_{arxiv_id}",
+                            "text": text,
+                            "source": "ar5iv",
+                            "metadata": {
+                                "arxiv_id": arxiv_id,
+                                "title": text.split("\n")[0].lstrip("# ").strip() if text.startswith("#") else "",
+                                "categories": [],
+                                "primary_category": "",
+                            },
+                        }
+                        count += 1
+                        if limit and count >= limit:
+                            return
+                        if not remaining:
+                            return
+
+        if remaining:
+            logger.warning("IDs not found in dataset: %s", remaining)
+
+    def _fetch_stream(self, limit: int) -> Iterator[dict]:
+        """Bulk streaming mode — scan entire dataset."""
+        from datasets import load_dataset
+
+        logger.info("Streaming all from %s...", self.dataset_id)
+        ds = load_dataset(self.dataset_id, split="train", streaming=True)
+
+        count = 0
         for sample in ds:
             arxiv_id = _extract_id(sample.get("id", ""))
             text = sample.get("text", "")
-
-            if remaining is not None:
-                if arxiv_id not in remaining:
-                    continue
-                remaining.discard(arxiv_id)
-
             if not text or len(text) < 200:
                 continue
-
             yield {
                 "id": f"arxiv_{arxiv_id}",
                 "text": text,
@@ -103,18 +175,12 @@ class HfBulkSource(IngestSource):
             count += 1
             if count % 10000 == 0:
                 logger.info("Streamed %d papers...", count)
-            if limit > 0 and count >= limit:
+            if limit and count >= limit:
                 break
-            if remaining is not None and len(remaining) == 0:
-                break
-
-        if remaining:
-            logger.warning("IDs not found in dataset: %s", remaining)
-        logger.info("Done: %d papers from %s", count, self.dataset_id)
+        logger.info("Done: %d papers", count)
 
 
 def _extract_id(doc_id: str) -> str:
-    """Extract arxiv ID from HF dataset doc ID."""
     name = doc_id.split("/")[-1].replace(".html", "")
     if re.match(r"\d{4}\.\d+", name):
         return name
