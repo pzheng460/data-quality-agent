@@ -38,7 +38,7 @@ export default function Stats() {
       setStages(data.filter((s: any) => s.stats).map((s: any) => s.stats))
     }).catch(() => setError(true))
 
-    api<any>(`/api/overview?output_dir=${encodeURIComponent(outputDir)}`)
+    api<Record<string, unknown>>(`/api/overview?output_dir=${encodeURIComponent(outputDir)}`)
       .then(setOverview).catch(() => {})
   }, [outputDir, refreshKey])
 

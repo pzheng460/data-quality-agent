@@ -3,6 +3,7 @@ import { useApp } from '@/context'
 import { api } from '@/hooks/useApi'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -207,7 +208,7 @@ export default function Samples() {
     setCurStage(s); setCurDoc(null); setCompareDoc(null); setLoading(true)
     try {
       const path = s.sub ? `/api/docs/${s.stage}/${s.sub}` : `/api/docs/${s.stage}`
-      const data = await api<any>(`${path}?output_dir=${encodeURIComponent(outputDir)}&limit=100`)
+      const data = await api<Record<string, unknown>>(`${path}?output_dir=${encodeURIComponent(outputDir)}&limit=100`)
       setDocs(data.docs || [])
     } catch { setDocs([]) }
     setLoading(false)
@@ -255,7 +256,7 @@ export default function Samples() {
               <CardTitle className="text-sm">Docs <span className="text-muted-foreground font-normal">({docs.length})</span></CardTitle>
             </CardHeader>
             <ScrollArea className="h-[calc(100vh-8rem)]">
-              {loading && <p className="p-3 text-xs text-muted-foreground">Loading…</p>}
+              {loading && <div className="p-3 space-y-2"><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-3/4" /></div>}
               {docs.map((d, i) => (
                 <Button key={d.id || i} variant={curDoc?.id === d.id ? 'secondary' : 'ghost'}
                   className="w-full justify-start rounded-none h-auto py-2 px-3 text-left block"

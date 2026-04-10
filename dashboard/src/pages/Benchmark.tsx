@@ -58,14 +58,14 @@ export default function Benchmark() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input_path: inputPath, config_path: configPath, num_samples: numSamples, data_type: dataType, workers })
       })
-    } catch (e: any) { setStatus('error'); setError(e.message) }
+    } catch (e: unknown) { setStatus('error'); setError((e instanceof Error ? e.message : String(e))) }
   }
 
   useEffect(() => {
     if (status !== 'running') return
     const timer = setInterval(async () => {
       try {
-        const data = await api<any>('/api/bench/status')
+        const data = await api<Record<string, unknown>>('/api/bench/status')
         if (data.status === 'done') { setStatus('done'); setResult(data.result); clearInterval(timer) }
         else if (data.status === 'error') { setStatus('error'); setError(data.error); clearInterval(timer) }
       } catch {}

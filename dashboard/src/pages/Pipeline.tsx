@@ -86,7 +86,7 @@ export default function PipelineControl() {
       }
       await api('/api/ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: activeSource, params, output_path: ingestOutput, limit: ingestLimit || 0 }) })
-    } catch (e: any) { setIngestError(e.message); setIngestStatus('error') }
+    } catch (e: unknown) { setIngestError((e instanceof Error ? e.message : String(e))); setIngestStatus('error') }
   }
 
   useEffect(() => {
@@ -94,7 +94,7 @@ export default function PipelineControl() {
     let seen = false
     const timer = setInterval(async () => {
       try {
-        const d = await api<any>('/api/ingest/status')
+        const d = await api<import('@/context').IngestStatus>('/api/ingest/status')
         if (d.status === 'downloading') seen = true
         setPapers(d.papers || [])
         if (seen && d.status === 'done') { setIngestStatus('done'); setPipeInput(ingestOutput); clearInterval(timer) }
@@ -109,7 +109,7 @@ export default function PipelineControl() {
     if (pipeStatus !== 'running') return
     const timer = setInterval(async () => {
       try {
-        const d = await api<any>('/api/status')
+        const d = await api<Record<string, unknown>>('/api/status')
         if (d.progress) { const r: Record<string, any> = {}; for (const p of d.progress) r[p.phase] = p; setStageResults(r) }
         if (d.status === 'finished') { setPipeStatus('finished'); refresh(); clearInterval(timer) }
         else if (d.status === 'error') { setPipeStatus('error'); setPipeError(d.error); clearInterval(timer) }
@@ -132,7 +132,7 @@ export default function PipelineControl() {
     try {
       await api('/api/run-phase', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input_path: pipeInput, output_dir: outputDir, config_path: configPath, phase: n, workers, num_samples: 0 }) })
-    } catch (e: any) { setPipeError(e.message); setPipeStatus('error') }
+    } catch (e: unknown) { setPipeError((e instanceof Error ? e.message : String(e))); setPipeStatus('error') }
   }
 
   const startFullPipeline = async () => {
@@ -140,7 +140,7 @@ export default function PipelineControl() {
     try {
       await api('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input_path: pipeInput, output_dir: outputDir, config_path: configPath, workers, num_samples: 0, resume }) })
-    } catch (e: any) { setPipeError(e.message); setPipeStatus('error') }
+    } catch (e: unknown) { setPipeError((e instanceof Error ? e.message : String(e))); setPipeStatus('error') }
   }
 
   return (
@@ -167,21 +167,21 @@ export default function PipelineControl() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Arxiv IDs <span className="text-muted-foreground">(or use date range)</span></Label>
-                  <Textarea value={paramValues['ids'] ?? ''} onChange={e => setParamValues((v: any) => ({...v, ids: e.target.value}))}
+                  <Textarea value={paramValues['ids'] ?? ''} onChange={e => setParamValues((v: Record<string, string | number>) => ({...v, ids: e.target.value}))}
                     rows={2} className="font-mono text-xs" placeholder="2310.06825, 1706.03762" />
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="space-y-2">
                     <Label htmlFor="from_date">From date</Label>
-                    <Input id="from_date" type="date" value={paramValues['from_date'] ?? ''} onChange={e => setParamValues((v: any) => ({...v, from_date: e.target.value}))} />
+                    <Input id="from_date" type="date" value={paramValues['from_date'] ?? ''} onChange={e => setParamValues((v: Record<string, string | number>) => ({...v, from_date: e.target.value}))} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="to_date">To date</Label>
-                    <Input id="to_date" type="date" value={paramValues['to_date'] ?? ''} onChange={e => setParamValues((v: any) => ({...v, to_date: e.target.value}))} />
+                    <Input id="to_date" type="date" value={paramValues['to_date'] ?? ''} onChange={e => setParamValues((v: Record<string, string | number>) => ({...v, to_date: e.target.value}))} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="categories">Categories</Label>
-                    <Input id="categories" value={paramValues['categories'] ?? ''} onChange={e => setParamValues((v: any) => ({...v, categories: e.target.value}))} placeholder="cs.CL" className="font-mono" />
+                    <Input id="categories" value={paramValues['categories'] ?? ''} onChange={e => setParamValues((v: Record<string, string | number>) => ({...v, categories: e.target.value}))} placeholder="cs.CL" className="font-mono" />
                   </div>
                 </div>
               </div>
@@ -211,11 +211,11 @@ export default function PipelineControl() {
                 <div key={key} className="space-y-2">
                   <Label>{def.label}{def.required && <span className="text-destructive">*</span>}</Label>
                   {def.type === 'list' ? (
-                    <Textarea value={paramValues[key] ?? ''} onChange={e => setParamValues((v: any) => ({...v, [key]: e.target.value}))}
+                    <Textarea value={paramValues[key] ?? ''} onChange={e => setParamValues((v: Record<string, string | number>) => ({...v, [key]: e.target.value}))}
                       rows={2} className="font-mono text-xs" />
                   ) : (
                     <Input type={def.type === 'number' || def.type === 'float' ? 'number' : 'text'}
-                      value={paramValues[key] ?? ''} onChange={e => setParamValues((v: any) => ({...v, [key]: e.target.value}))} className="font-mono" />
+                      value={paramValues[key] ?? ''} onChange={e => setParamValues((v: Record<string, string | number>) => ({...v, [key]: e.target.value}))} className="font-mono" />
                   )}
                 </div>
               ))}
@@ -284,7 +284,7 @@ export default function PipelineControl() {
           <div className="space-y-1">
             {STAGES.map(stage => {
               const result = stageResults[stage.key]
-              const isSkipped = result && (result as any).skipped
+              const isSkipped = result && result?.skipped
               const isDone = !!result && !isSkipped
               const io = stageIO[stage.key]
 

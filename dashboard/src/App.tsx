@@ -4,6 +4,7 @@ import Pipeline from './pages/Pipeline'
 import Stats from './pages/Stats'
 import Samples from './pages/Samples'
 import Benchmark from './pages/Benchmark'
+import NotFound from './pages/NotFound'
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
           <Route path="/stats" element={<Stats />} />
           <Route path="/samples" element={<Samples />} />
           <Route path="/benchmark" element={<Benchmark />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </HashRouter>
