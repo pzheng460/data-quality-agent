@@ -498,7 +498,57 @@ _ingest_state: dict[str, Any] = {
 }
 
 
-# ── Ingestion endpoints ──
+# ── Unified ingestion endpoints ──
+
+
+@app.get("/api/sources")
+def get_sources():
+    """List available data sources grouped by domain."""
+    from dq.ingest import ensure_sources_registered, list_sources
+    ensure_sources_registered()
+    return list_sources()
+
+
+class IngestRequest(BaseModel):
+    source: str
+    params: dict[str, Any] = {}
+    output_path: str
+    limit: int = 0
+
+
+@app.post("/api/ingest")
+def start_ingest(req: IngestRequest):
+    """Start ingestion from any registered source."""
+    from dq.ingest import ensure_sources_registered
+    from dq.ingest.registry import get_source_class
+    ensure_sources_registered()
+
+    with _lock:
+        if _ingest_state.get("status") == "downloading":
+            raise HTTPException(400, "Download already in progress")
+
+    try:
+        src_cls = get_source_class(req.source)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    src = src_cls(**req.params)
+
+    with _lock:
+        _ingest_state.update(
+            status="downloading", total=0, downloaded=0,
+            papers=[], error=None, output_path=req.output_path,
+        )
+        _events.clear()
+
+    def _run():
+        _run_ingest(src.fetch(limit=req.limit), req.output_path)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"status": "started", "source": req.source}
+
+
+# ── Legacy ingestion endpoints (deprecated, kept for backward compat) ──
 
 class IngestByIdsRequest(BaseModel):
     ids: list[str]
@@ -538,7 +588,7 @@ def _run_ingest(doc_iter, output_path: str):
                     "primary_category": meta.get("primary_category", ""),
                     "abstract": (meta.get("abstract", "") or "")[:200],
                     "chars": len(doc.get("text", "")),
-                    "source_method": "arxiv_eprint",
+                    "source_method": doc.get("source", "unknown"),
                 }
                 with _lock:
                     _ingest_state["downloaded"] += 1
@@ -591,3 +641,128 @@ def ingest_by_date(req: IngestByDateRequest):
 
     threading.Thread(target=_run_ingest, args=(_source(), req.output_path), daemon=True).start()
     return {"status": "started", "max_papers": req.max_papers}
+
+
+class IngestHfBulkRequest(BaseModel):
+    output_path: str
+    limit: int = 100
+    categories: list[str] = []
+
+
+@app.post("/api/ingest/hf-bulk")
+def ingest_hf_bulk(req: IngestHfBulkRequest):
+    """Download papers from HuggingFace ar5iv bulk dataset."""
+    with _lock:
+        if _ingest_state.get("status") == "downloading":
+            raise HTTPException(400, "Download already in progress")
+        _ingest_state.update(status="downloading", total=req.limit, downloaded=0,
+                             papers=[], error=None, output_path=req.output_path)
+
+    def _run():
+        try:
+            from arxiv_pipeline.ingestion.hf_bulk import load_hf_bulk_iter
+        except ImportError:
+            from arxiv_pipeline.ingestion.hf_bulk import load_bulk
+            # Fallback: use the sync function directly
+            try:
+                count = load_bulk(req_output_path, limit=req.limit,
+                                  categories=None)
+                with _lock:
+                    _ingest_state["status"] = "done"
+                    _ingest_state["downloaded"] = count
+                _push_event({"type": "ingest_done", "count": count})
+            except Exception as e:
+                with _lock:
+                    _ingest_state["status"] = "error"
+                    _ingest_state["error"] = str(e)
+                _push_event({"type": "error", "message": str(e)})
+            return
+
+    req_output_path = req.output_path
+    threading.Thread(target=_run, daemon=True).start()
+    return {"status": "started", "limit": req.limit}
+
+
+class IngestAr5ivRequest(BaseModel):
+    ids: list[str]
+    output_path: str
+    delay: float = 1.0
+
+
+@app.post("/api/ingest/ar5iv")
+def ingest_ar5iv(req: IngestAr5ivRequest):
+    """Fetch papers from ar5iv HTML (incremental)."""
+    with _lock:
+        if _ingest_state.get("status") == "downloading":
+            raise HTTPException(400, "Download already in progress")
+        _ingest_state.update(status="downloading", total=len(req.ids), downloaded=0,
+                             papers=[], error=None, output_path=req.output_path)
+
+    def _run():
+        try:
+            from arxiv_pipeline.ingestion.fetch_ar5iv import fetch_ar5iv_html, html_to_markdown
+        except ImportError:
+            pass
+
+        try:
+            from arxiv_pipeline.ingestion.fetch_ar5iv import fetch_ar5iv_html, html_to_markdown
+            from dq.ingest.arxiv_source import _batch_metadata
+            import json, time
+
+            meta = _batch_metadata(req.ids)
+            out = Path(req.output_path)
+            out.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(out, "w", encoding="utf-8") as f:
+                for aid in req.ids:
+                    try:
+                        html = fetch_ar5iv_html(aid)
+                        if not html:
+                            continue
+                        md = html_to_markdown(html)
+                        if len(md) < 200:
+                            continue
+                        m = meta.get(aid, {})
+                        doc = {
+                            "id": f"arxiv_{aid}",
+                            "text": md,
+                            "source": "ar5iv",
+                            "source_format": "markdown",
+                            "extraction_method": "ar5iv_html",
+                            "metadata": {
+                                "arxiv_id": aid,
+                                "title": m.get("title", ""),
+                                "abstract": (m.get("abstract", "") or "")[:200],
+                                "categories": m.get("categories", []),
+                                "primary_category": m.get("primary_category", ""),
+                            },
+                        }
+                        f.write(json.dumps(doc, ensure_ascii=False) + "\n")
+                        paper_info = {
+                            "arxiv_id": aid,
+                            "title": m.get("title", ""),
+                            "categories": m.get("categories", []),
+                            "primary_category": m.get("primary_category", ""),
+                            "abstract": (m.get("abstract", "") or "")[:200],
+                            "chars": len(md),
+                            "source_method": "ar5iv_html",
+                        }
+                        with _lock:
+                            _ingest_state["downloaded"] += 1
+                            _ingest_state["papers"].append(paper_info)
+                        _push_event({"type": "paper_downloaded", **paper_info})
+                    except Exception as inner_e:
+                        logger.warning("Failed ar5iv %s: %s", aid, inner_e)
+                    time.sleep(req.delay)
+
+            with _lock:
+                _ingest_state["status"] = "done"
+            _push_event({"type": "ingest_done", "count": _ingest_state["downloaded"]})
+        except Exception as e:
+            with _lock:
+                _ingest_state["status"] = "error"
+                _ingest_state["error"] = str(e)
+            _push_event({"type": "error", "message": str(e)})
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"status": "started", "total": len(req.ids)}

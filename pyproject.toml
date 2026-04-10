@@ -23,7 +23,8 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
     "pylatexenc>=2.10",
-    "pypandoc-binary>=1.17",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.0",
 ]
 
 [project.optional-dependencies]
