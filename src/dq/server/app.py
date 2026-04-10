@@ -127,6 +127,7 @@ def _run_pipeline(req: RunRequest) -> None:
         with _lock:
             _state["status"] = "finished"
             _state["current_phase"] = None
+        _invalidate_cache(req.output_dir)
         _push_event({"type": "pipeline_done"})
 
     except Exception as e:
@@ -307,20 +308,40 @@ def get_phase_stats(phase_name: str, output_dir: str):
     raise HTTPException(404, f"Stats not found for {phase_name}")
 
 
-_docs_cache: dict[str, tuple[float, list[dict]]] = {}  # path -> (mtime, docs)
+_docs_cache: dict[str, tuple[str, list[dict]]] = {}  # path -> (fingerprint, docs)
+
+
+def _stage_fingerprint(stage_path: Path) -> str:
+    """Compute fingerprint from shard files: count + total size + max mtime."""
+    shards = sorted(stage_path.glob("*.jsonl.zst")) or sorted(stage_path.glob("*.jsonl"))
+    if not shards:
+        return "empty"
+    total_size = sum(f.stat().st_size for f in shards)
+    max_mtime = max(f.stat().st_mtime for f in shards)
+    return f"{len(shards)}:{total_size}:{max_mtime}"
 
 
 def _load_stage_docs(stage_path: Path) -> list[dict]:
     """Load and cache all docs from a stage directory."""
     from dq.shared.shard import read_shards
     key = str(stage_path)
-    shards = sorted(stage_path.glob("*.jsonl.zst")) or sorted(stage_path.glob("*.jsonl"))
-    mtime = max((f.stat().st_mtime for f in shards), default=0) if shards else 0
-    if key in _docs_cache and _docs_cache[key][0] == mtime:
+    fp = _stage_fingerprint(stage_path)
+    if key in _docs_cache and _docs_cache[key][0] == fp:
         return _docs_cache[key][1]
     docs = list(read_shards(stage_path))
-    _docs_cache[key] = (mtime, docs)
+    _docs_cache[key] = (fp, docs)
     return docs
+
+
+def _invalidate_cache(output_dir: str | None = None):
+    """Clear docs cache. Called when pipeline finishes."""
+    if output_dir:
+        prefix = str(output_dir)
+        to_remove = [k for k in _docs_cache if k.startswith(prefix)]
+        for k in to_remove:
+            del _docs_cache[k]
+    else:
+        _docs_cache.clear()
 
 
 @app.get("/api/docs/{stage}")
@@ -385,6 +406,13 @@ def get_raw_input_doc(input_path: str, doc_id: str):
         if doc.get("id") == doc_id:
             return doc
     raise HTTPException(404, f"Doc {doc_id} not found in {input_path}")
+
+
+@app.post("/api/cache/clear")
+def clear_cache(output_dir: str = ""):
+    """Clear the docs cache for a specific output dir (or all)."""
+    _invalidate_cache(output_dir or None)
+    return {"status": "cleared"}
 
 
 @app.get("/api/doc")
