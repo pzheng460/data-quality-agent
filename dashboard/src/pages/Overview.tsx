@@ -73,7 +73,7 @@ export default function Overview() {
           <CardHeader><CardTitle>Pipeline Funnel</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={funnelData} barGap={-20}>
+              <BarChart data={funnelData} barGap={4} barCategoryGap="20%">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis />
