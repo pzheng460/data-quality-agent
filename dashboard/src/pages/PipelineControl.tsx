@@ -140,9 +140,9 @@ export default function PipelineControl() {
 
   const loadStageResults = async () => {
     try {
-      const stages = await api<any[]>(`/api/phases?output_dir=${encodeURIComponent(outputDir)}`)
+      const data = await api<any[]>(`/api/stages/all?output_dir=${encodeURIComponent(outputDir)}`)
       const r: Record<string, StageResult> = {}
-      for (const s of stages) if (s.done) try { r[s.name] = await api<any>(`/api/phase-stats/${s.name}?output_dir=${encodeURIComponent(outputDir)}`) } catch {}
+      for (const s of data) { if (s.stats) r[s.name] = s.stats }
       setStageResults(r)
     } catch {}
   }

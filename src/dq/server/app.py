@@ -278,6 +278,23 @@ def list_phases(output_dir: str):
     return stages
 
 
+@app.get("/api/stages/all")
+def get_all_stages(output_dir: str):
+    """Get all stage statuses and stats in one call."""
+    out = Path(output_dir)
+    result = []
+    for num, name in [(1, "ingestion"), (2, "extraction"), (3, "curation"), (4, "packaging")]:
+        entry: dict = {"phase": num, "name": name, "done": (out / f".{name}_SUCCESS").exists(), "stats": None}
+        for stats_dir in out.glob("stats/*/"):
+            sf = stats_dir / f"{name}.json"
+            if sf.exists():
+                with open(sf) as f:
+                    entry["stats"] = json.load(f)
+                break
+        result.append(entry)
+    return result
+
+
 @app.get("/api/phase-stats/{phase_name}")
 def get_phase_stats(phase_name: str, output_dir: str):
     """Get stats for a specific phase."""

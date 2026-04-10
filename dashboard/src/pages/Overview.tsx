@@ -32,16 +32,13 @@ export default function Overview() {
   const [error, setError] = useState(false)
 
   useEffect(() => {
-    api<OverviewData>(`/api/overview?output_dir=${encodeURIComponent(outputDir)}`)
-      .then(setOverview).catch(() => setError(true))
+    // Single request for all stages + stats
+    api<any[]>(`/api/stages/all?output_dir=${encodeURIComponent(outputDir)}`).then(data => {
+      setStages(data.filter((s: any) => s.stats).map((s: any) => s.stats))
+    }).catch(() => setError(true))
 
-    api<any[]>(`/api/phases?output_dir=${encodeURIComponent(outputDir)}`).then(async list => {
-      const results: StageInfo[] = []
-      for (const s of list) {
-        if (s.done) try { results.push(await api<StageInfo>(`/api/phase-stats/${s.name}?output_dir=${encodeURIComponent(outputDir)}`)) } catch {}
-      }
-      setStages(results)
-    }).catch(() => {})
+    api<OverviewData>(`/api/overview?output_dir=${encodeURIComponent(outputDir)}`)
+      .then(setOverview).catch(() => {})
   }, [outputDir, refreshKey])
 
   if (error && !overview && !stages.length) return <p className="text-gray-400 p-8">No pipeline data yet. Run the pipeline first.</p>
