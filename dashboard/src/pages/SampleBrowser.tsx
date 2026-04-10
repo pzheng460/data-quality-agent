@@ -266,7 +266,7 @@ export default function SampleBrowser() {
             </button>
           </div>
         )}
-        {curDoc ? <DocDetail doc={curDoc} compareDoc={compareDoc} isRawInput={curStage?.stage === '_raw_input'} /> : (
+        {curDoc ? <DocDetail doc={curDoc} compareDoc={compareDoc} isRawInput={curStage?.stage === 'stage1_ingested'} /> : (
           <div className="flex items-center justify-center h-full text-gray-400">
             {sidebarOpen ? 'Select a stage → document' : (
               <button onClick={() => setSidebarOpen(true)} className="text-blue-500 hover:underline">← Open sidebar to select a document</button>
