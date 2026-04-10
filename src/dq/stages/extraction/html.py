@@ -92,14 +92,15 @@ def html_to_text(html: str) -> str:
 
     # ── Fix 3: Handle algorithm/pseudocode blocks ──
     for algo in soup.select(".ltx_listing, .ltx_algorithm, [class*='algorithm']"):
-        # Extract just the text content, stripping LaTeXML algorithm macros
+        # Extract text, stripping LaTeXML algorithm macros
         algo_text = algo.get_text(separator="\n", strip=True)
-        # Remove \SetKw... \DontPrintSemicolon etc.
-        algo_text = re.sub(r"\\(?:SetKw\w+|DontPrintSemicolon|SetAlgoLined)\w*", "", algo_text)
-        # Clean up
+        algo_text = re.sub(r"\\(?:SetKw\w+|DontPrintSemicolon|SetAlgoLined|KwIn|KwOut|BlankLine)\w*", "", algo_text)
         algo_text = re.sub(r"\n{2,}", "\n", algo_text).strip()
         if algo_text:
-            algo.replace_with(f"\n```\n{algo_text}\n```\n")
+            # Use <pre> so the block walker preserves newlines
+            new_pre = soup.new_tag("pre")
+            new_pre.string = f"```\n{algo_text}\n```"
+            algo.replace_with(new_pre)
         else:
             algo.decompose()
 
