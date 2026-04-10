@@ -119,14 +119,23 @@ def _clean_text(text: str) -> str:
     text = re.sub(r"[ \t]+$", "", text, flags=re.MULTILINE)
     text = re.sub(r"\n{3,}", "\n\n", text)
 
-    # Restore math (clean % comments inside math blocks)
+    # Restore math (clean issues inside math blocks)
     for key, val in math_phs:
         val = re.sub(r"%.*?\n", "\n", val)  # strip % line comments
         val = val.rstrip("%")
+        # For display math: remove nested single $ that break rendering
+        if val.startswith("$$") and val.endswith("$$"):
+            inner = val[2:-2]
+            # Replace $...$ inside display math with just the content
+            inner = re.sub(r"(?<!\$)\$(?!\$)(.*?)\$(?!\$)", r"\1", inner)
+            val = f"$${inner}$$"
         text = text.replace(key, val)
 
     # Remove empty headings
     text = re.sub(r"^#{1,4}\s*$", "", text, flags=re.MULTILINE)
+
+    # Clean residual \Xhline and similar table commands
+    text = re.sub(r"\\[Xx]hline[\d.]*(?:pt)?", "", text)
 
     return text.strip()
 
