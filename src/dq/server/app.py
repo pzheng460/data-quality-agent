@@ -307,33 +307,42 @@ def get_phase_stats(phase_name: str, output_dir: str):
     raise HTTPException(404, f"Stats not found for {phase_name}")
 
 
+_docs_cache: dict[str, tuple[float, list[dict]]] = {}  # path -> (mtime, docs)
+
+
+def _load_stage_docs(stage_path: Path) -> list[dict]:
+    """Load and cache all docs from a stage directory."""
+    from dq.shared.shard import read_shards
+    key = str(stage_path)
+    shards = sorted(stage_path.glob("*.jsonl.zst")) or sorted(stage_path.glob("*.jsonl"))
+    mtime = max((f.stat().st_mtime for f in shards), default=0) if shards else 0
+    if key in _docs_cache and _docs_cache[key][0] == mtime:
+        return _docs_cache[key][1]
+    docs = list(read_shards(stage_path))
+    _docs_cache[key] = (mtime, docs)
+    return docs
+
+
 @app.get("/api/docs/{stage}")
 @app.get("/api/docs/{stage}/{sub}")
 def list_docs(stage: str, output_dir: str, sub: str = "", offset: int = 0, limit: int = 20):
     """Browse documents from a pipeline stage (kept/rejected)."""
-    from dq.shared.shard import read_shards
-
     stage_path = Path(output_dir) / stage / sub if sub else Path(output_dir) / stage
     if not stage_path.exists():
         raise HTTPException(404, f"Stage not found: {stage}/{sub}")
 
+    all_docs = _load_stage_docs(stage_path)
+    page = all_docs[offset:offset + limit]
+
     docs = []
-    count = 0
-    for doc in read_shards(stage_path):
-        if count < offset:
-            count += 1
-            continue
-        if len(docs) >= limit:
-            break
-        # Trim text for listing
+    for doc in page:
         summary = dict(doc)
         text = summary.get("text", "")
         summary["text_preview"] = text[:300]
         summary["text_length"] = len(text)
         docs.append(summary)
-        count += 1
 
-    return {"docs": docs, "offset": offset, "limit": limit, "has_more": count > offset + limit}
+    return {"docs": docs, "offset": offset, "limit": limit, "total": len(all_docs), "has_more": offset + limit < len(all_docs)}
 
 
 @app.get("/api/raw-input")
@@ -381,9 +390,10 @@ def get_raw_input_doc(input_path: str, doc_id: str):
 @app.get("/api/doc")
 def get_full_doc(output_dir: str, stage: str, doc_id: str, sub: str = ""):
     """Get a single document by ID with full text."""
-    from dq.shared.shard import read_shards
     stage_path = Path(output_dir) / stage / sub if sub else Path(output_dir) / stage
-    for doc in read_shards(stage_path):
+    if not stage_path.exists():
+        raise HTTPException(404, f"Stage not found: {stage}/{sub}")
+    for doc in _load_stage_docs(stage_path):
         if doc.get("id") == doc_id:
             return doc
     raise HTTPException(404, f"Doc not found: {doc_id}")
