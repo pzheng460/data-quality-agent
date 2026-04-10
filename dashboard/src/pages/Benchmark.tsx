@@ -6,8 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from 'recharts'
 
 interface FilterData {
   total: number; passed: number; failed: number; pass_rate: number
@@ -20,8 +23,7 @@ interface DatasetResult {
   per_filter: Record<string, FilterData>
   dataset_stats?: {
     avg_word_count: number; min_word_count: number; max_word_count: number
-    avg_word_length: number; fields: string[]
-    exact_duplicates?: number; duplicate_rate?: number
+    avg_word_length: number; exact_duplicates?: number; duplicate_rate?: number
   }
 }
 
@@ -37,7 +39,7 @@ function passColor(rate: number) {
   return '#ef4444'
 }
 
-export default function QualityCheck() {
+export default function Benchmark() {
   const { outputDir } = useApp()
 
   const [inputPath, setInputPath] = useState('/tmp/arxiv_pipeline/input.jsonl')
@@ -45,7 +47,7 @@ export default function QualityCheck() {
   const [numSamples, setNumSamples] = useState(100)
   const [workers, setWorkers] = useState(4)
   const [dataType, setDataType] = useState('auto')
-  const [status, setStatus] = useState('idle')
+  const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   const [result, setResult] = useState<BenchResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expandedFilter, setExpandedFilter] = useState<string | null>(null)
@@ -78,7 +80,7 @@ export default function QualityCheck() {
   const filterNames = Object.keys(filters)
 
   const chartData = filterNames.map(name => ({
-    name: name.length > 15 ? name.slice(0, 14) + '...' : name,
+    name: name.length > 15 ? name.slice(0, 14) + '…' : name,
     pass_rate: Math.round((filters[name].pass_rate || 0) * 100),
   }))
 
@@ -114,15 +116,18 @@ export default function QualityCheck() {
             </div>
             <div className="space-y-2">
               <Label>Data type</Label>
-              <select value={dataType} onChange={e => setDataType(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs">
-                <option value="auto">auto</option>
-                <option value="pretrain">pretrain</option>
-                <option value="sft">sft</option>
-              </select>
+              <Select value={dataType} onValueChange={setDataType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">auto</SelectItem>
+                  <SelectItem value="pretrain">pretrain</SelectItem>
+                  <SelectItem value="sft">sft</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex items-end">
               <Button onClick={startBench} disabled={status === 'running'} className="w-full">
-                {status === 'running' ? 'Running...' : 'Run Benchmark'}
+                {status === 'running' ? 'Running…' : 'Run Benchmark'}
               </Button>
             </div>
           </div>
@@ -135,21 +140,21 @@ export default function QualityCheck() {
           {/* KPIs */}
           <div className="grid grid-cols-4 gap-4">
             {[
-              { label: 'Documents', value: ds.num_docs },
+              { label: 'Documents', value: String(ds.num_docs) },
               { label: 'Overall Pass Rate', value: `${(ds.overall_pass_rate * 100).toFixed(1)}%`, color: ds.overall_pass_rate >= 0.9 ? 'text-green-600' : 'text-yellow-600' },
-              { label: 'Avg Word Count', value: stats?.avg_word_count?.toFixed(0) ?? '--' },
+              { label: 'Avg Word Count', value: stats?.avg_word_count?.toFixed(0) ?? '—' },
               { label: 'Data Type', value: ds.data_type, className: 'capitalize' },
             ].map((kpi, i) => (
               <Card key={i}>
                 <CardContent className="pt-4">
-                  <p className="text-xs text-muted-foreground uppercase">{kpi.label}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">{kpi.label}</p>
                   <p className={`text-2xl font-bold mt-1 ${kpi.color || ''} ${kpi.className || ''}`}>{kpi.value}</p>
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          {/* Stats */}
+          {/* Dataset Stats */}
           {stats && (
             <Card>
               <CardHeader><CardTitle className="text-base">Dataset Statistics</CardTitle></CardHeader>
@@ -188,7 +193,7 @@ export default function QualityCheck() {
             </Card>
           )}
 
-          {/* Filter details */}
+          {/* Filter Details */}
           <Card>
             <CardHeader><CardTitle className="text-base">Filter Details</CardTitle></CardHeader>
             <CardContent className="space-y-1">
@@ -199,43 +204,54 @@ export default function QualityCheck() {
                 const isOpen = expandedFilter === fname
 
                 return (
-                  <div key={fname}>
-                    <button onClick={() => setExpandedFilter(isOpen ? null : fname)}
-                      className="flex items-center gap-3 w-full px-3 py-2 rounded-md hover:bg-muted text-left">
-                      <span className="text-xs text-muted-foreground w-4">{isOpen ? '▼' : '▶'}</span>
-                      <span className="font-medium text-sm flex-1">{fname}</span>
-                      <span className="text-xs text-muted-foreground">{f.failed} failed / {f.total}</span>
-                      <Badge variant={f.pass_rate >= 0.95 ? 'default' : f.pass_rate >= 0.8 ? 'secondary' : 'destructive'}>
-                        {(f.pass_rate * 100).toFixed(1)}%
-                      </Badge>
-                    </button>
+                  <Collapsible key={fname} open={isOpen} onOpenChange={(open) => setExpandedFilter(open ? fname : null)}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" className="w-full justify-start gap-3 px-3 py-2 h-auto">
+                        <span className="text-xs text-muted-foreground w-4">{isOpen ? '▼' : '▶'}</span>
+                        <span className="font-medium text-sm flex-1 text-left">{fname}</span>
+                        <span className="text-xs text-muted-foreground">{f.failed} failed / {f.total}</span>
+                        <Badge variant={f.pass_rate >= 0.95 ? 'default' : f.pass_rate >= 0.8 ? 'secondary' : 'destructive'}>
+                          {(f.pass_rate * 100).toFixed(1)}%
+                        </Badge>
+                      </Button>
+                    </CollapsibleTrigger>
 
-                    {expandedFilter === fname && (
-                      <div className="ml-8 mb-3 space-y-2">
-                        {f.rules && Object.keys(f.rules).length > 0 && (
-                          <table className="w-full text-xs">
-                            <thead><tr className="text-muted-foreground"><th className="text-left py-1">Rule</th><th className="text-right">Failed</th><th className="text-right">Pass Rate</th></tr></thead>
-                            <tbody>
-                              {ruleNames.map(rule => (
-                                <tr key={rule} className="border-t"><td className="py-1 font-mono">{rule}</td><td className="text-right text-destructive">{rules[rule].failed}</td><td className="text-right">{(rules[rule].pass_rate * 100).toFixed(1)}%</td></tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                        {f.sample_failed && f.sample_failed.length > 0 && (
-                          <div>
-                            <p className="text-xs font-medium text-muted-foreground mb-1">Sample failures:</p>
-                            {f.sample_failed.map((s, i) => (
-                              <div key={i} className="bg-destructive/10 rounded p-2 mb-1 text-xs">
+                    <CollapsibleContent className="ml-8 mb-3 space-y-2">
+                      {ruleNames.length > 0 && (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Rule</TableHead>
+                              <TableHead className="text-right">Failed</TableHead>
+                              <TableHead className="text-right">Pass Rate</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {ruleNames.map(rule => (
+                              <TableRow key={rule}>
+                                <TableCell className="font-mono text-xs">{rule}</TableCell>
+                                <TableCell className="text-right text-destructive text-xs">{rules[rule].failed}</TableCell>
+                                <TableCell className="text-right text-xs">{(rules[rule].pass_rate * 100).toFixed(1)}%</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                      {f.sample_failed && f.sample_failed.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Sample failures:</p>
+                          {f.sample_failed.map((s, i) => (
+                            <Card key={i} className="bg-destructive/5 mb-1">
+                              <CardContent className="py-2 px-3 text-xs">
                                 <p className="text-destructive font-medium">{s.reason?.reason || 'unknown'}</p>
                                 <p className="text-muted-foreground mt-0.5 font-mono text-[11px] truncate">{s.text_preview?.slice(0, 150)}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
                 )
               })}
             </CardContent>
@@ -245,4 +261,3 @@ export default function QualityCheck() {
     </div>
   )
 }
-
