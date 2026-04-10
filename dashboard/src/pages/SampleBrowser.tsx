@@ -11,13 +11,12 @@ interface Doc { id: string; text: string; text_preview?: string; metadata?: any;
 
 const STAGES = [
   { stage: '_raw_input', sub: '', label: 'Raw Input', color: 'amber' },
-  { stage: 'stage1_parsed', sub: 'kept', label: 'P1 Kept', color: 'green' },
-  { stage: 'stage1_parsed', sub: 'rejected', label: 'P1 Rejected', color: 'red' },
-  { stage: 'stage2_filtered', sub: 'kept', label: 'P2 Kept', color: 'green' },
-  { stage: 'stage2_filtered', sub: 'rejected', label: 'P2 Rejected', color: 'red' },
-  { stage: 'stage2b_scored', sub: 'kept', label: 'Scored', color: 'green' },
-  { stage: 'stage3_dedup', sub: 'kept', label: 'P3 Kept', color: 'green' },
-  { stage: 'stage5_final', sub: '', label: 'Final', color: 'blue' },
+  { stage: 'stage1_ingested', sub: 'kept', label: 'S1 Ingested', color: 'green' },
+  { stage: 'stage2_extracted', sub: 'kept', label: 'S2 Extracted', color: 'green' },
+  { stage: 'stage2_extracted', sub: 'rejected', label: 'S2 Rejected', color: 'red' },
+  { stage: 'stage3_curated', sub: 'kept', label: 'S3 Curated', color: 'green' },
+  { stage: 'stage3_curated', sub: 'rejected', label: 'S3 Rejected', color: 'red' },
+  { stage: 'stage4_final', sub: '', label: 'S4 Final', color: 'blue' },
 ]
 
 function Tag({ label, color = 'gray' }: { label: string; color?: string }) {
@@ -223,7 +222,7 @@ export default function SampleBrowser() {
         const full = await api<Doc>(`/api/doc?output_dir=${encodeURIComponent(outputDir)}&stage=${curStage.stage}${sub}&doc_id=${encodeURIComponent(doc.id)}`)
         setCurDoc(full)
         // Load raw input as "before" for comparison
-        if (curStage.stage !== 'stage1_parsed' && inputPath) {
+        if (curStage.stage !== 'stage1_ingested' && inputPath) {
           try {
             const before = await api<Doc>(`/api/raw-input/doc?input_path=${encodeURIComponent(inputPath)}&doc_id=${encodeURIComponent(doc.id)}`)
             setCompareDoc(before)
