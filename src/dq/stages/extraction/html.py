@@ -114,6 +114,15 @@ def html_to_text(html: str) -> str:
         if not rows:
             table.decompose()
             continue
+
+        # Detect figure-layout tables (many empty cells = not real data)
+        total_cells = sum(len(row) for row in rows)
+        empty_cells = sum(1 for row in rows for c in row if not c.strip())
+        if total_cells > 0 and empty_cells / total_cells >= 0.4:
+            # This is likely a figure layout table — discard it
+            table.decompose()
+            continue
+
         # Build markdown table
         md_rows = []
         for cells in rows:
