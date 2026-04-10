@@ -178,6 +178,9 @@ def _math_to_latex(el) -> str:
         alt = re.sub(r"\\[ \t]*$", "", alt)
         # Fix LaTeXML rendering \% as \$ in some contexts
         alt = alt.replace("\\$", "\\%")
+        # Replace \qed with KaTeX-compatible symbol, strip \hfill
+        alt = alt.replace("\\qed", "\\square")
+        alt = alt.replace("\\hfill", " ")
         # Fix LaTeXML delimiter syntax for KaTeX compatibility:
         # \big{(} → \big(   \Big{\{} → \Big\{   \big{\lceil} → \big\lceil
         alt = re.sub(
