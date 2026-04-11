@@ -44,6 +44,19 @@ def html_to_text(html: str) -> str:
     for tag in soup.find_all(["style", "script", "nav", "header", "footer"]):
         tag.decompose()
 
+    # ── Remove LaTeXML error/undefined elements ──
+    # \crefname, \Crefname etc. produce <span class="ltx_ERROR undefined"> + bare text
+    # like "algorithmAlgorithmAlgorithm lemmaLemmaLemma..."
+    for err in soup.select(".ltx_ERROR"):
+        # Also remove the parent <p> if it only contains error spans + their text residue
+        parent = err.parent
+        err.decompose()
+        if parent and parent.name == 'p':
+            remaining = parent.get_text(strip=True)
+            # If only CamelCase word repetitions remain, it's all \crefname garbage
+            if remaining and re.match(r'^(?:[a-zA-Z]+(?:[A-Z][a-z]+){1,2}\s*)+$', remaining):
+                parent.decompose()
+
     # ── Fix 5: Remove footnote marks (superscript numbers like ¹ ² *) ──
     for fn in soup.select(".ltx_note_mark, .ltx_tag_note"):
         fn.decompose()
