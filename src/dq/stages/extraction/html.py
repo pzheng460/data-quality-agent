@@ -317,9 +317,11 @@ def _extract_table(table) -> list[list[str]]:
                     r, c = row_idx + dr, col_idx + dc
                     if r < len(grid) and c < max_cols:
                         # Header cells: fill all spanned rows (needed for merging).
-                        # Data rowspan>1: first row gets text, rest left blank.
+                        # Data rowspan>1: first row gets text, rest get "-".
                         if cell_is_header or dr == 0:
                             grid[r][c] = cell_text
+                        elif rowspan > 1:
+                            grid[r][c] = "-"
                         is_header[r][c] = cell_is_header
                         occupied[r][c] = True
 
