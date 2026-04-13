@@ -152,6 +152,11 @@ def _clean_text(text: str) -> str:
     text = re.sub(r"[ \t]+$", "", text, flags=re.MULTILINE)
     text = re.sub(r"\n{3,}", "\n\n", text)
 
+    # ── Fix LaTeXML spacing around punctuation ──
+    # LaTeXML often inserts space before . , ; : ) and after (
+    text = re.sub(r" ([.,;:)\]])", r"\1", text)
+    text = re.sub(r"([\[(]) ", r"\1", text)
+
     # Restore math (clean issues inside math blocks)
     for key, val in math_phs:
         val = re.sub(r"%.*?\n", "\n", val)  # strip % line comments
