@@ -24,7 +24,16 @@ class LatexExtractor(Extractor):
         if not raw:
             return None
 
-        title = doc.get("metadata", {}).get("title", "Untitled")
+        meta = doc.get("metadata", {})
+        title = meta.get("title", "Untitled")
+
+        # If title looks like an arxiv ID, try to extract from LaTeX source
+        if re.match(r"^\d{4}\.\d+$", title):
+            tex_title = _extract_title_from_tex(raw)
+            if tex_title:
+                title = tex_title
+                meta["title"] = title
+
         text = _latexml_convert(raw, title)
         if text is None or len(text) < 200:
             return None
@@ -80,6 +89,37 @@ def _latexml_convert(tex: str, title: str) -> str | None:
     except Exception as e:
         logger.warning("latexml error: %s", e)
         return _fallback(tex, title)
+
+
+def _extract_title_from_tex(tex: str) -> str:
+    r"""Extract title from \title{...} or conference-specific variants."""
+    # Try common title commands (icmltitle, neuripsTitle, etc.)
+    for cmd in (r"icmltitlerunning", r"icmltitle", r"title"):
+        m = re.search(rf"\\{cmd}(?:\[[^\]]*\])?\{{", tex)
+        if m:
+            break
+    else:
+        return ""
+    # Match nested braces from the opening {
+    start = m.end()
+    depth = 1
+    for i in range(start, min(start + 500, len(tex))):
+        if tex[i] == '{':
+            depth += 1
+        elif tex[i] == '}':
+            depth -= 1
+            if depth == 0:
+                title = tex[start:i]
+                # Clean LaTeX commands: \textbf{X} → X, \alg{} → remove
+                title = re.sub(r"\\texorpdfstring\{[^}]*\}\{([^}]*)\}", r"\1", title)
+                title = re.sub(r"\\includegraphics[^}]*\}", "", title)
+                title = re.sub(r"\\[a-zA-Z]+\{([^}]*)\}", r"\1", title)
+                title = re.sub(r"\\[a-zA-Z]+", "", title)
+                title = re.sub(r"[{}]", "", title)
+                title = re.sub(r"\s+", " ", title).strip()
+                title = re.sub(r"^[:\s]+", "", title)
+                return title
+    return ""
 
 
 def _fallback(tex: str, title: str) -> str:
