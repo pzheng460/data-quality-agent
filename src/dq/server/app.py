@@ -571,6 +571,12 @@ def start_ingest(req: IngestRequest):
 
     src = src_cls(**req.params)
 
+    # Validate required params early — fail fast instead of hanging in background
+    params = req.params or {}
+    if hasattr(src, "domain") and src.domain == "arxiv":
+        if not params.get("ids") and not params.get("from_date"):
+            raise HTTPException(400, "Provide either arxiv IDs or a date range")
+
     with _lock:
         _ingest_state.update(
             status="downloading", total=0, downloaded=0,

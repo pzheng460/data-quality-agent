@@ -44,7 +44,7 @@ def html_to_text(html: str, raw_tex: str | None = None) -> str:
 
     soup = BeautifulSoup(html, "lxml")
 
-    # ── Pre-parse algorithms from raw LaTeX (if available) ──
+    # ── Pre-parse from raw LaTeX (if available) ──
     _parsed_algos: list[tuple[str, str, str]] = []
     if raw_tex:
         from dq.stages.extraction.algorithm import extract_algorithms_from_tex
@@ -74,19 +74,31 @@ def html_to_text(html: str, raw_tex: str | None = None) -> str:
     # ── Remove LaTeXML error/undefined elements ──
     # \crefname, \Crefname etc. produce <span class="ltx_ERROR undefined"> + bare text
     # like "algorithmAlgorithmAlgorithm lemmaLemmaLemma..."
+    # Known crefname garbage keywords — if 3+ of these appear, the paragraph is junk
+    _CREF_KEYWORDS = {"algorithm", "lemma", "table", "theorem", "corollary",
+                      "equation", "figure", "section", "appendix", "definition",
+                      "proposition", "remark", "example", "assumption", "hyperref",
+                      "alg", "tab", "fig", "eq", "sec", "app", "thm", "lem",
+                      "cor", "def", "prop", "rem"}
     for err in soup.select(".ltx_ERROR"):
         parent = err.parent
         err.decompose()
         if parent and parent.name == 'p':
             remaining = parent.get_text(strip=True)
-            # \crefname garbage: "algorithmAlgorithmAlgorithm lemmaLemmaLemma equationEq.Eq. ..."
-            # Only letters/spaces/dots, short, with many uppercase = garbage
-            if remaining and len(remaining) < 500:
-                cleaned = remaining.replace(" ", "").replace(".", "")
-                if cleaned.isalpha():
-                    uppers = sum(1 for c in remaining if c.isupper())
-                    if uppers >= 3:
-                        parent.decompose()
+            if not remaining or len(remaining) > 600:
+                continue
+            # Check if it's crefname garbage by looking for known keywords
+            lower = remaining.lower()
+            hits = sum(1 for kw in _CREF_KEYWORDS if kw in lower)
+            if hits >= 3:
+                parent.decompose()
+                continue
+            # Fallback: pure letters/spaces/dots with many uppercase
+            cleaned = remaining.replace(" ", "").replace(".", "")
+            if cleaned.isalpha():
+                uppers = sum(1 for c in remaining if c.isupper())
+                if uppers >= 3:
+                    parent.decompose()
 
     # ── Fix 5: Remove footnote marks (superscript numbers like ¹ ² *) ──
     for fn in soup.select(".ltx_note_mark, .ltx_tag_note"):
@@ -139,8 +151,17 @@ def html_to_text(html: str, raw_tex: str | None = None) -> str:
         for img in fig.find_all(["img", "embed", "object", "picture", "svg"]):
             img.decompose()
 
-    # ── Convert data tables — handle rowspan/colspan and doubled headers ──
-    for table in soup.find_all("table"):
+    # ── Convert data tables ──
+    # Use HTML extraction (handles rowspan/colspan/multirow header merging).
+    # LaTeX-based table parsing (table.py) is available but not yet used here
+    # because matching LaTeX tables to HTML tables is unreliable — commented-out
+    # tables, nested tabulars, and appendix duplicates cause misalignment.
+    for table in list(soup.find_all("table")):
+        cls = table.get("class", []) if table.parent else []
+        # Skip equation tables (already handled above)
+        if any("equation" in c for c in cls):
+            continue
+
         rows = _extract_table(table)
         if not rows:
             table.decompose()
@@ -150,7 +171,6 @@ def html_to_text(html: str, raw_tex: str | None = None) -> str:
         total_cells = sum(len(row) for row in rows)
         empty_cells = sum(1 for row in rows for c in row if not c.strip())
         if total_cells > 0 and empty_cells / total_cells >= 0.4:
-            # This is likely a figure layout table — discard it
             table.decompose()
             continue
 
@@ -158,7 +178,6 @@ def html_to_text(html: str, raw_tex: str | None = None) -> str:
         md_rows = []
         for cells in rows:
             md_rows.append(" | ".join(_dedup_camelcase(c) for c in cells))
-        # Insert separator after header
         if len(md_rows) > 1:
             ncols = len(rows[0])
             md_rows.insert(1, " | ".join(["---"] * ncols))
@@ -230,6 +249,9 @@ def _math_to_latex(el) -> str:
         )
         # Strip \\[Xpt] line spacing hints — breaks remark-math parser
         alt = re.sub(r"\\\\\[[\d.]+(?:pt|em|ex|mm|cm)?\]", r"\\\\", alt)
+        # Remove LaTeXML internal commands that leak into alttext
+        # e.g. \hidden@noalign{}, \@row@before, \hfil@stuff
+        alt = re.sub(r"\\[a-zA-Z]*@[a-zA-Z@]*(?:\{[^}]*\})*", "", alt)
         return alt
     tex = el.get("tex", "")
     if tex:
@@ -238,7 +260,17 @@ def _math_to_latex(el) -> str:
 
 
 def _extract_table(table) -> list[list[str]]:
-    """Extract table with rowspan/colspan support into a 2D grid."""
+    """Extract table with rowspan/colspan into a flat Markdown-ready grid.
+
+    Strategy for merged cells (following RedPajama convention):
+    - colspan: content goes in first column, rest left empty
+    - rowspan in header: merge vertically (e.g. "LLM" spanning 2 header rows
+      stays as "LLM" in the merged single header row)
+    - rowspan in data: fill content into every spanned row so each row
+      is self-contained (e.g. "Qwen3" rowspan=6 → all 6 rows say "Qwen3")
+    - Multi-row headers are merged into a single header row by concatenating
+      vertically (e.g. "LongBenchV2" + "Latency(ms)" → "LongBenchV2 Latency(ms)")
+    """
     trs = table.find_all("tr")
     if not trs:
         return []
@@ -254,36 +286,69 @@ def _extract_table(table) -> list[list[str]]:
     if max_cols == 0:
         return []
 
-    # Build grid with rowspan/colspan support
+    # Build raw grid + track which cells are headers
     num_rows = len(trs)
     grid: list[list[str]] = [[""] * max_cols for _ in range(num_rows)]
+    is_header: list[list[bool]] = [[False] * max_cols for _ in range(num_rows)]
     occupied: list[list[bool]] = [[False] * max_cols for _ in range(num_rows)]
 
     for row_idx, tr in enumerate(trs):
         col_idx = 0
         for td in tr.find_all(["td", "th"]):
-            # Skip occupied cells (from previous rowspan)
             while col_idx < max_cols and occupied[row_idx][col_idx]:
                 col_idx += 1
             if col_idx >= max_cols:
                 break
 
-            cell_text = td.get_text(strip=True)
+            cell_text = td.get_text(separator=" ", strip=True)
+            # Clean makecell residuals: "[l]..." prefix, newlines, non-breaking spaces
+            cell_text = re.sub(r"^\[l\]", "", cell_text)
+            cell_text = cell_text.replace("\xa0", " ")
+            cell_text = re.sub(r"\s+", " ", cell_text).strip()
+            # Clean empty citation markers: "Name ( )" → "Name"
+            cell_text = re.sub(r"\s*\(\s*\)\s*$", "", cell_text)
+            cell_text = re.sub(r"\s*\(\s*\)\s*", " ", cell_text)
             rowspan = int(td.get("rowspan", 1))
             colspan = int(td.get("colspan", 1))
+            cell_is_header = td.name == "th"
 
-            # Fill the grid
             for dr in range(rowspan):
                 for dc in range(colspan):
                     r, c = row_idx + dr, col_idx + dc
-                    if r < num_rows and c < max_cols:
-                        grid[r][c] = cell_text if (dr == 0 and dc == 0) else cell_text
+                    if r < len(grid) and c < max_cols:
+                        # For rowspan: fill all rows with the content
+                        grid[r][c] = cell_text
+                        is_header[r][c] = cell_is_header
                         occupied[r][c] = True
 
             col_idx += colspan
 
+    # Detect header rows: rows where all non-empty cells are <th>
+    header_row_count = 0
+    for r in range(len(grid)):
+        row_has_th = any(is_header[r][c] for c in range(max_cols) if grid[r][c].strip())
+        row_has_td = any(not is_header[r][c] for c in range(max_cols) if grid[r][c].strip())
+        if row_has_th and not row_has_td:
+            header_row_count += 1
+        else:
+            break
+
+    # Merge multi-row headers into a single header row
+    if header_row_count > 1:
+        merged = [""] * max_cols
+        for c in range(max_cols):
+            seen = []
+            for r in range(header_row_count):
+                val = grid[r][c].strip()
+                if val and val not in seen:
+                    seen.append(val)
+            merged[c] = " ".join(seen)
+        result = [merged] + [grid[r] for r in range(header_row_count, len(grid))]
+    else:
+        result = grid
+
     # Filter out empty rows
-    return [row for row in grid if any(cell.strip() for cell in row)]
+    return [row for row in result if any(cell.strip() for cell in row)]
 
 
 # algorithm2e keyword classification

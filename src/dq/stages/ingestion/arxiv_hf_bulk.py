@@ -66,12 +66,11 @@ class HfBulkSource(IngestSource):
             logger.info("OAI-PMH returned %d IDs", len(id_list))
             target_ids = set(id_list)
 
-        if target_ids:
-            # Fast path: download only relevant shard files
-            yield from self._fetch_by_shard(target_ids, limit)
-        else:
-            # Bulk path: stream entire dataset
-            yield from self._fetch_stream(limit)
+        if not target_ids:
+            raise ValueError("Provide either ids or from_date")
+
+        # Fast path: download only relevant shard files
+        yield from self._fetch_by_shard(target_ids, limit)
 
     def _fetch_by_shard(self, target_ids: set[str], limit: int) -> Iterator[dict]:
         """Fast ID lookup: group IDs by YYMM prefix, download only those shards."""
