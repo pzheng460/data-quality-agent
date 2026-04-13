@@ -174,13 +174,13 @@ def html_to_text(html: str, raw_tex: str | None = None) -> str:
             table.decompose()
             continue
 
-        # Build markdown table
+        # Build GFM markdown table (pipe-delimited, | prefix and suffix)
         md_rows = []
         for cells in rows:
-            md_rows.append(" | ".join(_dedup_camelcase(c) for c in cells))
+            md_rows.append("| " + " | ".join(_dedup_camelcase(c) for c in cells) + " |")
         if len(md_rows) > 1:
             ncols = len(rows[0])
-            md_rows.insert(1, " | ".join(["---"] * ncols))
+            md_rows.insert(1, "| " + " | ".join(["---"] * ncols) + " |")
         new_pre = soup.new_tag("pre")
         new_pre.string = "\n".join(r for r in md_rows if r.strip())
         table.replace_with(new_pre)
@@ -317,11 +317,9 @@ def _extract_table(table) -> list[list[str]]:
                     r, c = row_idx + dr, col_idx + dc
                     if r < len(grid) and c < max_cols:
                         # Header cells: fill all spanned rows (needed for merging).
-                        # Data rowspan>1: first row gets text, rest get "-".
+                        # Data rowspan>1: first row gets text, rest empty.
                         if cell_is_header or dr == 0:
                             grid[r][c] = cell_text
-                        elif rowspan > 1:
-                            grid[r][c] = "-"
                         is_header[r][c] = cell_is_header
                         occupied[r][c] = True
 
