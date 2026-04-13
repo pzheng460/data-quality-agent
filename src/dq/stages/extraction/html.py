@@ -317,10 +317,8 @@ def _extract_table(table) -> list[list[str]]:
                     r, c = row_idx + dr, col_idx + dc
                     if r < len(grid) and c < max_cols:
                         # Header cells: fill all spanned rows (needed for merging).
-                        # Data cells with rowspan>1: leave blank — the value only
-                        # appears once in the original PDF so we don't fabricate it.
-                        # Data cells with rowspan=1 or first colspan: fill normally.
-                        if cell_is_header or rowspan == 1:
+                        # Data rowspan>1: first row gets text, rest left blank.
+                        if cell_is_header or dr == 0:
                             grid[r][c] = cell_text
                         is_header[r][c] = cell_is_header
                         occupied[r][c] = True
