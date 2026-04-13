@@ -67,8 +67,27 @@ def _protect_math(text: str):
     return text, phs
 
 
+def _protect_code_blocks(text: str):
+    """Replace ``` code blocks with placeholders to preserve indentation."""
+    phs: list[tuple[str, str]] = []
+    ctr = 0
+
+    def _ph(m):
+        nonlocal ctr
+        key = f"\x00CB{ctr}\x00"
+        phs.append((key, m.group()))
+        ctr += 1
+        return key
+
+    text = re.sub(r"```.*?```", _ph, text, flags=re.DOTALL)
+    return text, phs
+
+
 def _clean_text(text: str) -> str:
     """Clean LaTeXML-converted text. All cleaning logic lives here."""
+
+    # Protect code blocks (algorithm pseudocode) from mangling
+    text, code_phs = _protect_code_blocks(text)
 
     text, math_phs = _protect_math(text)
 
@@ -119,6 +138,7 @@ def _clean_text(text: str) -> str:
     text = re.sub(r"^-\s*[•·]\s*", "- ", text, flags=re.MULTILINE)
 
     # ── Whitespace normalization ──
+    # Code blocks are already protected as placeholders, safe to normalize all
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"[ \t]+$", "", text, flags=re.MULTILINE)
     text = re.sub(r"\n{3,}", "\n\n", text)
@@ -156,6 +176,10 @@ def _clean_text(text: str) -> str:
                 continue  # skip blank line within table
         result_lines.append(line)
     text = "\n".join(result_lines)
+
+    # Restore code blocks (algorithm pseudocode with indentation)
+    for key, val in code_phs:
+        text = text.replace(key, val)
 
     return text.strip()
 

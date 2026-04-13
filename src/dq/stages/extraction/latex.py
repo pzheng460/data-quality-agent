@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
-import signal
 import subprocess
 from pathlib import Path
 
@@ -13,8 +11,6 @@ from dq.stages.extraction.base import Extractor
 from dq.stages.extraction.registry import register_extractor
 
 logger = logging.getLogger(__name__)
-
-LATEXML_TIMEOUT = 120  # seconds per subprocess
 
 
 @register_extractor("latex")
@@ -37,27 +33,6 @@ class LatexExtractor(Extractor):
         return doc
 
 
-def _run_with_timeout(cmd: list[str], timeout: int = LATEXML_TIMEOUT) -> subprocess.CompletedProcess:
-    """Run a subprocess with hard timeout that kills the entire process group."""
-    proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        preexec_fn=os.setsid,  # new process group so we can kill all children
-    )
-    try:
-        stdout, stderr = proc.communicate(timeout=timeout)
-        return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
-    except subprocess.TimeoutExpired:
-        # Kill the entire process group (including Perl children)
-        try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-        except OSError:
-            proc.kill()
-        proc.wait()
-        raise
-
-
 def _latexml_convert(tex: str, title: str) -> str | None:
     """LaTeXML pipeline: .tex → .xml → .html → clean text."""
     import tempfile
@@ -71,17 +46,20 @@ def _latexml_convert(tex: str, title: str) -> str | None:
             with open(tex_path, "w", encoding="utf-8") as f:
                 f.write(tex)
 
-            # Step 1: LaTeX → XML (timeout kills entire process group)
-            r1 = _run_with_timeout(["latexml", "--dest", xml_path, tex_path])
+            # Step 1: LaTeX → XML
+            r1 = subprocess.run(
+                ["latexml", "--dest", xml_path, tex_path],
+                capture_output=True, timeout=120,
+            )
             if r1.returncode != 0 or not Path(xml_path).exists():
                 logger.warning("latexml failed: %s", r1.stderr[:500] if r1.stderr else "unknown")
                 return _fallback(tex, title)
 
             # Step 2: XML → HTML
-            r2 = _run_with_timeout(
+            r2 = subprocess.run(
                 ["latexmlpost", "--dest", html_path, "--format=html5",
                  "--nocrossref", "--nodefaultresources", xml_path],
-                timeout=60,
+                capture_output=True, timeout=60,
             )
             if r2.returncode != 0 or not Path(html_path).exists():
                 logger.warning("latexmlpost failed: %s", r2.stderr[:500] if r2.stderr else "unknown")
@@ -91,13 +69,13 @@ def _latexml_convert(tex: str, title: str) -> str | None:
                 html = f.read()
 
             from dq.stages.extraction.html import html_to_text
-            return html_to_text(html)
+            return html_to_text(html, raw_tex=tex)
 
     except FileNotFoundError:
         logger.warning("latexml not installed, using fallback")
         return _fallback(tex, title)
     except subprocess.TimeoutExpired:
-        logger.warning("latexml timed out after %ds, using fallback", LATEXML_TIMEOUT)
+        logger.warning("latexml timed out, using fallback")
         return _fallback(tex, title)
     except Exception as e:
         logger.warning("latexml error: %s", e)

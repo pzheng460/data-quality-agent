@@ -25,7 +25,7 @@ class HtmlExtractor(Extractor):
         return doc
 
 
-def html_to_text(html: str) -> str:
+def html_to_text(html: str, raw_tex: str | None = None) -> str:
     """Extract text from LaTeXML HTML. Pure format conversion.
 
     Handles LaTeXML-specific elements:
@@ -35,27 +35,58 @@ def html_to_text(html: str) -> str:
     - Table headers (deduplicate LaTeXML's doubled rendering)
     - Math (preserve as $LaTeX$)
     - Citations (remove <cite> tags)
+
+    If *raw_tex* is provided, algorithm blocks are parsed directly from
+    the LaTeX source (full nesting + indentation) instead of from
+    LaTeXML's broken HTML output.
     """
     from bs4 import BeautifulSoup
 
     soup = BeautifulSoup(html, "lxml")
 
+    # ── Pre-parse algorithms from raw LaTeX (if available) ──
+    _parsed_algos: list[tuple[str, str, str]] = []
+    if raw_tex:
+        from dq.stages.extraction.algorithm import extract_algorithms_from_tex
+        _parsed_algos = extract_algorithms_from_tex(raw_tex)
+
     # ── Remove non-content elements ──
     for tag in soup.find_all(["style", "script", "nav", "header", "footer"]):
         tag.decompose()
+
+    # ── Handle algorithm/pseudocode blocks ──
+    # If we have parsed algorithms from raw LaTeX, use those (proper indentation).
+    # Otherwise fall back to heuristic extraction from LaTeXML's flattened HTML.
+    algo_elements = soup.select(".ltx_listing, .ltx_algorithm, [class*='algorithm']")
+    for idx, algo in enumerate(algo_elements):
+        if idx < len(_parsed_algos):
+            caption, _label, pseudocode = _parsed_algos[idx]
+            algo_text = pseudocode
+        else:
+            algo_text = _extract_algorithm(algo)
+        if algo_text:
+            new_pre = soup.new_tag("pre")
+            new_pre.string = "```\n" + algo_text + "\n```"
+            algo.replace_with(new_pre)
+        else:
+            algo.decompose()
 
     # ── Remove LaTeXML error/undefined elements ──
     # \crefname, \Crefname etc. produce <span class="ltx_ERROR undefined"> + bare text
     # like "algorithmAlgorithmAlgorithm lemmaLemmaLemma..."
     for err in soup.select(".ltx_ERROR"):
-        # Also remove the parent <p> if it only contains error spans + their text residue
         parent = err.parent
         err.decompose()
         if parent and parent.name == 'p':
             remaining = parent.get_text(strip=True)
-            # If only CamelCase word repetitions remain, it's all \crefname garbage
-            if remaining and re.match(r'^(?:[a-zA-Z]+(?:[A-Z][a-z]+){1,2}\s*)+$', remaining):
-                parent.decompose()
+            # \crefname garbage: "algorithmAlgorithmAlgorithm lemmaLemmaLemma equationEq.Eq. ..."
+            # Only letters/spaces/dots, short, with many uppercase = garbage
+            if remaining and len(remaining) < 500:
+                cleaned = remaining.replace(" ", "").replace(".", "")
+                if cleaned.isalpha():
+                    uppers = sum(1 for c in remaining if c.isupper())
+                    if uppers >= 3:
+                        parent.decompose()
 
     # ── Fix 5: Remove footnote marks (superscript numbers like ¹ ² *) ──
     for fn in soup.select(".ltx_note_mark, .ltx_tag_note"):
@@ -102,20 +133,6 @@ def html_to_text(html: str) -> str:
     # ── Remove citations (LaTeXML <cite> tags) ──
     for cite_el in soup.find_all("cite"):
         cite_el.decompose()
-
-    # ── Fix 3: Handle algorithm/pseudocode blocks ──
-    for algo in soup.select(".ltx_listing, .ltx_algorithm, [class*='algorithm']"):
-        # Extract text, stripping LaTeXML algorithm macros
-        algo_text = algo.get_text(separator="\n", strip=True)
-        algo_text = re.sub(r"\\(?:SetKw\w+|DontPrintSemicolon|SetAlgoLined|KwIn|KwOut|BlankLine)\w*", "", algo_text)
-        algo_text = re.sub(r"\n{2,}", "\n", algo_text).strip()
-        if algo_text:
-            # Use <pre> so the block walker preserves newlines
-            new_pre = soup.new_tag("pre")
-            new_pre.string = f"```\n{algo_text}\n```"
-            algo.replace_with(new_pre)
-        else:
-            algo.decompose()
 
     # ── Remove images from figures (keep captions) ──
     for fig in soup.find_all("figure"):
@@ -267,6 +284,156 @@ def _extract_table(table) -> list[list[str]]:
 
     # Filter out empty rows
     return [row for row in grid if any(cell.strip() for cell in row)]
+
+
+# algorithm2e keyword classification
+_ALGO_KW_META: dict[str, str] = {
+    # label: "io" = input/output header, "block" = opens indented block,
+    #         "deindent" = closes/reopens block, "stmt" = standalone statement,
+    #         "skip" = config macro (discard)
+    "\\KwIn": "io", "\\KwOut": "io", "\\KwData": "io", "\\KwResult": "io",
+    "\\ForEach": "block", "\\For": "block", "\\While": "block",
+    "\\If": "block", "\\ElseIf": "deindent", "\\eIf": "block",
+    "\\Else": "deindent",
+    "\\Return": "stmt", "\\BlankLine": "blank",
+    "\\Repeat": "block", "\\Until": "deindent",
+    "\\Switch": "block", "\\Case": "deindent",
+    "\\SetKwInOut": "skip", "\\SetKwInput": "skip",
+    "\\SetKwFunction": "skip", "\\SetKwData": "skip",
+    "\\SetKwComment": "skip", "\\SetAlgoLined": "skip",
+    "\\DontPrintSemicolon": "skip", "\\SetAlgoNoLine": "skip",
+    "\\SetAlgoNoEnd": "skip",
+}
+
+_ALGO_KW_TEXT: dict[str, str] = {
+    "\\KwIn": "Input:", "\\KwOut": "Output:", "\\KwData": "Data:",
+    "\\KwResult": "Result:",
+    "\\ForEach": "for each", "\\For": "for", "\\While": "while",
+    "\\If": "if", "\\ElseIf": "else if", "\\eIf": "if", "\\Else": "else",
+    "\\Return": "return", "\\BlankLine": "",
+    "\\Repeat": "repeat", "\\Until": "until",
+    "\\Switch": "switch", "\\Case": "case",
+}
+
+
+def _extract_algorithm(algo) -> str:
+    """Extract pseudocode from a LaTeXML algorithm block.
+
+    LaTeXML renders algorithm2e keywords (KwIn, ForEach, etc.) as
+    ltx_ERROR spans and flattens all structure into one line.
+    We walk the direct children, recognise keyword spans, and
+    reconstruct indented pseudocode.
+    """
+    from bs4 import NavigableString
+
+    # Find the container (ltx_listingline or the algo div itself)
+    listing_lines = algo.select(".ltx_listingline")
+    containers = listing_lines if listing_lines else [algo]
+
+    # Collect a sequence of tokens: ("kw", cmd) or ("text", string) or ("math", latex)
+    tokens: list[tuple[str, str]] = []
+    for container in containers:
+        for child in container.children:
+            if isinstance(child, NavigableString):
+                s = str(child).strip()
+                if s:
+                    tokens.append(("text", s))
+            elif hasattr(child, "name"):
+                cls = child.get("class", [])
+                if "ltx_ERROR" in cls:
+                    cmd = child.get_text(strip=True)
+                    tokens.append(("kw", cmd))
+                elif child.name == "math":
+                    alt = _math_to_latex(child)
+                    if not alt:
+                        alt = child.get_text()
+                    tokens.append(("math", "$" + alt + "$"))
+                else:
+                    # Other inline elements — extract text
+                    s = child.get_text(strip=True)
+                    if s:
+                        tokens.append(("text", s))
+
+    # Now reconstruct lines with indentation.
+    # Since LaTeXML flattens all nesting, we use a simple rule:
+    #   - io keywords (Input/Output) at indent 0
+    #   - block keywords (for/while/if) start a new line at current indent,
+    #     then subsequent statements indent +1 until the next block/io keyword
+    lines: list[str] = []
+    indent = 0
+    in_block = False  # True after a block keyword has been seen
+    current_parts: list[str] = []
+
+    def flush():
+        nonlocal current_parts
+        line = " ".join(current_parts).strip()
+        line = re.sub(r"[ \t]{2,}", " ", line)
+        if line:
+            lines.append("  " * indent + line)
+        current_parts = []
+
+    for typ, val in tokens:
+        if typ == "kw":
+            meta = None
+            kw_text = None
+            for kw in _ALGO_KW_META:
+                if val == kw or val.startswith(kw):
+                    meta = _ALGO_KW_META[kw]
+                    kw_text = _ALGO_KW_TEXT.get(kw, "")
+                    break
+
+            if meta == "skip":
+                continue
+            elif meta == "blank":
+                flush()
+                lines.append("")
+                continue
+            elif meta == "io":
+                flush()
+                indent = 0
+                in_block = False
+                if kw_text:
+                    current_parts.append(kw_text)
+            elif meta in ("block", "deindent"):
+                flush()
+                # block keywords at indent 1 (body at indent 2)
+                if meta == "deindent":
+                    indent = max(1, indent - 1)
+                else:
+                    indent = 1 if not in_block else indent
+                if kw_text:
+                    current_parts.append(kw_text)
+                in_block = True
+            elif meta == "stmt":
+                flush()
+                if kw_text:
+                    current_parts.append(kw_text)
+            else:
+                current_parts.append(val)
+        elif typ == "math":
+            current_parts.append(val)
+        else:  # text
+            # Split on semicolons to get statement boundaries
+            parts = val.split(";")
+            for i, part in enumerate(parts):
+                part = part.strip()
+                if part:
+                    current_parts.append(part)
+                if i < len(parts) - 1:
+                    # Semicolon = end of statement
+                    if current_parts:
+                        current_parts[-1] = current_parts[-1].rstrip() + ";"
+                    flush()
+                    # After flushing a statement inside a block, indent for body
+                    if in_block and indent < 2:
+                        indent = 2
+
+    flush()
+
+    # Post-process: trim trailing empty lines, collapse excessive blanks
+    text = "\n".join(lines)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 def _dedup_camelcase(text: str) -> str:
