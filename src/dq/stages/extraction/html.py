@@ -360,9 +360,9 @@ def _extract_table(table) -> list[list[str]]:
                 for dc in range(colspan):
                     r, c = row_idx + dr, col_idx + dc
                     if r < len(grid) and c < max_cols:
-                        # Header cells: fill all spanned rows (needed for merging).
-                        # Data rowspan>1: first row gets text, rest empty.
-                        if cell_is_header or dr == 0:
+                        # Only the top-left cell of any span gets text.
+                        # For header rowspan, fill all rows (for merging).
+                        if dc == 0 and (cell_is_header or dr == 0):
                             grid[r][c] = cell_text
                         is_header[r][c] = cell_is_header
                         occupied[r][c] = True
