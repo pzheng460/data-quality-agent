@@ -243,7 +243,7 @@ def _math_to_latex(el) -> str:
         # Fix LaTeXML delimiter syntax for KaTeX compatibility:
         # \big{(} → \big(   \Big{\{} → \Big\{   \big{\lceil} → \big\lceil
         alt = re.sub(
-            r"\\(big|Big|bigg|Bigg|left|right)\{(\\?[^}]+)\}",
+            r"\\(big|Big|bigg|Bigg|bigl|bigr|Bigl|Bigr|biggl|biggr|Biggl|Biggr|left|right)\{(\\?[^}]+)\}",
             r"\\\1\2",
             alt,
         )

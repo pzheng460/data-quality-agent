@@ -67,7 +67,7 @@ def _latexml_convert(tex: str, title: str) -> str | None:
             # Step 2: XML → HTML
             r2 = subprocess.run(
                 ["latexmlpost", "--dest", html_path, "--format=html5",
-                 "--nocrossref", "--nodefaultresources", xml_path],
+                 "--nodefaultresources", xml_path],
                 capture_output=True, timeout=60,
             )
             if r2.returncode != 0 or not Path(html_path).exists():
