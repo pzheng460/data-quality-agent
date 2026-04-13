@@ -386,20 +386,80 @@ class TestMdframedCleanup:
     def test_multiline_params_removed(self):
         from dq.stages.curation.filters.arxiv import _clean_text
 
-        text = """text before
-
-[
-font= ,
-linewidth=0.5pt,
-innerleftmargin=10pt,
-innerrightmargin=10pt,
-innertopmargin=10pt,
-innerbottommargin=10pt,
-]monobox
-
-text after"""
+        text = "text before\n\n[\nfont= ,\nlinewidth=0.5pt,\ninnerleftmargin=10pt,\ninnerightmargin=10pt,\ninnertopmargin=10pt,\ninnerbottommargin=10pt,\n]monobox\n\ntext after"
         result = _clean_text(text)
         assert "font=" not in result
         assert "monobox" not in result
         assert "text before" in result
         assert "text after" in result
+
+
+# ── Markdown quality checks (merged from test_markdown_quality.py) ───
+
+
+@pytest.mark.skipif(not os.path.exists(GOLDEN_PATH), reason="Golden fixtures not generated")
+class TestMarkdownQuality:
+    """Verify markdown validity on golden papers."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.docs = _load_golden()
+
+    def test_balanced_inline_math(self):
+        """Inline math $ count should be even."""
+        for pid, text in self.docs.items():
+            no_display = re.sub(r"\$\$.*?\$\$", "", text, flags=re.DOTALL)
+            count = no_display.count("$")
+            assert count % 2 == 0, f"{pid}: odd $ count ({count})"
+
+    def test_balanced_display_math(self):
+        """Display math $$ count should be even."""
+        for pid, text in self.docs.items():
+            count = text.count("$$")
+            assert count % 2 == 0, f"{pid}: odd $$ count ({count})"
+
+    def test_balanced_code_fences(self):
+        """Code fences ``` count should be even."""
+        for pid, text in self.docs.items():
+            count = text.count("```")
+            assert count % 2 == 0, f"{pid}: odd ``` count ({count})"
+
+    def test_no_empty_headings(self):
+        for pid, text in self.docs.items():
+            empty = re.findall(r"^#{1,4}\s*$", text, re.MULTILINE)
+            assert not empty, f"{pid}: empty headings found"
+
+    def test_no_orphaned_ref_brackets(self):
+        for pid, text in self.docs.items():
+            orphans = re.findall(r"(?:Figure|Table|Section)\s*\)", text)
+            assert not orphans, f"{pid}: orphaned ref brackets: {orphans[:3]}"
+
+
+# ── Full pipeline regression (from test_golden.py) ──────────────
+
+
+@pytest.mark.skipif(not os.path.exists(GOLDEN_PATH), reason="Golden fixtures not generated")
+class TestGoldenRegression:
+    """Regression tests on golden output: no LaTeX junk, no figure placeholders."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.docs = _load_golden()
+
+    def test_all_papers_have_content(self):
+        for pid, text in self.docs.items():
+            assert len(text) > 1000, f"{pid}: too short ({len(text)} chars)"
+
+    def test_low_latex_residual(self):
+        """Cleaned text should have very few residual LaTeX commands outside math."""
+        for pid, text in self.docs.items():
+            no_math = re.sub(r"\$\$.*?\$\$", "", text, flags=re.DOTALL)
+            no_math = re.sub(r"\$[^$]+?\$", "", no_math)
+            cmds = re.findall(r"\\[a-zA-Z]{2,}", no_math)
+            ratio = len(cmds) / max(len(no_math), 1)
+            assert ratio < 0.01, f"{pid}: LaTeX residual {ratio:.1%} ({len(cmds)} cmds)"
+
+    def test_no_latex_junk(self):
+        for pid, text in self.docs.items():
+            for junk in ["toprule", "midrule", "bottomrule", "tabcolsep"]:
+                assert junk not in text, f"{pid}: found '{junk}'"
