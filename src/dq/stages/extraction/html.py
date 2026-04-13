@@ -152,38 +152,46 @@ def html_to_text(html: str, raw_tex: str | None = None) -> str:
             img.decompose()
 
     # ── Convert data tables ──
-    # Use HTML extraction (handles rowspan/colspan/multirow header merging).
-    # LaTeX-based table parsing (table.py) is available but not yet used here
-    # because matching LaTeX tables to HTML tables is unreliable — commented-out
-    # tables, nested tabulars, and appendix duplicates cause misalignment.
-    for table in list(soup.find_all("table")):
-        cls = table.get("class", []) if table.parent else []
-        # Skip equation tables (already handled above)
-        if any("equation" in c for c in cls):
-            continue
-
-        rows = _extract_table(table)
-        if not rows:
-            table.decompose()
-            continue
-
-        # Detect figure-layout tables (many empty cells = not real data)
-        total_cells = sum(len(row) for row in rows)
-        empty_cells = sum(1 for row in rows for c in row if not c.strip())
+    # Handle both <table> elements and <span class="ltx_tabular"> (LaTeXML
+    # sometimes renders tables as spans instead of proper HTML tables).
+    def _table_to_markdown(rows):
+        """Convert extracted rows to GFM markdown table string."""
+        if not rows or len(rows) < 2:
+            return None
+        total_cells = sum(len(r) for r in rows)
+        empty_cells = sum(1 for r in rows for c in r if not c.strip())
         if total_cells > 0 and empty_cells / total_cells >= 0.4:
-            table.decompose()
-            continue
-
-        # Build GFM markdown table (pipe-delimited, | prefix and suffix)
+            return None  # figure-layout table
         md_rows = []
         for cells in rows:
             md_rows.append("| " + " | ".join(_dedup_camelcase(c) for c in cells) + " |")
-        if len(md_rows) > 1:
-            ncols = len(rows[0])
-            md_rows.insert(1, "| " + " | ".join(["---"] * ncols) + " |")
-        new_pre = soup.new_tag("pre")
-        new_pre.string = "\n".join(r for r in md_rows if r.strip())
-        table.replace_with(new_pre)
+        ncols = len(rows[0])
+        md_rows.insert(1, "| " + " | ".join(["---"] * ncols) + " |")
+        return "\n".join(r for r in md_rows if r.strip())
+
+    for table in list(soup.find_all("table")):
+        cls = table.get("class", []) if table.parent else []
+        if any("equation" in c for c in cls):
+            continue
+        rows = _extract_table(table)
+        md = _table_to_markdown(rows) if rows else None
+        if md:
+            new_pre = soup.new_tag("pre")
+            new_pre.string = md
+            table.replace_with(new_pre)
+        else:
+            table.decompose()
+
+    # ── Handle LaTeXML span-based tables (span.ltx_tabular) ──
+    for span_tab in list(soup.select("span.ltx_tabular, div.ltx_tabular")):
+        rows = _extract_span_table(span_tab)
+        md = _table_to_markdown(rows) if rows else None
+        if md:
+            new_pre = soup.new_tag("pre")
+            new_pre.string = md
+            span_tab.replace_with(new_pre)
+        else:
+            span_tab.decompose()
 
     # ── Extract block elements ──
     lines = []
@@ -257,6 +265,42 @@ def _math_to_latex(el) -> str:
     if tex:
         return tex
     return el.get_text()
+
+
+def _extract_span_table(span_tab) -> list[list[str]]:
+    """Extract a LaTeXML span-based table (span.ltx_tabular) into rows.
+
+    LaTeXML sometimes renders tables as nested <span> elements with CSS
+    classes ltx_tabular/ltx_tr/ltx_td instead of proper <table>/<tr>/<td>.
+    """
+    trs = span_tab.select(".ltx_tr")
+    if not trs:
+        return []
+
+    rows: list[list[str]] = []
+    for tr in trs:
+        cells = tr.select(".ltx_td, .ltx_th")
+        row = []
+        for td in cells:
+            cell_text = td.get_text(separator=" ", strip=True)
+            cell_text = cell_text.replace("\xa0", " ")
+            cell_text = re.sub(r"\s+", " ", cell_text).strip()
+            cell_text = re.sub(r"\s*\(\s*\)\s*$", "", cell_text)
+            row.append(cell_text)
+        if row:
+            rows.append(row)
+
+    if not rows:
+        return []
+
+    # Pad rows to same width
+    max_cols = max(len(r) for r in rows)
+    for r in rows:
+        while len(r) < max_cols:
+            r.append("")
+
+    # Filter out empty rows
+    return [r for r in rows if any(c.strip() for c in r)]
 
 
 def _extract_table(table) -> list[list[str]]:
