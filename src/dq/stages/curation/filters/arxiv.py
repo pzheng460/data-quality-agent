@@ -119,6 +119,15 @@ def _clean_text(text: str) -> str:
     text = re.sub(r"\\(?:begin|end)\{[^}]+\}", "", text)
     text = re.sub(r"\\[a-zA-Z]{2,}\b", "", text)
 
+    # ── mdframed / tcolorbox parameter blocks ──
+    # LaTeXML leaks multi-line environment options like:
+    #   [\nfont= ,\nlinewidth=0.5pt,\n...\n]monobox
+    text = re.sub(
+        r"\[\s*\n(?:[ \t]*\w+=.*\n)+[ \t]*\]\w*",
+        "",
+        text,
+    )
+
     # ── Figure/Table reference cleanup ──
     # "Figure )" or "Table )" left after citation removal
     text = re.sub(r"(Figure|Table|Section|Eq\.?)\s*\)", r"\1", text)
