@@ -113,11 +113,158 @@ def extract_algorithms_from_tex(tex: str) -> list[tuple[str, str, str]]:
         if not clean:
             continue
 
-        pseudocode = _parse_algorithm_body(clean)
+        # Detect algorithmic vs algorithm2e
+        if re.search(r"\\begin\{algorithmic\}", clean):
+            pseudocode = _parse_algorithmic(clean)
+        else:
+            pseudocode = _parse_algorithm_body(clean)
         if pseudocode:
             results.append((caption, label, pseudocode))
 
     return results
+
+
+def _parse_algorithmic(body: str) -> str:
+    r"""Parse \begin{algorithmic} ... \end{algorithmic} (algpseudocode style).
+
+    Keywords: \REQUIRE, \ENSURE, \STATE, \FOR{cond}, \ENDFOR,
+    \WHILE{cond}, \ENDWHILE, \IF{cond}, \ELSIF{cond}, \ELSE, \ENDIF,
+    \RETURN, \PROCEDURE{name}{args}, \ENDPROCEDURE, \FUNCTION, \ENDFUNCTION,
+    \REPEAT, \UNTIL{cond}, \COMMENT{text}
+    """
+    # Extract the algorithmic body
+    m = re.search(r"\\begin\{algorithmic\}(?:\[\d+\])?(.*?)\\end\{algorithmic\}", body, re.DOTALL)
+    if not m:
+        return ""
+    inner = m.group(1)
+
+    # Remove \label{...} inside
+    inner = re.sub(r"\\label\{[^}]*\}", "", inner)
+
+    lines: list[str] = []
+    indent = 0
+
+    # Process line by line, splitting on \STATE, \FOR, etc.
+    # First, normalize: put each command on its own line
+    # Insert newline before each keyword
+    keywords_re = r"\\(?:REQUIRE|ENSURE|STATE|FOR|FORALL|ENDFOR|WHILE|ENDWHILE|IF|ELSIF|ELSE|ENDIF|RETURN|REPEAT|UNTIL|PROCEDURE|ENDPROCEDURE|FUNCTION|ENDFUNCTION|COMMENT)\b"
+    inner = re.sub(rf"({keywords_re})", r"\n\1", inner)
+
+    for raw_line in inner.split("\n"):
+        raw_line = raw_line.strip()
+        if not raw_line:
+            continue
+
+        # Check for keyword at start
+        km = re.match(r"\\(\w+)(.*)", raw_line, re.DOTALL)
+        if not km:
+            # Plain text continuation — append to previous line
+            if lines:
+                lines[-1] += " " + _clean_algorithmic_text(raw_line)
+            continue
+
+        cmd = km.group(1)
+        rest = km.group(2).strip()
+
+        if cmd in ("ENDFOR", "ENDWHILE", "ENDIF", "ENDPROCEDURE", "ENDFUNCTION"):
+            indent = max(0, indent - 1)
+            continue  # Don't output END* lines
+
+        prefix = INDENT * indent
+
+        if cmd == "REQUIRE":
+            arg = _extract_brace_arg(rest) or _clean_algorithmic_text(rest)
+            lines.append(f"{prefix}Require: {arg}")
+        elif cmd == "ENSURE":
+            arg = _extract_brace_arg(rest) or _clean_algorithmic_text(rest)
+            lines.append(f"{prefix}Ensure: {arg}")
+        elif cmd == "STATE":
+            lines.append(f"{prefix}{_clean_algorithmic_text(rest)}")
+        elif cmd == "RETURN":
+            lines.append(f"{prefix}return {_clean_algorithmic_text(rest)}")
+        elif cmd == "FOR":
+            arg = _extract_brace_arg(rest) or _clean_algorithmic_text(rest)
+            lines.append(f"{prefix}for {arg}:")
+            indent += 1
+        elif cmd == "FORALL":
+            arg = _extract_brace_arg(rest) or _clean_algorithmic_text(rest)
+            lines.append(f"{prefix}for all {arg}:")
+            indent += 1
+        elif cmd == "WHILE":
+            arg = _extract_brace_arg(rest) or _clean_algorithmic_text(rest)
+            lines.append(f"{prefix}while {arg}:")
+            indent += 1
+        elif cmd == "IF":
+            arg = _extract_brace_arg(rest) or _clean_algorithmic_text(rest)
+            lines.append(f"{prefix}if {arg}:")
+            indent += 1
+        elif cmd == "ELSIF":
+            indent = max(0, indent - 1)
+            arg = _extract_brace_arg(rest) or _clean_algorithmic_text(rest)
+            lines.append(f"{INDENT * indent}else if {arg}:")
+            indent += 1
+        elif cmd == "ELSE":
+            indent = max(0, indent - 1)
+            lines.append(f"{INDENT * indent}else:")
+            indent += 1
+        elif cmd == "REPEAT":
+            lines.append(f"{prefix}repeat:")
+            indent += 1
+        elif cmd == "UNTIL":
+            indent = max(0, indent - 1)
+            arg = _extract_brace_arg(rest)
+            lines.append(f"{INDENT * indent}until {arg}")
+        elif cmd in ("PROCEDURE", "FUNCTION"):
+            name = _extract_brace_arg(rest := rest)
+            lines.append(f"{prefix}{cmd.lower()} {_clean_algorithmic_text(rest)}:")
+            indent += 1
+        elif cmd == "COMMENT":
+            arg = _extract_brace_arg(rest)
+            if lines:
+                lines[-1] += f"  // {arg}"
+            else:
+                lines.append(f"{prefix}// {arg}")
+        else:
+            # Unknown command — just output as text
+            lines.append(f"{prefix}{_clean_algorithmic_text(cmd, rest)}")
+
+    result = "\n".join(lines)
+    result = re.sub(r"\n{3,}", "\n\n", result)
+    return result.strip()
+
+
+def _clean_algorithmic_text(*parts: str) -> str:
+    """Clean text from algorithmic environment."""
+    text = " ".join(parts)
+    text = re.sub(r"\\label\{[^}]*\}", "", text)
+    text = text.strip()
+    if text.startswith("{") and text.endswith("}") and text.count("{") == 1:
+        text = text[1:-1].strip()
+    # Replace bare | inside $...$ with \mid (prevents markdown table confusion)
+    def _fix_math_pipe(m):
+        inner = re.sub(r"(?<!\\)\|", r"\\mid ", m.group(1))
+        return f"${inner}$"
+    text = re.sub(r"\$([^$]+)\$", _fix_math_pipe, text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _extract_brace_arg(text: str) -> str:
+    """Extract content of first {...} in text."""
+    text = text.strip()
+    if not text.startswith("{"):
+        # No brace — return everything up to next command or end
+        m = re.match(r"([^\\]*)", text)
+        return _clean_algorithmic_text(m.group(1)) if m else ""
+    depth = 0
+    for i, ch in enumerate(text):
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0:
+                return _clean_algorithmic_text(text[1:i])
+    return _clean_algorithmic_text(text[1:])
 
 
 def _parse_algorithm_body(body: str) -> str:

@@ -230,6 +230,29 @@ def html_to_text(html: str, raw_tex: str | None = None) -> str:
 
     result = "\n\n".join(lines)
 
+    # ── Insert parsed algorithms that weren't matched to HTML elements ──
+    # When LaTeXML renders algorithmic as plain paragraphs (no .ltx_algorithm),
+    # the parsed algorithms from raw LaTeX have no HTML element to replace.
+    # Find them by caption and insert code blocks after the caption text.
+    if _parsed_algos:
+        algo_elements_used = len(soup.select(".ltx_listing, .ltx_algorithm, [class*='algorithm']"))
+        for caption, _label, pseudocode in _parsed_algos[algo_elements_used:]:
+            if not pseudocode:
+                continue
+            code_block = "```\n" + pseudocode + "\n```"
+            # Try to find caption text in result and insert after it
+            # Caption may appear as "[Caption: ...]" or as a heading
+            cap_short = caption[:40] if caption else ""
+            if cap_short and cap_short in result:
+                idx = result.index(cap_short)
+                # Find end of the line containing caption
+                eol = result.find("\n", idx)
+                if eol >= 0:
+                    result = result[:eol+1] + "\n" + code_block + "\n" + result[eol+1:]
+                    continue
+            # If caption not found, append at end
+            result += "\n\n" + code_block
+
     result = re.sub(r"\n{3,}", "\n\n", result)
     return result.strip()
 
