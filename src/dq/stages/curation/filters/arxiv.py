@@ -128,6 +128,22 @@ def _clean_text(text: str) -> str:
         text,
     )
 
+    # ── pgfplots / tikz / pgf garbage ──
+    # LaTeXML leaks tikz/pgfplots configuration as plain text lines like:
+    #   "compat=1.14", "/pgfplots/... /.style=", "ybar, ..."
+    text = re.sub(r"^[ \t]*compat=[\d.]+,?\s*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^[ \t]*font=.*\bybar\b[^\n]*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^[ \t]*/pgfplots/[^\n]*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^[ \t]*/tikz/[^\n]*$", "", text, flags=re.MULTILINE)
+    # pgfplots package names leaked: "pgfplots.groupplots compat=1.3 patterns"
+    text = re.sub(r"^[ \t]*pgfplots[\w.]*\s+compat=[^\n]*$", "", text, flags=re.MULTILINE)
+    # tikz drawing commands: "ybar,", "[ybar, fill=...", "; coordinates"
+    text = re.sub(r"^[ \t]*(?:ybar|xbar),?\s*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^[ \t]*\[ybar[^\n]*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^[ \t]*;\s*coordinates\s*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^[ \t]*font=,?\]?\s*\[?ybar[^\n]*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^[ \t]*;\s*\[ybar[^\n]*$", "", text, flags=re.MULTILINE)
+
     # ── Figure/Table reference cleanup ──
     # "Figure )" or "Table )" left after citation removal
     text = re.sub(r"(Figure|Table|Section|Eq\.?)\s*\)", r"\1", text)
