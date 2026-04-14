@@ -80,44 +80,48 @@ def html_to_text(html: str, raw_tex: str | None = None) -> str:
                       "proposition", "remark", "example", "assumption", "hyperref",
                       "alg", "tab", "fig", "eq", "sec", "app", "thm", "lem",
                       "cor", "def", "prop", "rem"}
-    # Math environments that LaTeXML renders as ltx_ERROR
+    # Math environments that LaTeXML may fail to render
     _MATH_ENVS = {"align", "align*", "equation", "equation*", "gather",
                    "gather*", "multline", "multline*", "eqnarray", "eqnarray*",
                    "alignat", "alignat*", "flalign", "flalign*"}
+    _math_env_used: dict[str, int] = {}  # track which occurrence per env name
     for err in soup.select(".ltx_ERROR"):
         err_text = err.get_text(strip=True).strip("{}")
-        if err_text in _MATH_ENVS:
-            # This is a failed math environment — find its content and wrap as $$
-            # The content is usually the next sibling paragraph(s) until the closing tag
-            parent = err.parent
-            if parent:
-                # Collect text from siblings after this error until we hit another error or heading
-                parts = []
-                for sib in err.next_siblings:
-                    if hasattr(sib, 'get_text'):
-                        sib_text = sib.get_text(strip=True)
-                        cls = sib.get("class") or [] if hasattr(sib, 'get') else []
-                        if "ltx_ERROR" in cls:
-                            break
-                        if sib_text:
-                            parts.append(sib_text)
-                    elif isinstance(sib, str) and sib.strip():
-                        parts.append(sib.strip())
-                if parts:
-                    # Remove the collected siblings from DOM
-                    for sib in list(err.next_siblings):
-                        if hasattr(sib, 'get') and "ltx_ERROR" in (sib.get("class") or []):
-                            break
-                        sib.extract()
-                    # Replace error span with display math block
-                    math_text = " ".join(parts)
-                    new_p = soup.new_tag("p")
-                    new_p.string = f"$${math_text}$$"
-                    err.replace_with(new_p)
+        if err_text in _MATH_ENVS and raw_tex:
+            # Remove flattened content after this error span
+            for sib in list(err.next_siblings):
+                if hasattr(sib, "name") and sib.name in ("section", "h1", "h2", "h3"):
+                    break
+                cls = getattr(sib, "attrs", {}).get("class", []) or []
+                if "ltx_ERROR" in cls:
+                    break
+                if hasattr(sib, "name") and sib.name == "div":
+                    sib_text = sib.get_text(strip=True)[:300]
+                    if any(c in sib_text for c in ["&=", "&<", "_c(", "_s(",
+                                                     "cases", "text{if", "otherwise"]):
+                        sib.decompose()
+                        continue
+                    break
+                if isinstance(sib, str) and not sib.strip():
                     continue
-                else:
-                    err.decompose()
-                    continue
+                break
+            # Find matching environment in raw LaTeX by name + occurrence
+            esc = re.escape(err_text)
+            occ = _math_env_used.get(err_text, 0)
+            found = False
+            if raw_tex:
+                for idx, m in enumerate(re.finditer(
+                    rf"\\begin\{{{esc}\}}(.*?)\\end\{{{esc}\}}", raw_tex, re.DOTALL)):
+                    if idx == occ:
+                        _math_env_used[err_text] = occ + 1
+                        new_p = soup.new_tag("p")
+                        new_p.string = f"$${m.group(1).strip()}$$"
+                        err.replace_with(new_p)
+                        found = True
+                        break
+            if not found:
+                err.decompose()
+            continue
         parent = err.parent
         err.decompose()
         if parent and parent.name == 'p':
