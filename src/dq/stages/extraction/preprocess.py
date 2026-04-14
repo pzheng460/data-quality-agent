@@ -193,8 +193,8 @@ def preprocess_tex(tex: str) -> PreprocessResult:
             body = m.group(1).strip()
             # Expand user-defined macros so KaTeX can render
             body = _expand_macros(body, r._macros)
-            body = re.sub(r"\\label\{[^}]*\}", "", body)
-            body = re.sub(r"\\textsc\{([^}]*)\}", r"\\text{\1}", body)
+            from dq.stages.extraction.katex_compat import make_katex_compatible
+            body = make_katex_compatible(body)
             if "&" in body or "\\\\" in body:
                 formatted = f"$$\\begin{{aligned}}{body}\\end{{aligned}}$$"
             else:
