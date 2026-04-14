@@ -323,6 +323,8 @@ def html_to_text(html: str, raw_tex: str | None = None,
     result = re.sub(r"\\v(tilde|hat|bar|dot|vec|widetilde)\b", r"\\\1", result)
     # \label{...} in math — KaTeX doesn't render it, strip it
     result = re.sub(r"\\label\{[^}]*\}", "", result)
+    # \mathbbm{x} → \mathbb{x} (bbm package not in KaTeX)
+    result = result.replace("\\mathbbm", "\\mathbb")
 
     result = re.sub(r"\n{3,}", "\n\n", result)
     return result.strip()
