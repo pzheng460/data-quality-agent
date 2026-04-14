@@ -162,6 +162,13 @@ def preprocess_tex(tex: str) -> PreprocessResult:
     from dq.stages.extraction.algorithm import extract_algorithms_from_tex
     algos = extract_algorithms_from_tex(r.tex)
     for _cap, _lab, code in algos:
+        # Expand user macros in algorithm math ($...$)
+        if r._macros:
+            code = re.sub(
+                r"\$([^$]+)\$",
+                lambda m: "$" + _expand_macros(m.group(1), r._macros) + "$",
+                code,
+            )
         tag = r.add(f"\n```\n{code}\n```\n")
         # Replace the first remaining \begin{algorithm}...\end{algorithm}
         r.tex = _replace_first_env(r.tex, "algorithm", tag)
