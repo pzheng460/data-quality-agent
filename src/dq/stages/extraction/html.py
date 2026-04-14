@@ -114,8 +114,15 @@ def html_to_text(html: str, raw_tex: str | None = None) -> str:
                     rf"\\begin\{{{esc}\}}(.*?)\\end\{{{esc}\}}", raw_tex, re.DOTALL)):
                     if idx == occ:
                         _math_env_used[err_text] = occ + 1
+                        body = m.group(1).strip()
+                        # Make KaTeX-compatible:
+                        # - \textsc{x} → \text{x} (KaTeX has no \textsc)
+                        body = re.sub(r"\\textsc\{([^}]*)\}", r"\\text{\1}", body)
+                        # - align/eqnarray with & need \begin{aligned}
+                        if "&" in body or "\\\\" in body:
+                            body = f"\\begin{{aligned}}{body}\\end{{aligned}}"
                         new_p = soup.new_tag("p")
-                        new_p.string = f"$${m.group(1).strip()}$$"
+                        new_p.string = f"$${body}$$"
                         err.replace_with(new_p)
                         found = True
                         break
