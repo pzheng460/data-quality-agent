@@ -260,6 +260,10 @@ def _math_to_latex(el) -> str:
         # Remove LaTeXML internal commands that leak into alttext
         # e.g. \hidden@noalign{}, \@row@before, \hfil@stuff
         alt = re.sub(r"\\[a-zA-Z]*@[a-zA-Z@]*(?:\{[^}]*\})*", "", alt)
+        # Replace bare | with \mid to prevent markdown table conflicts.
+        # Only replace | that are NOT part of \| (norm), \left|, \right|, |...| delimiters.
+        # LaTeXML uses | for conditional probability: p(x|y)
+        alt = re.sub(r"(?<!\\)(?<!\|)\|(?!\|)", r"\\mid ", alt)
         return alt
     tex = el.get("tex", "")
     if tex:
