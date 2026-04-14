@@ -83,7 +83,7 @@ def _latexml_convert(tex: str, title: str) -> str | None:
                 html = f.read()
 
             from dq.stages.extraction.html import html_to_text
-            text = html_to_text(html, raw_tex=tex)
+            text = html_to_text(html, raw_tex=tex, macros=prep._macros)
 
             # Restore placeholders (algorithms, math, etc.)
             text = restore_placeholders(text, prep)

@@ -25,7 +25,8 @@ class HtmlExtractor(Extractor):
         return doc
 
 
-def html_to_text(html: str, raw_tex: str | None = None) -> str:
+def html_to_text(html: str, raw_tex: str | None = None,
+                 macros: dict | None = None) -> str:
     """Extract text from LaTeXML HTML. Pure format conversion.
 
     Handles LaTeXML-specific elements:
@@ -296,6 +297,24 @@ def html_to_text(html: str, raw_tex: str | None = None) -> str:
             for _cap, _label, pseudocode in unused_algos:
                 if pseudocode:
                     result += "\n\n```\n" + pseudocode + "\n```"
+
+    # ── Expand user-defined macros in math regions ──
+    if macros:
+        from dq.stages.extraction.preprocess import _expand_macros
+
+        def _expand_math(m):
+            inner = m.group(1) if m.group(1) is not None else m.group(2)
+            prefix = "$$" if m.group(1) is not None else "$"
+            suffix = prefix
+            expanded = _expand_macros(inner, macros)
+            return f"{prefix}{expanded}{suffix}"
+
+        # Expand in display math $$...$$
+        result = re.sub(r"\$\$(.*?)\$\$", lambda m: _expand_math(m), result, flags=re.DOTALL)
+        # Expand in inline math $...$
+        result = re.sub(r"(?<!\$)\$(?!\$)((?:[^$\\]|\\.)+?)\$(?!\$)",
+                        lambda m: "$" + _expand_macros(m.group(1), macros) + "$",
+                        result)
 
     result = re.sub(r"\n{3,}", "\n\n", result)
     return result.strip()

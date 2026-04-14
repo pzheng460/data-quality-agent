@@ -25,6 +25,7 @@ class PreprocessResult:
     tex: str
     placeholders: dict[str, str] = field(default_factory=dict)
     _counter: int = field(default=0, repr=False)
+    _macros: dict = field(default_factory=dict, repr=False)
 
     def add(self, content: str) -> str:
         """Register content, return placeholder tag."""
@@ -43,9 +44,119 @@ _MATH_ENVS = {"align", "align*", "alignat", "alignat*",
 _FRAME_ENVS = {"mdframed", "tcolorbox"}
 
 
+def _extract_macros(tex: str) -> dict[str, tuple[int, str]]:
+    r"""Extract \newcommand / \def definitions from preamble.
+
+    Returns {name: (num_args, body)} for simple macros (0-2 args).
+    """
+    macros: dict[str, tuple[int, str]] = {}
+    # \newcommand{\name}[nargs]{body} or \newcommand{\name}{body}
+    for m in re.finditer(
+        r"\\(?:newcommand|renewcommand)\s*\{\\(\w+)\}\s*(?:\[(\d+)\])?\s*\{",
+        re.split(r"\\begin\{document\}", tex := "")[0] if False else "",  # placeholder
+    ):
+        pass  # Will be filled below
+
+    # Parse from the actual tex
+    preamble_end = tex.find("\\begin{document}") if "\\begin{document}" in tex else len(tex)
+    preamble = tex[:preamble_end]
+
+    for m in re.finditer(r"\\(?:newcommand|renewcommand)\s*\{?\\(\w+)\}?\s*(?:\[(\d+)\])?\s*\{", preamble):
+        name = m.group(1)
+        nargs = int(m.group(2)) if m.group(2) else 0
+        # Find matching closing brace
+        start = m.end()
+        depth = 1
+        for i in range(start, min(start + 500, len(preamble))):
+            if preamble[i] == '{':
+                depth += 1
+            elif preamble[i] == '}':
+                depth -= 1
+                if depth == 0:
+                    body = preamble[start:i]
+                    macros[name] = (nargs, body)
+                    break
+    # Also handle \def\name{body} (no args)
+    for m in re.finditer(r"\\def\\(\w+)\s*\{", preamble):
+        name = m.group(1)
+        start = m.end()
+        depth = 1
+        for i in range(start, min(start + 500, len(preamble))):
+            if preamble[i] == '{':
+                depth += 1
+            elif preamble[i] == '}':
+                depth -= 1
+                if depth == 0:
+                    macros[name] = (0, preamble[start:i])
+                    break
+    return macros
+
+
+def _expand_macros(text: str, macros: dict[str, tuple[int, str]], max_passes: int = 5) -> str:
+    """Expand user-defined macros in math text. Handles nested braces."""
+    for _ in range(max_passes):
+        changed = False
+        for name, (nargs, body) in macros.items():
+            if nargs == 0:
+                old = f"\\{name}"
+                # Avoid partial matches: \bx should not match inside \bxyz
+                pat = rf"\\{re.escape(name)}(?![a-zA-Z])"
+                if re.search(pat, text):
+                    text = re.sub(pat, lambda _: body, text)
+                    changed = True
+            else:
+                # Find \name followed by nargs brace groups (nested-safe)
+                search_pat = rf"\\{re.escape(name)}\{{"
+                idx = 0
+                while True:
+                    m = re.search(search_pat, text[idx:])
+                    if not m:
+                        break
+                    pos = idx + m.start()
+                    arg_start = idx + m.end() - 1  # at the {
+                    args = []
+                    cur = arg_start
+                    for _ in range(nargs):
+                        arg, end = _match_brace(text, cur)
+                        if arg is None:
+                            break
+                        args.append(arg)
+                        cur = end + 1
+                    if len(args) == nargs:
+                        # Build replacement
+                        repl = body
+                        for ai, arg in enumerate(args):
+                            repl = repl.replace(f"#{ai+1}", arg)
+                        text = text[:pos] + repl + text[cur:]
+                        changed = True
+                    else:
+                        idx = pos + 1
+        if not changed:
+            break
+    return text
+
+
+def _match_brace(text: str, pos: int) -> tuple[str | None, int]:
+    """Match {content} starting at pos, handling nesting. Returns (content, end_pos)."""
+    if pos >= len(text) or text[pos] != '{':
+        return None, pos
+    depth = 0
+    for i in range(pos, len(text)):
+        if text[i] == '{':
+            depth += 1
+        elif text[i] == '}':
+            depth -= 1
+            if depth == 0:
+                return text[pos+1:i], i
+    return None, pos
+
+
 def preprocess_tex(tex: str) -> PreprocessResult:
     """Pre-process LaTeX to neutralize environments LaTeXML can't handle."""
     r = PreprocessResult(tex=tex)
+
+    # ── 0. Extract user-defined macros for later expansion ──
+    r._macros = _extract_macros(tex)
 
     # ── 1. Algorithm blocks → parsed pseudocode ──
     from dq.stages.extraction.algorithm import extract_algorithms_from_tex
@@ -73,6 +184,8 @@ def preprocess_tex(tex: str) -> PreprocessResult:
             r.tex, re.DOTALL,
         ))):
             body = m.group(1).strip()
+            # Expand user-defined macros so KaTeX can render
+            body = _expand_macros(body, r._macros)
             body = re.sub(r"\\textsc\{([^}]*)\}", r"\\text{\1}", body)
             if "&" in body or "\\\\" in body:
                 formatted = f"$$\\begin{{aligned}}{body}\\end{{aligned}}$$"
