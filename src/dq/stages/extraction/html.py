@@ -230,28 +230,24 @@ def html_to_text(html: str, raw_tex: str | None = None) -> str:
 
     result = "\n\n".join(lines)
 
-    # ── Insert parsed algorithms that weren't matched to HTML elements ──
-    # When LaTeXML renders algorithmic as plain paragraphs (no .ltx_algorithm),
-    # the parsed algorithms from raw LaTeX have no HTML element to replace.
-    # Find them by caption and insert code blocks after the caption text.
+    # ── Replace flattened algorithmic text with parsed code blocks ──
+    # LaTeXML renders \begin{algorithmic} as "[H] Caption [1]..." flat text.
+    # Remove these and append properly parsed code blocks.
     if _parsed_algos:
-        algo_elements_used = len(soup.select(".ltx_listing, .ltx_algorithm, [class*='algorithm']"))
-        for caption, _label, pseudocode in _parsed_algos[algo_elements_used:]:
-            if not pseudocode:
-                continue
-            code_block = "```\n" + pseudocode + "\n```"
-            # Try to find caption text in result and insert after it
-            # Caption may appear as "[Caption: ...]" or as a heading
-            cap_short = caption[:40] if caption else ""
-            if cap_short and cap_short in result:
-                idx = result.index(cap_short)
-                # Find end of the line containing caption
-                eol = result.find("\n", idx)
-                if eol >= 0:
-                    result = result[:eol+1] + "\n" + code_block + "\n" + result[eol+1:]
-                    continue
-            # If caption not found, append at end
-            result += "\n\n" + code_block
+        algo_elements_used = len(soup.select(
+            ".ltx_listing, .ltx_algorithm, [class*='algorithm']"))
+        unused_algos = _parsed_algos[algo_elements_used:]
+        if unused_algos:
+            # Remove flattened algorithm text: "[H] ... [1] ..." blocks
+            result = re.sub(
+                r"\[[Hh]\][^\n]*\[\d+\][^\n]*(?:\n(?!#|\[Caption:)[^\n]*)*",
+                "",
+                result,
+            )
+            # Insert code blocks at end
+            for _cap, _label, pseudocode in unused_algos:
+                if pseudocode:
+                    result += "\n\n```\n" + pseudocode + "\n```"
 
     result = re.sub(r"\n{3,}", "\n\n", result)
     return result.strip()

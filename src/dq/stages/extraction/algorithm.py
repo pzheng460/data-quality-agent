@@ -95,9 +95,22 @@ def extract_algorithms_from_tex(tex: str) -> list[tuple[str, str, str]]:
 
         # Extract caption and label
         caption = ""
-        cap_m = re.search(r"\\caption\{([^}]*)\}", body)
+        cap_m = re.search(r"\\caption\{", body)
         if cap_m:
-            caption = cap_m.group(1).strip()
+            # Match nested braces
+            depth, start = 1, cap_m.end()
+            for ci in range(start, min(start + 300, len(body))):
+                if body[ci] == '{': depth += 1
+                elif body[ci] == '}':
+                    depth -= 1
+                    if depth == 0:
+                        raw_cap = body[start:ci]
+                        # Clean: remove \small, \label{...}, etc.
+                        raw_cap = re.sub(r"\\label\{[^}]*\}", "", raw_cap)
+                        raw_cap = re.sub(r"\\[a-zA-Z]+\{([^}]*)\}", r"\1", raw_cap)
+                        raw_cap = re.sub(r"\\[a-zA-Z]+\s*", "", raw_cap)
+                        caption = raw_cap.strip()
+                        break
 
         label = ""
         lab_m = re.search(r"\\label\{([^}]*)\}", body)
