@@ -316,6 +316,12 @@ def html_to_text(html: str, raw_tex: str | None = None,
                         lambda m: "$" + _expand_macros(m.group(1), macros) + "$",
                         result)
 
+    # ── Fix macro expansion artifacts ──
+    # \vmathbb → \mathbb (when \v prefix macro merges with next command)
+    result = re.sub(r"\\v(math[a-z]+)", r"\\\1", result)
+    # \vtilde → \tilde, \vhat → \hat, etc.
+    result = re.sub(r"\\v(tilde|hat|bar|dot|vec|widetilde)\b", r"\\\1", result)
+
     result = re.sub(r"\n{3,}", "\n\n", result)
     return result.strip()
 
