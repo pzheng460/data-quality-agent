@@ -80,7 +80,44 @@ def html_to_text(html: str, raw_tex: str | None = None) -> str:
                       "proposition", "remark", "example", "assumption", "hyperref",
                       "alg", "tab", "fig", "eq", "sec", "app", "thm", "lem",
                       "cor", "def", "prop", "rem"}
+    # Math environments that LaTeXML renders as ltx_ERROR
+    _MATH_ENVS = {"align", "align*", "equation", "equation*", "gather",
+                   "gather*", "multline", "multline*", "eqnarray", "eqnarray*",
+                   "alignat", "alignat*", "flalign", "flalign*"}
     for err in soup.select(".ltx_ERROR"):
+        err_text = err.get_text(strip=True).strip("{}")
+        if err_text in _MATH_ENVS:
+            # This is a failed math environment — find its content and wrap as $$
+            # The content is usually the next sibling paragraph(s) until the closing tag
+            parent = err.parent
+            if parent:
+                # Collect text from siblings after this error until we hit another error or heading
+                parts = []
+                for sib in err.next_siblings:
+                    if hasattr(sib, 'get_text'):
+                        sib_text = sib.get_text(strip=True)
+                        cls = sib.get("class") or [] if hasattr(sib, 'get') else []
+                        if "ltx_ERROR" in cls:
+                            break
+                        if sib_text:
+                            parts.append(sib_text)
+                    elif isinstance(sib, str) and sib.strip():
+                        parts.append(sib.strip())
+                if parts:
+                    # Remove the collected siblings from DOM
+                    for sib in list(err.next_siblings):
+                        if hasattr(sib, 'get') and "ltx_ERROR" in (sib.get("class") or []):
+                            break
+                        sib.extract()
+                    # Replace error span with display math block
+                    math_text = " ".join(parts)
+                    new_p = soup.new_tag("p")
+                    new_p.string = f"$${math_text}$$"
+                    err.replace_with(new_p)
+                    continue
+                else:
+                    err.decompose()
+                    continue
         parent = err.parent
         err.decompose()
         if parent and parent.name == 'p':
