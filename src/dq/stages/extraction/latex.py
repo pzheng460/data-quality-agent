@@ -43,8 +43,13 @@ class LatexExtractor(Extractor):
 
 
 def _latexml_convert(tex: str, title: str) -> str | None:
-    """LaTeXML pipeline: .tex → .xml → .html → clean text."""
+    """LaTeXML pipeline: preprocess → LaTeXML → html_to_text → restore."""
     import tempfile
+    from dq.stages.extraction.preprocess import preprocess_tex, restore_placeholders
+
+    # Pre-process: extract environments LaTeXML can't handle
+    prep = preprocess_tex(tex)
+    cleaned_tex = prep.tex
 
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -53,7 +58,7 @@ def _latexml_convert(tex: str, title: str) -> str | None:
             html_path = f"{tmpdir}/paper.html"
 
             with open(tex_path, "w", encoding="utf-8") as f:
-                f.write(tex)
+                f.write(cleaned_tex)
 
             # Step 1: LaTeX → XML
             r1 = subprocess.run(
@@ -78,7 +83,11 @@ def _latexml_convert(tex: str, title: str) -> str | None:
                 html = f.read()
 
             from dq.stages.extraction.html import html_to_text
-            return html_to_text(html, raw_tex=tex)
+            text = html_to_text(html, raw_tex=tex)
+
+            # Restore placeholders (algorithms, math, etc.)
+            text = restore_placeholders(text, prep)
+            return text
 
     except FileNotFoundError:
         logger.warning("latexml not installed, using fallback")
