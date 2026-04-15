@@ -149,6 +149,10 @@ def _run_pipeline(req: RunRequest) -> None:
             _state["current_phase"] = None
             if bench_result:
                 _state["benchmark"] = bench_result
+                # Also update bench state so /api/bench/status returns it
+                _bench_state["status"] = "done"
+                _bench_state["result"] = bench_result
+                _bench_state["error"] = None
         _invalidate_cache(req.output_dir)
         _push_event({"type": "pipeline_done"})
 
