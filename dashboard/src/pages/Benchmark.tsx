@@ -51,6 +51,16 @@ export default function Benchmark() {
   const [error, setError] = useState<string | null>(null)
   const [expandedFilter, setExpandedFilter] = useState<string | null>(null)
 
+  // Check for existing benchmark result on mount (from auto-bench after pipeline)
+  useEffect(() => {
+    api<Record<string, unknown>>('/api/bench/status').then(data => {
+      if (data.status === 'done' && data.result) {
+        setStatus('done')
+        setResult(data.result as BenchResult)
+      }
+    }).catch(() => {})
+  }, [])
+
   const startBench = async () => {
     setStatus('running'); setError(null); setResult(null)
     try {
