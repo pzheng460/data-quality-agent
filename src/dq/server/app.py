@@ -124,9 +124,31 @@ def _run_pipeline(req: RunRequest) -> None:
             stats_dir = engine.output_dir / "stats" / engine.version
             save_overview(stats_dir, all_stats, engine.version, config_hash=engine.config_hash)
 
+        # ── Auto-benchmark final output ──
+        final_dir = engine.output_dir / "stage4_final"
+        bench_result = None
+        if final_dir.exists():
+            try:
+                from dq.benchmark.runner import run_benchmark
+                from dq.benchmark_report import benchmark_to_json
+                from dq.shared.shard import read_shards
+
+                final_docs = list(read_shards(str(final_dir)))
+                if final_docs:
+                    report = run_benchmark(
+                        config_path=req.config_path,
+                        datasets={"final_output": final_docs},
+                        workers=1,
+                    )
+                    bench_result = json.loads(benchmark_to_json(report))
+            except Exception as e:
+                logger.warning("Auto-benchmark failed: %s", e)
+
         with _lock:
             _state["status"] = "finished"
             _state["current_phase"] = None
+            if bench_result:
+                _state["benchmark"] = bench_result
         _invalidate_cache(req.output_dir)
         _push_event({"type": "pipeline_done"})
 
