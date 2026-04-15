@@ -105,14 +105,14 @@ def make_katex_compatible(text: str) -> str:
     Applies to math regions ($...$, $$...$$) and also to any
     stray LaTeX commands in the text.
     """
-    # 1. Package aliases (exact string replacement)
+    # 1. Package aliases (word-boundary safe to avoid substring matches)
     for old, new in _PACKAGE_ALIASES.items():
-        text = text.replace(old, new)
+        text = re.sub(rf"{re.escape(old)}(?![a-zA-Z])", lambda _, r=new: r, text)
 
-    # 2. Simple command replacements
+    # 2. Simple command replacements (word-boundary safe)
     for old, new in _SIMPLE_REPLACEMENTS.items():
         if old in text:
-            text = text.replace(old, new)
+            text = re.sub(rf"{re.escape(old)}(?![a-zA-Z])", lambda _, r=new: r, text)
 
     # 3. Strip \v prefix from compound commands
     text = _V_PREFIX_COMMANDS.sub(r"\\\1", text)

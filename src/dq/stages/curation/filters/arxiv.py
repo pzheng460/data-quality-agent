@@ -118,6 +118,8 @@ def _clean_text(text: str) -> str:
     # ── Residual LaTeX commands ──
     text = re.sub(r"\\(?:begin|end)\{[^}]+\}", "", text)
     text = re.sub(r"\\[a-zA-Z]{2,}\b", "", text)
+    # ── LaTeXML LABEL:xxx references (from failed \ref) ──
+    text = re.sub(r"LABEL:\S+", "", text)
 
     # ── mdframed / tcolorbox parameter blocks ──
     # LaTeXML leaks multi-line environment options like:
