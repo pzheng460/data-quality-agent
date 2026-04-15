@@ -158,6 +158,14 @@ class PhaseEngine:
             stats_dir = self.output_dir / "stats" / self.version
             save_overview(stats_dir, all_stats, self.version, config_hash=self._config_hash)
 
+        # ── Auto-benchmark final output ──
+        final_dir = self.output_dir / "stage4_final"
+        if final_dir.exists():
+            try:
+                self._run_bench(final_dir)
+            except Exception as e:
+                logger.warning("Auto-benchmark failed: %s", e)
+
     def run_stage(self, stage_num: int) -> None:
         """Run a single stage by number (1-4)."""
         from dq.runner import stages as sm
@@ -177,6 +185,29 @@ class PhaseEngine:
         stats = func(self)
         self.mark_stage_done(name)
         console.print(f"  {stats.input_count} in → {stats.output_count} kept")
+
+    def _run_bench(self, final_dir: Path) -> None:
+        """Run quality benchmark on final output and print results."""
+        from dq.shared.shard import read_shards
+        from dq.benchmark.runner import run_benchmark
+
+        docs = list(read_shards(final_dir))
+        if not docs:
+            return
+
+        console.print(f"\n[bold]  Quality benchmark on {len(docs)} final docs[/bold]")
+        report = run_benchmark(
+            config_path=str(self.config_path) if hasattr(self, "config_path") and self.config_path else None,
+            datasets={"final_output": docs},
+            workers=1,
+        )
+        for ds_report in report.datasets.values():
+            console.print(f"    Overall pass rate: {ds_report.overall_pass_rate:.1%}")
+            for name, rate in ds_report.per_filter_pass_rate.items():
+                if rate < 1.0:
+                    console.print(f"    [yellow]{name}: {rate:.1%}[/yellow]")
+            if ds_report.overall_pass_rate == 1.0:
+                console.print("    [green]All filters passed![/green]")
 
     # Backward compat
     def run_phase(self, phase_num: int) -> None:
