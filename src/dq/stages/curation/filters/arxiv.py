@@ -135,6 +135,8 @@ def _clean_text(text: str) -> str:
     #   "compat=1.14", "/pgfplots/... /.style=", "ybar, ..."
     text = re.sub(r"^[ \t]*compat=[\d.]+,?\s*$", "", text, flags=re.MULTILINE)
     text = re.sub(r"^[ \t]*font=.*\bybar\b[^\n]*$", "", text, flags=re.MULTILINE)
+    # ",label style=font=" and similar axis option fragments
+    text = re.sub(r"^[ \t]*,?\s*(?:label style|tick label style|legend style|axis)[^\n]*font=[^\n]*$", "", text, flags=re.MULTILINE)
     text = re.sub(r"^[ \t]*/pgfplots/[^\n]*$", "", text, flags=re.MULTILINE)
     text = re.sub(r"^[ \t]*/tikz/[^\n]*$", "", text, flags=re.MULTILINE)
     # pgfplots package names leaked: "pgfplots.groupplots compat=1.3 patterns"
