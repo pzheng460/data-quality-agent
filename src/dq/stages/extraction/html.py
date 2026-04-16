@@ -207,6 +207,19 @@ def html_to_text(html: str, raw_tex: str | None = None,
         """Convert extracted rows to GFM markdown table string."""
         if not rows or len(rows) < 2:
             return None
+        # Remove LaTeXML multirow artifacts: row with content only in col 0,
+        # matching previous row's col 0 (LaTeXML renders \multirow as extra rows)
+        cleaned = [rows[0]]
+        for r in rows[1:]:
+            non_empty = [c for c in r[1:] if c.strip()]
+            if not non_empty and r[0].strip() and cleaned and r[0].strip() == cleaned[-1][0].strip():
+                continue
+            cleaned.append(r)
+        rows = cleaned
+        # Remove duplicate col 0 == col 1 (LaTeXML renders \multirow into 2 cells)
+        for r in rows:
+            if len(r) >= 2 and r[0].strip() and r[0].strip() == r[1].strip():
+                r[1] = ""
         total_cells = sum(len(r) for r in rows)
         empty_cells = sum(1 for r in rows for c in r if not c.strip())
         if total_cells > 0 and empty_cells / total_cells >= 0.4:
