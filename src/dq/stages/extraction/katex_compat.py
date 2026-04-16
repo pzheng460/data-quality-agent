@@ -144,4 +144,11 @@ def make_katex_compatible(text: str) -> str:
         text,
     )
 
+    # 10. Escape _ and ^ inside \text{...} (not valid in text mode)
+    def _fix_text_underscores(m):
+        content = m.group(1)
+        content = content.replace("_", r"\_").replace("^", r"\^")
+        return r"\text{" + content + "}"
+    text = re.sub(r"\\text\{([^}]*[_^][^}]*)\}", _fix_text_underscores, text)
+
     return text
