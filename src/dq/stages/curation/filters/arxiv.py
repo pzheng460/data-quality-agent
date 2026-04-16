@@ -146,6 +146,12 @@ def _clean_text(text: str) -> str:
     text = re.sub(r"^[ \t]*font=,?\]?\s*\[?ybar[^\n]*$", "", text, flags=re.MULTILINE)
     text = re.sub(r"^[ \t]*;\s*\[ybar[^\n]*$", "", text, flags=re.MULTILINE)
 
+    # ── \includegraphics residuals ──
+    # LaTeXML leaks image options+paths: "[trim=0cm 19cm 0cm 0cm,clip,width=0.9]images/foo.jpg"
+    text = re.sub(r"\[(?:trim|width|height|scale|clip)[^\]]*\]\S*\.(?:png|jpg|jpeg|pdf|eps|svg)\b", "", text)
+    # Bare image paths: "images/foo.png" or "figures/bar.pdf"
+    text = re.sub(r"(?:images|figures|figs|fig|imgs|assets)/\S*\.(?:png|jpg|jpeg|pdf|eps|svg)\b", "", text)
+
     # ── Figure/Table reference cleanup ──
     # "Figure )" or "Table )" left after citation removal
     text = re.sub(r"(Figure|Table|Section|Eq\.?)\s*\)", r"\1", text)
