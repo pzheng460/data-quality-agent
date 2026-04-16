@@ -134,8 +134,14 @@ def make_katex_compatible(text: str) -> str:
         text = re.sub(rf"{re.escape(cmd)}(?![a-zA-Z])", "", text)
 
     # 8. Remove environments KaTeX doesn't support (inside aligned/$$)
-    # \begin{split}...\end{split} → keep content (redundant with aligned)
     text = re.sub(r"\\begin\{split\}", "", text)
     text = re.sub(r"\\end\{split\}", "", text)
+
+    # 9. Fix bare sub/superscript + command: _	ext{x} -> _{	ext{x}}
+    text = re.sub(
+        r"([_^])\\(text|mathrm|mathbf|mathit|mathcal|operatorname|boldsymbol)\{([^}]*)\}",
+        r"\1{\\\2{\3}}",
+        text,
+    )
 
     return text
