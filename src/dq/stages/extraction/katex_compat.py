@@ -110,7 +110,16 @@ def make_katex_compatible(text: str) -> str:
     # 4. Remove LaTeXML internal commands (\xxx@yyy)
     text = _INTERNAL_CMD.sub("", text)
 
-    # 5. Delete commands with their {arg} entirely (\label{eq:foo} → "")
+    # 5. Fix bare accent + command: \hat\mathbf{x} → \hat{\mathbf{x}}
+    #    KaTeX requires braces around the argument of accent commands
+    text = re.sub(
+        r"\\(hat|tilde|bar|dot|ddot|vec|widehat|widetilde|overline|underline)"
+        r"\\(mathbf|mathbb|mathcal|mathrm|mathit|mathsf|boldsymbol)\{([^}]*)\}",
+        r"\\\1{\\\2{\3}}",
+        text,
+    )
+
+    # 6. Delete commands with their {arg} entirely (\label{eq:foo} → "")
     for cmd in _DELETE_WITH_ARG:
         text = re.sub(rf"{re.escape(cmd)}\{{[^}}]*\}}", "", text)
         text = re.sub(rf"{re.escape(cmd)}(?![a-zA-Z])", "", text)
