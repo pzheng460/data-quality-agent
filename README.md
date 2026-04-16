@@ -18,20 +18,25 @@ Stage 4: Packaging    → Sort, shard, manifest
 ```
 raw .tex
    ↓
-preprocess.py     ← Extract algorithm/tikz/align*/mdframed, replace with placeholders
-   ↓              ← Expand user-defined macros (\bx → \mathbf{x})
-cleaned .tex
+preprocess.py (before LaTeXML)
+   ├── Extract algorithm blocks → algorithm.py → indented pseudocode
+   ├── Extract align*/gather* → expand macros → $$ placeholders
+   ├── Remove tikz/pgfplots (image code, no text value)
+   ├── Strip mdframed/tcolorbox frame options
+   └── Extract \newcommand/\def macro definitions from preamble
    ↓
-LaTeXML → HTML    ← Only processes content it handles well
+cleaned .tex → LaTeXML → HTML
    ↓
-html_to_text      ← Table extraction (multirow/colspan/span-based)
-   ↓              ← Math cleanup (alttext → KaTeX-compatible)
-   ↓              ← Algorithm pseudocode (algorithm2e + algorithmic)
-katex_compat      ← Fix non-KaTeX commands (\mathbbm → \mathbb, etc.)
+html_to_text (HTML → Markdown, core conversion)
+   ├── <math alttext> → $LaTeX$ / $$LaTeX$$
+   ├── <table> / <span.ltx_tabular> → GFM tables (rowspan/colspan/multi-row headers)
+   ├── ltx_ERROR cleanup (crefname garbage, failed math envs)
+   ├── Expand user macros in all $...$ regions
+   ├── KaTeX compat (\mathbbm→\mathbb, \bm→\boldsymbol ...)
+   ├── Remove flattened algorithmic text ([H]...[1]... blocks)
+   └── Restore placeholders (algorithm code blocks, display math)
    ↓
-restore placeholders
-   ↓
-clean output      ← Ready for rendering or pre-training
+clean output → ready for rendering or pre-training
 ```
 
 ### Quality Filters
