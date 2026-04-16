@@ -51,34 +51,24 @@ _SIMPLE_REPLACEMENTS: dict[str, str] = {
     "\\allowbreak": "",
 }
 
-# Commands to simply remove (no replacement)
-_STRIP_COMMANDS: set[str] = {
-    "\\label",
-    "\\tag",
-    "\\nonumber",
-    "\\notag",
-    "\\vspace",
-    "\\hspace",
-    "\\phantom",
-    "\\vphantom",
-    "\\hphantom",
+# Commands to DELETE entirely (including their {arg})
+_DELETE_WITH_ARG: set[str] = {
+    "\\label", "\\tag", "\\vspace", "\\hspace",
+    "\\phantom", "\\vphantom", "\\hphantom",
+}
+
+# Commands to UNWRAP (remove cmd, keep {arg} content)
+_UNWRAP_COMMANDS: set[str] = {
+    "\\displaystyle", "\\textstyle", "\\scriptstyle", "\\scriptscriptstyle",
     "\\smash",
-    "\\centering",
-    "\\raggedright",
-    "\\raggedleft",
-    "\\footnotesize",
-    "\\scriptsize",
-    "\\small",
-    "\\normalsize",
-    "\\large",
-    "\\Large",
-    "\\LARGE",
-    "\\huge",
-    "\\Huge",
-    "\\displaystyle",
-    "\\textstyle",
-    "\\scriptstyle",
-    "\\scriptscriptstyle",
+}
+
+# Commands to STRIP (no arg expected)
+_STRIP_NO_ARG: set[str] = {
+    "\\nonumber", "\\notag",
+    "\\centering", "\\raggedright", "\\raggedleft",
+    "\\footnotesize", "\\scriptsize", "\\small", "\\normalsize",
+    "\\large", "\\Large", "\\LARGE", "\\huge", "\\Huge",
 }
 
 # Prefix artifacts: \v + real command → strip \v prefix
@@ -120,14 +110,18 @@ def make_katex_compatible(text: str) -> str:
     # 4. Remove LaTeXML internal commands (\xxx@yyy)
     text = _INTERNAL_CMD.sub("", text)
 
-    # 5. Strip commands that should be removed with their brace arg
-    for cmd in _STRIP_COMMANDS:
-        # \cmd{arg} → arg  (keep content)
-        text = re.sub(rf"{re.escape(cmd)}\{{([^}}]*)\}}", r"\1", text)
-        # \cmd without arg → remove
+    # 5. Delete commands with their {arg} entirely (\label{eq:foo} → "")
+    for cmd in _DELETE_WITH_ARG:
+        text = re.sub(rf"{re.escape(cmd)}\{{[^}}]*\}}", "", text)
         text = re.sub(rf"{re.escape(cmd)}(?![a-zA-Z])", "", text)
 
-    # 6. Remove \label{...} (common in extracted display math)
-    text = re.sub(r"\\label\{[^}]*\}", "", text)
+    # 6. Unwrap commands, keep {arg} content (\displaystyle{x} → x)
+    for cmd in _UNWRAP_COMMANDS:
+        text = re.sub(rf"{re.escape(cmd)}\{{([^}}]*)\}}", r"\1", text)
+        text = re.sub(rf"{re.escape(cmd)}(?![a-zA-Z])", "", text)
+
+    # 7. Remove standalone commands (no arg)
+    for cmd in _STRIP_NO_ARG:
+        text = re.sub(rf"{re.escape(cmd)}(?![a-zA-Z])", "", text)
 
     return text
