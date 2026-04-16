@@ -124,4 +124,9 @@ def make_katex_compatible(text: str) -> str:
     for cmd in _STRIP_NO_ARG:
         text = re.sub(rf"{re.escape(cmd)}(?![a-zA-Z])", "", text)
 
+    # 8. Remove environments KaTeX doesn't support (inside aligned/$$)
+    # \begin{split}...\end{split} → keep content (redundant with aligned)
+    text = re.sub(r"\\begin\{split\}", "", text)
+    text = re.sub(r"\\end\{split\}", "", text)
+
     return text
