@@ -216,10 +216,18 @@ def html_to_text(html: str, raw_tex: str | None = None,
                 continue
             cleaned.append(r)
         rows = cleaned
-        # Remove duplicate col 0 == col 1 (LaTeXML renders \multirow into 2 cells)
-        for r in rows:
-            if len(r) >= 2 and r[0].strip() and r[0].strip() == r[1].strip():
-                r[1] = ""
+        # Fix LaTeXML multirow: clear cells where col[i] == col[0]
+        # and drop fully empty columns
+        if rows and len(rows[0]) > 2:
+            for r in rows:
+                for ci in range(1, len(r)):
+                    if r[ci].strip() and r[ci].strip() == r[0].strip():
+                        r[ci] = ""
+            ncols = len(rows[0])
+            drop = {ci for ci in range(ncols)
+                    if all(not (r[ci].strip() if ci < len(r) else "") for r in rows)}
+            if drop:
+                rows = [[c for j, c in enumerate(r) if j not in drop] for r in rows]
         total_cells = sum(len(r) for r in rows)
         empty_cells = sum(1 for r in rows for c in r if not c.strip())
         if total_cells > 0 and empty_cells / total_cells >= 0.4:
