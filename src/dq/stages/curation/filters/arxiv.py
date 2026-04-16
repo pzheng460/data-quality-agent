@@ -134,7 +134,10 @@ def _clean_text(text: str) -> str:
     # LaTeXML leaks tikz/pgfplots configuration as plain text lines like:
     #   "compat=1.14", "/pgfplots/... /.style=", "ybar, ..."
     text = re.sub(r"^[ \t]*compat=[\d.]+,?\s*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^[ \t]*pgfplots[.\w]*\s+.*$", "", text, flags=re.MULTILINE)
     text = re.sub(r"^[ \t]*font=.*\bybar\b[^\n]*$", "", text, flags=re.MULTILINE)
+    # Bare ", ," or ", , ," lines (pgfplots option residuals)
+    text = re.sub(r"^[ \t]*(?:,\s*)+,?\s*$", "", text, flags=re.MULTILINE)
     # ",label style=font=" and similar axis option fragments
     text = re.sub(r"^[ \t]*,?\s*(?:label style|tick label style|legend style|axis)[^\n]*font=[^\n]*$", "", text, flags=re.MULTILINE)
     text = re.sub(r"^[ \t]*/pgfplots/[^\n]*$", "", text, flags=re.MULTILINE)
