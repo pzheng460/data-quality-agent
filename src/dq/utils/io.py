@@ -83,7 +83,10 @@ def read_jsonl_zst(path: str | Path) -> Iterator[dict]:
             for line in text_stream:
                 line = line.strip()
                 if line:
-                    yield json.loads(line)
+                    try:
+                        yield json.loads(line)
+                    except json.JSONDecodeError:
+                        continue  # skip corrupted lines
 
 
 def write_jsonl_zst(docs: Iterator[dict], path: str | Path, level: int = 3) -> int:
