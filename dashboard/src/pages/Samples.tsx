@@ -32,18 +32,33 @@ const STAGES = [
 // image placeholder, which is actually useful feedback.
 function Md({ children }: { children: string }) {
   const imgComponent = ({ src, alt, ...rest }: any) => {
+    let url: string | undefined
     if (typeof src === 'string' && src.startsWith('/')) {
-      src = apiUrl(`/api/image?path=${encodeURIComponent(src)}`)
+      url = apiUrl(`/api/image?path=${encodeURIComponent(src)}`)
     }
-    return <img src={src} alt={alt} style={{ maxWidth: '100%', height: 'auto' }} {...rest} />
+    if (!url) {
+      // Relative / unknown ref (common for data ingested before save_figures existed).
+      // Render an inline placeholder so the doc doesn't look broken.
+      const label = alt || src || 'figure'
+      return (
+        <span className="inline-block my-2 px-3 py-2 text-xs font-mono
+                         border border-dashed border-muted-foreground/40 text-muted-foreground
+                         rounded bg-muted/30" title={String(src)}>
+          📎 {String(label).slice(0, 120)}
+        </span>
+      )
+    }
+    return (
+      <img src={url} alt={alt}
+           style={{ maxWidth: '100%', height: 'auto' }}
+           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+           {...rest} />
+    )
   }
   return (
     <article className="prose-article">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
-        components={{ img: imgComponent }}
-      >
+      <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}
+                     components={{ img: imgComponent }}>
         {children}
       </ReactMarkdown>
     </article>
