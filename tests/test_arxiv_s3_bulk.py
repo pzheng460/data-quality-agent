@@ -149,3 +149,37 @@ def test_extract_tex_blob_still_works_without_figures():
     assert tex and "hi" in tex
 
 
+def test_months_from_ids_new_style():
+    from dq.stages.ingestion.arxiv_s3_bulk import _months_from_ids
+    assert _months_from_ids({"2310.12345", "2311.00001"}) == {"2310", "2311"}
+
+
+def test_months_from_ids_versioned():
+    from dq.stages.ingestion.arxiv_s3_bulk import _months_from_ids
+    assert _months_from_ids({"2310.12345v3"}) == {"2310"}
+
+
+def test_months_from_ids_old_style():
+    from dq.stages.ingestion.arxiv_s3_bulk import _months_from_ids
+    assert _months_from_ids({"hep-th/0612123"}) == {"0612"}
+
+
+def test_months_from_ids_mixed():
+    from dq.stages.ingestion.arxiv_s3_bulk import _months_from_ids
+    assert _months_from_ids({"2310.12345", "hep-th/0612123", "not_an_id"}) == {"2310", "0612"}
+
+
+def test_source_ids_auto_derives_months():
+    """Passing ids should pre-filter the S3 scan to just those months."""
+    src = ArxivS3BulkSource(ids=["2310.12345", "2401.00001"])
+    assert src.ids == {"2310.12345", "2401.00001"}
+    assert src.months == {"2310", "2401"}
+
+
+def test_full_archive_overrides_ids_and_months():
+    src = ArxivS3BulkSource(ids=["2310.12345"], full_archive=True)
+    assert src.full_archive is True
+    # months cleared so we scan everything
+    assert src.months is None
+
+

@@ -48,6 +48,12 @@ class ArxivS3BulkSource(IngestSource):
     @classmethod
     def params_schema(cls):
         return {
+            "ids": {
+                "type": "list",
+                "label": "Arxiv IDs (e.g. 2310.12345). Only these papers are yielded; "
+                         "the monthly tars that contain them are downloaded.",
+                "required": False,
+            },
             "full_archive": {
                 "type": "bool",
                 "label": "Download entire arxiv corpus (~1.5 TB, ~$135 AWS egress)",
@@ -55,7 +61,7 @@ class ArxivS3BulkSource(IngestSource):
             },
             "months": {
                 "type": "list",
-                "label": "Months (YYMM) — ignored if full_archive is true",
+                "label": "Months (YYMM) — ignored if full_archive or ids are set",
                 "required": False,
             },
             "download_dir": {
@@ -76,12 +82,13 @@ class ArxivS3BulkSource(IngestSource):
             "image_dir": {
                 "type": "string",
                 "label": "Where to save figures (default: <download_dir>/../images)",
-                "default": "",
+                "required": False,
             },
         }
 
     def __init__(
         self,
+        ids: list[str] | None = None,
         months: list[str] | None = None,
         full_archive: bool = False,
         download_dir: str = "/tmp/arxiv_s3_bulk",
@@ -90,9 +97,16 @@ class ArxivS3BulkSource(IngestSource):
         image_dir: str | None = None,
         **_kwargs,
     ) -> None:
+        self.ids = set(ids) if ids else None
         self.full_archive = bool(full_archive)
-        # full_archive wins over months — it's the explicit "everything" switch.
-        self.months = None if self.full_archive else (set(months) if months else None)
+        # Precedence: full_archive > ids > months. Populate months automatically
+        # when only ids are given so we scan the right tars.
+        if self.full_archive:
+            self.months = None
+        elif self.ids:
+            self.months = _months_from_ids(self.ids)
+        else:
+            self.months = set(months) if months else None
         self.download_dir = Path(download_dir)
         self.keep_tars = keep_tars
         self.save_figures = bool(save_figures)
@@ -130,9 +144,13 @@ class ArxivS3BulkSource(IngestSource):
             bar = entries
 
         count = 0
+        remaining_ids = set(self.ids) if self.ids else None
         for key, size in bar:
             if limit and count >= limit:
                 return
+            # If all requested ids already found, no point downloading more tars.
+            if remaining_ids is not None and not remaining_ids:
+                break
             local = self.download_dir / os.path.basename(key)
             if hasattr(bar, "set_postfix_str"):
                 bar.set_postfix_str(f"{os.path.basename(key)} {size/1e6:.0f} MB")
@@ -144,11 +162,20 @@ class ArxivS3BulkSource(IngestSource):
             for doc in self._iter_papers(local, limit - count if limit else 0):
                 yield doc
                 count += 1
+                # Track which requested ids have been yielded so we can stop early.
+                if remaining_ids is not None:
+                    aid = doc.get("metadata", {}).get("arxiv_id")
+                    if aid in remaining_ids:
+                        remaining_ids.discard(aid)
                 if limit and count >= limit:
                     break
             if not self.keep_tars and local_is_disposable(local):
                 try: local.unlink()
                 except OSError: pass
+
+        if remaining_ids:
+            logger.info("arxiv_s3_bulk: %d requested ids not found: %s",
+                        len(remaining_ids), sorted(remaining_ids)[:5])
         logger.info("arxiv_s3_bulk yielded %d papers", count)
 
     def _list_tars(self, s3) -> list[str]:
@@ -190,6 +217,9 @@ class ArxivS3BulkSource(IngestSource):
                 arxiv_id = _parse_arxiv_id(member.name)
                 if not arxiv_id:
                     continue
+                # Filter: if specific IDs were requested, skip the rest.
+                if self.ids and arxiv_id not in self.ids:
+                    continue
                 fobj = outer.extractfile(member)
                 if fobj is None:
                     continue
@@ -225,6 +255,25 @@ def local_is_disposable(path: Path) -> bool:
         return "arxiv_s3_bulk" in str(path.resolve())
     except Exception:
         return False
+
+
+def _months_from_ids(ids: set[str]) -> set[str]:
+    """Infer which YYMM S3 buckets to scan based on arxiv IDs.
+
+    New-style IDs (YYMM.NNNNN) map directly.
+    Old-style IDs (hep-th/0001001) map to YYMM = first 4 digits of the number.
+    Unknown IDs are silently ignored — they'll simply not match anything.
+    """
+    months: set[str] = set()
+    for aid in ids:
+        m = re.match(r"(\d{4})\.\d{4,6}(?:v\d+)?$", aid)
+        if m:
+            months.add(m.group(1))
+            continue
+        m = re.match(r"[a-z\-]+/(\d{4})\d{3}$", aid)
+        if m:
+            months.add(m.group(1))
+    return months
 
 
 def _parse_arxiv_id(member_name: str) -> str | None:
