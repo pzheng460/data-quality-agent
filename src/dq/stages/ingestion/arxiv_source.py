@@ -50,7 +50,7 @@ class ArxivSource(IngestSource):
             "to_date": {"type": "string", "label": "To date", "required": False},
             "categories": {"type": "list", "label": "Categories", "required": False},
             "delay": {"type": "number", "label": "Delay (s)", "default": 3.0},
-            "save_figures": {"type": "bool", "label": "Save figures to disk", "default": False},
+            "save_figures": {"type": "bool", "label": "Save figures to disk", "default": True},
             "image_dir": {"type": "string", "label": "Figures directory",
                           "default": "/tmp/arxiv_images"},
         }
@@ -62,7 +62,7 @@ class ArxivSource(IngestSource):
         to_date: str | None = None,
         categories: list[str] | None = None,
         delay: float = 3.0,
-        save_figures: bool = False,
+        save_figures: bool = True,
         image_dir: str = "/tmp/arxiv_images",
         **_kwargs,
     ) -> None:
