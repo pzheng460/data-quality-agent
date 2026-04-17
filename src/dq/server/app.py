@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import threading
 import time
 from pathlib import Path
@@ -654,22 +655,33 @@ def get_full_doc(output_dir: str, stage: str, doc_id: str, sub: str = ""):
 
 @app.get("/api/image")
 def get_image(path: str):
-    """Serve a figure image from disk. Used by the Samples page for Markdown
-    `![alt](path)` resolution. Only paths inside a recognized images/ dir
-    are served — everything else is rejected.
+    """Serve a figure file by absolute path.
+
+    Security: the resolved path must live under one of the allowed roots,
+    which are (in order): entries from env var `DQ_IMAGE_ROOTS` (comma-sep),
+    or the default fallback that simply requires a `images/` segment
+    somewhere in the path.
     """
     from fastapi.responses import FileResponse
     p = Path(path).resolve()
-    # Safety: only allow paths under a directory named "images" (any depth)
-    if "images" not in p.parts:
-        raise HTTPException(403, "path not under images/")
+
+    env_roots = [r for r in os.environ.get("DQ_IMAGE_ROOTS", "").split(",") if r.strip()]
+    if env_roots:
+        roots = [Path(r).resolve() for r in env_roots]
+        allowed = any(str(p).startswith(str(root) + os.sep) or p == root for root in roots)
+    else:
+        allowed = "images" in p.parts
+
+    if not allowed:
+        raise HTTPException(403, "path is not inside an allowed image root")
     if not p.exists() or not p.is_file():
         raise HTTPException(404, f"image not found: {path}")
-    # Content-type guess
+
     suffix = p.suffix.lower()
     media = {
         ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
         ".gif": "image/gif", ".pdf": "application/pdf", ".svg": "image/svg+xml",
+        ".webp": "image/webp",
     }.get(suffix, "application/octet-stream")
     return FileResponse(str(p), media_type=media)
 

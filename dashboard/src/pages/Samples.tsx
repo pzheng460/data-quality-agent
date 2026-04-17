@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { usePersistedState } from '@/hooks/usePersistedState'
 import { createPortal } from 'react-dom'
 import { useApp } from '@/context'
-import { api } from '@/hooks/useApi'
+import { api, apiUrl } from '@/hooks/useApi'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -33,7 +33,7 @@ const STAGES = [
 function Md({ children }: { children: string }) {
   const imgComponent = ({ src, alt, ...rest }: any) => {
     if (typeof src === 'string' && src.startsWith('/')) {
-      src = `/api/image?path=${encodeURIComponent(src)}`
+      src = apiUrl(`/api/image?path=${encodeURIComponent(src)}`)
     }
     return <img src={src} alt={alt} style={{ maxWidth: '100%', height: 'auto' }} {...rest} />
   }
