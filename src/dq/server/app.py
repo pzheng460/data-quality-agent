@@ -678,10 +678,31 @@ def get_image(path: str):
         raise HTTPException(404, f"image not found: {path}")
 
     suffix = p.suffix.lower()
+
+    # Browsers can't render PDF via <img>, so rasterize to PNG on first hit
+    # and cache the result alongside the source PDF.
+    if suffix == ".pdf":
+        png_cache = p.with_suffix(".rendered.png")
+        if not png_cache.exists():
+            import subprocess
+            try:
+                # pdftoppm writes to <out>-1.png for single-page mode; -singlefile avoids suffix.
+                subprocess.run(
+                    ["pdftoppm", "-png", "-r", "200", "-singlefile",
+                     str(p), str(png_cache.with_suffix(""))],
+                    check=True, capture_output=True, timeout=15,
+                )
+            except FileNotFoundError:
+                logger.warning("pdftoppm not installed; serving PDF as-is")
+                return FileResponse(str(p), media_type="application/pdf")
+            except subprocess.CalledProcessError as e:
+                logger.warning("pdftoppm failed: %s", e.stderr[:200] if e.stderr else e)
+                return FileResponse(str(p), media_type="application/pdf")
+        return FileResponse(str(png_cache), media_type="image/png")
+
     media = {
         ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-        ".gif": "image/gif", ".pdf": "application/pdf", ".svg": "image/svg+xml",
-        ".webp": "image/webp",
+        ".gif": "image/gif", ".svg": "image/svg+xml", ".webp": "image/webp",
     }.get(suffix, "application/octet-stream")
     return FileResponse(str(p), media_type=media)
 
