@@ -136,6 +136,13 @@ class ArxivS3BulkSource(IngestSource):
             "arxiv_s3_bulk: %s — %d tar(s), %.1f GB, est. $%.2f egress",
             scope, len(entries), total_bytes / 1e9, est_cost,
         )
+        if self.ids and len(self.ids) < 20 and total_bytes > 500 * 1024 * 1024:
+            logger.warning(
+                "arxiv_s3_bulk: %d ids requested but %.1f GB of monthly tar(s) "
+                "will be pulled. For small id lists the `arxiv_latexml` source "
+                "is usually faster (~1-5 MB/paper, rate-limited at 3s each).",
+                len(self.ids), total_bytes / 1e9,
+            )
 
         try:
             from tqdm import tqdm
@@ -182,21 +189,32 @@ class ArxivS3BulkSource(IngestSource):
         return [k for k, _ in self._list_tars_with_size(s3)]
 
     def _list_tars_with_size(self, s3) -> list[tuple[str, int]]:
-        """List (key, bytes) for monthly tars, optionally filtered by self.months."""
+        """List (key, bytes) for monthly tars.
+
+        When months are known, we issue one LIST per month using a narrow
+        prefix like `src/arXiv_src_2310_`. That pulls back ~3 objects per
+        month rather than walking the ~15k-key src/ prefix.
+        """
         paginator = s3.get_paginator("list_objects_v2")
+
+        def _collect(prefix: str) -> list[tuple[str, int]]:
+            found: list[tuple[str, int]] = []
+            for page in paginator.paginate(
+                Bucket=_BUCKET, Prefix=prefix, RequestPayer="requester",
+            ):
+                for obj in page.get("Contents") or []:
+                    key = obj["Key"]
+                    if key.endswith(".tar"):
+                        found.append((key, int(obj.get("Size", 0))))
+            return found
+
         out: list[tuple[str, int]] = []
-        for page in paginator.paginate(
-            Bucket=_BUCKET, Prefix=_PREFIX, RequestPayer="requester",
-        ):
-            for obj in page.get("Contents") or []:
-                key = obj["Key"]
-                if not key.endswith(".tar"):
-                    continue
-                if self.months:
-                    m = re.search(r"arXiv_src_(\d{4})_\d+\.tar$", key)
-                    if m and m.group(1) not in self.months:
-                        continue
-                out.append((key, int(obj.get("Size", 0))))
+        if self.months:
+            # Narrow prefix per requested month → orders of magnitude faster.
+            for ym in sorted(self.months):
+                out.extend(_collect(f"{_PREFIX}arXiv_src_{ym}_"))
+        else:
+            out.extend(_collect(_PREFIX))
         out.sort()
         return out
 
