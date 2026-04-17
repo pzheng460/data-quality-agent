@@ -14,10 +14,12 @@ from __future__ import annotations
 import gzip
 import io
 import logging
+import os
 import re
 import tarfile
 import time
 import urllib.request
+from pathlib import Path
 import xml.etree.ElementTree as ET
 from typing import Iterator
 
@@ -48,6 +50,9 @@ class ArxivSource(IngestSource):
             "to_date": {"type": "string", "label": "To date", "required": False},
             "categories": {"type": "list", "label": "Categories", "required": False},
             "delay": {"type": "number", "label": "Delay (s)", "default": 3.0},
+            "save_figures": {"type": "bool", "label": "Save figures to disk", "default": False},
+            "image_dir": {"type": "string", "label": "Figures directory",
+                          "default": "/tmp/arxiv_images"},
         }
 
     def __init__(
@@ -57,6 +62,8 @@ class ArxivSource(IngestSource):
         to_date: str | None = None,
         categories: list[str] | None = None,
         delay: float = 3.0,
+        save_figures: bool = False,
+        image_dir: str = "/tmp/arxiv_images",
         **_kwargs,
     ) -> None:
         self.ids = ids
@@ -64,6 +71,8 @@ class ArxivSource(IngestSource):
         self.to_date = to_date
         self.categories = set(categories) if categories else None
         self.delay = delay
+        self.save_figures = bool(save_figures)
+        self.image_dir = image_dir
 
     def fetch(self, limit: int = 0) -> Iterator[dict]:
         if self.ids:
@@ -80,19 +89,27 @@ class ArxivSource(IngestSource):
             if limit and count >= limit:
                 break
             try:
-                tex = _download_latex(aid)
+                save_dir = None
+                if self.save_figures:
+                    save_dir = Path(self.image_dir) / f"arxiv_{aid}".replace("/", "_")
+                tex, figures = _download_latex_with_figures(aid, save_dir)
                 if not tex or len(tex) < 200:
                     logger.warning("Skip %s: no/short source", aid)
                     continue
+                doc_meta = meta.get(aid, {"arxiv_id": aid, "title": aid})
+                if figures:
+                    doc_meta = dict(doc_meta)
+                    doc_meta["figures"] = figures
                 yield {
                     "id": f"arxiv_{aid}",
                     "text": tex,  # raw LaTeX — extraction stage converts to text
                     "source": "arxiv",
-                    "metadata": meta.get(aid, {"arxiv_id": aid, "title": aid}),
+                    "metadata": doc_meta,
                 }
                 count += 1
                 title = meta.get(aid, {}).get("title", "")
-                logger.info("Fetched %s: %s (%d chars raw)", aid, title[:50], len(tex))
+                logger.info("Fetched %s: %s (%d chars, %d figures)",
+                            aid, title[:50], len(tex), len(figures))
             except Exception as e:
                 logger.warning("Failed %s: %s", aid, e)
             time.sleep(self.delay)
@@ -160,6 +177,88 @@ def _download_latex(arxiv_id: str) -> str | None:
     except Exception:
         return data.decode("utf-8", errors="replace")
 
+
+_FIGURE_EXTS = (".png", ".jpg", ".jpeg", ".pdf", ".eps", ".svg", ".gif")
+
+
+def _download_latex_with_figures(
+    arxiv_id: str,
+    save_dir: Path | None = None,
+) -> tuple[str | None, list[dict]]:
+    """Download LaTeX source AND extract/save figure files.
+
+    Returns (merged_tex, [{name, path}]). When save_dir is None, figures are
+    not written to disk and the list is empty — same behavior as _download_latex.
+    """
+    url = f"{_EPRINT_URL}/{arxiv_id}"
+    req = urllib.request.Request(url, headers={"User-Agent": "dq-pipeline/1.0"})
+    try:
+        data = urllib.request.urlopen(req, timeout=30).read()
+    except Exception:
+        return None, []
+
+    figures: list[dict] = []
+    try:
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
+            tex_files: dict[str, str] = {}
+            for m in tar.getmembers():
+                if not m.isfile():
+                    continue
+                name = m.name
+                if name.endswith(".tex"):
+                    f = tar.extractfile(m)
+                    if f:
+                        tex_files[name] = f.read().decode("utf-8", errors="replace")
+                elif save_dir is not None and name.lower().endswith(_FIGURE_EXTS):
+                    f = tar.extractfile(m)
+                    if f is None:
+                        continue
+                    blob = f.read()
+                    if not blob:
+                        continue
+                    save_dir.mkdir(parents=True, exist_ok=True)
+                    fname = os.path.basename(name)
+                    dest = save_dir / fname
+                    # Avoid name collisions from subdirs
+                    if dest.exists():
+                        stem, ext = os.path.splitext(fname)
+                        safe = "_".join(name.replace("/", "_").rsplit(".", 1))
+                        dest = save_dir / safe
+                    with open(dest, "wb") as fp:
+                        fp.write(blob)
+                    figures.append({"name": fname, "path": str(dest)})
+
+            if not tex_files:
+                return None, figures
+
+            # Merge \input{} references, same as _download_latex
+            main = None
+            for n, content in tex_files.items():
+                if r"\begin{document}" in content:
+                    main = n
+                    break
+            if not main:
+                main = max(tex_files, key=lambda k: len(tex_files[k]))
+            content = tex_files[main]
+            for _ in range(3):
+                def _resolve(m: re.Match) -> str:
+                    fname = m.group(1).strip()
+                    if not fname.endswith('.tex'):
+                        fname += '.tex'
+                    for path, body in tex_files.items():
+                        if path == fname or path.endswith('/' + fname):
+                            return body
+                    return ""
+                content = re.sub(r"\\input\{([^}]+)\}", _resolve, content)
+            return content, figures
+    except tarfile.TarError:
+        pass
+
+    # Single gzipped .tex submission (no figures inside)
+    try:
+        return gzip.decompress(data).decode("utf-8", errors="replace"), []
+    except OSError:
+        return data.decode("utf-8", errors="replace"), []
 
 
 # ── Metadata & OAI-PMH ──
