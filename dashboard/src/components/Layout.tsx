@@ -5,6 +5,7 @@ import {
   SidebarMenuItem, SidebarProvider, SidebarTrigger, SidebarInset,
 } from '@/components/ui/sidebar'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { LayoutDashboard, BarChart3, FileSearch, FlaskConical, FileCode, RefreshCw } from 'lucide-react'
 import { useApp } from '@/context'
 import { api } from '@/hooks/useApi'
@@ -18,23 +19,27 @@ const navItems = [
 ]
 
 function HeaderActions() {
-  const { refresh, outputDir } = useApp()
+  const { refresh, outputDir, setOutputDir } = useApp()
   const forceReload = async () => {
-    // Clear server-side docs cache for this outputDir, then bump client refreshKey
-    // so pages refetch their data.
     try {
       await api(`/api/cache/clear?output_dir=${encodeURIComponent(outputDir)}`, { method: 'POST' })
-    } catch {
-      // Best-effort — pages will still refresh via `refresh()` below.
-    }
+    } catch { /* best-effort */ }
     refresh()
   }
   return (
-    <Button variant="ghost" size="sm" onClick={forceReload}
-            title="Clear server cache and refetch data">
-      <RefreshCw className="size-4" />
-      <span className="ml-1">Reload</span>
-    </Button>
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-muted-foreground whitespace-nowrap">Output dir:</span>
+      <Input
+        value={outputDir}
+        onChange={(e) => setOutputDir(e.target.value)}
+        className="h-7 w-80 font-mono text-xs"
+        title="Active pipeline output directory — all pages read from here"
+      />
+      <Button variant="ghost" size="sm" onClick={forceReload}
+              title="Clear server cache and refetch data">
+        <RefreshCw className="size-4" />
+      </Button>
+    </div>
   )
 }
 
