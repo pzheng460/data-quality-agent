@@ -232,10 +232,21 @@ export default function PipelineControl() {
             <Button onClick={startIngest} disabled={ingestStatus === 'downloading' || !activeSource}>
               {ingestStatus === 'downloading' ? `Ingesting (${papers.length})...` : 'Ingest'}
             </Button>
+            {ingestStatus === 'downloading' && (
+              <Button variant="outline" onClick={async () => {
+                try {
+                  await api('/api/ingest/cancel', { method: 'POST' })
+                  setIngestStatus('cancelled')
+                } catch (e: any) {
+                  setIngestError(e?.message || String(e))
+                }
+              }}>Cancel</Button>
+            )}
           </div>
 
           {ingestError && <p className="text-sm text-destructive">{ingestError}</p>}
           {ingestStatus === 'done' && <p className="text-sm text-green-600">Done! {papers.length} docs</p>}
+          {ingestStatus === 'cancelled' && <p className="text-sm text-amber-600">Cancelled at {papers.length} docs</p>}
 
           {papers.length > 0 && (
             <div className="border rounded-md overflow-auto max-h-36">

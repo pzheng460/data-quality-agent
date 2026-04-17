@@ -837,8 +837,10 @@ def bench_reset():
 
 # ── Ingestion state ──
 
+_ingest_cancel = threading.Event()  # set → current ingest loop should stop ASAP
+
 _ingest_state: dict[str, Any] = {
-    "status": "idle",      # idle | downloading | done | error
+    "status": "idle",      # idle | downloading | done | error | cancelled
     "total": 0,
     "downloaded": 0,
     "papers": [],          # list of {arxiv_id, title, chars, source_method}
@@ -895,12 +897,25 @@ def start_ingest(req: IngestRequest):
             papers=[], error=None, output_path=req.output_path,
         )
         _events.clear()
+    _ingest_cancel.clear()
 
     def _run():
         _run_ingest(src.fetch(limit=req.limit), req.output_path)
 
     threading.Thread(target=_run, daemon=True).start()
     return {"status": "started", "source": req.source}
+
+
+@app.post("/api/ingest/cancel")
+def cancel_ingest():
+    """Signal the running ingest to stop. Idempotent."""
+    was_running = _ingest_state.get("status") == "downloading"
+    _ingest_cancel.set()
+    if was_running:
+        with _lock:
+            _ingest_state["status"] = "cancelled"
+        _push_event({"type": "ingest_cancelled"})
+    return {"status": "cancel_requested", "was_running": was_running}
 
 
 @app.get("/api/ingest/status")
@@ -916,6 +931,10 @@ def _run_ingest(doc_iter, output_path: str):
         out.parent.mkdir(parents=True, exist_ok=True)
         with open(out, "w", encoding="utf-8") as f:
             for doc in doc_iter:
+                if _ingest_cancel.is_set():
+                    logger.info("Ingest cancelled by user at %d papers",
+                                _ingest_state.get("downloaded", 0))
+                    break
                 f.write(json.dumps(doc, ensure_ascii=False) + "\n")
                 meta = doc.get("metadata", {})
                 paper_info = {
@@ -932,7 +951,9 @@ def _run_ingest(doc_iter, output_path: str):
                     _ingest_state["papers"].append(paper_info)
                 _push_event({"type": "paper_downloaded", **paper_info})
         with _lock:
-            _ingest_state["status"] = "done"
+            # Preserve cancelled status if the cancel happened mid-loop.
+            if _ingest_state.get("status") != "cancelled":
+                _ingest_state["status"] = "done"
         _push_event({"type": "ingest_done", "count": _ingest_state["downloaded"]})
     except Exception as e:
         with _lock:
