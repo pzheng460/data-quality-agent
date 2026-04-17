@@ -48,21 +48,39 @@ class ArxivS3BulkSource(IngestSource):
     @classmethod
     def params_schema(cls):
         return {
-            "months": {"type": "list", "label": "Months (YYMM)", "required": False},
-            "download_dir": {"type": "string", "label": "Staging dir",
-                             "default": "/tmp/arxiv_s3_bulk"},
-            "keep_tars": {"type": "bool", "label": "Keep tars after processing",
-                          "default": False},
+            "full_archive": {
+                "type": "bool",
+                "label": "Download entire arxiv corpus (~1.5 TB, ~$135 AWS egress)",
+                "default": False,
+            },
+            "months": {
+                "type": "list",
+                "label": "Months (YYMM) — ignored if full_archive is true",
+                "required": False,
+            },
+            "download_dir": {
+                "type": "string",
+                "label": "Local staging dir",
+                "default": "/tmp/arxiv_s3_bulk",
+            },
+            "keep_tars": {
+                "type": "bool",
+                "label": "Keep monthly tars after processing",
+                "default": False,
+            },
         }
 
     def __init__(
         self,
+        full_archive: bool = False,
         months: list[str] | None = None,
         download_dir: str = "/tmp/arxiv_s3_bulk",
         keep_tars: bool = False,
         **_kwargs,
     ) -> None:
-        self.months = set(months) if months else None
+        self.full_archive = bool(full_archive)
+        # full_archive wins over months — it's the explicit "everything" switch.
+        self.months = None if self.full_archive else (set(months) if months else None)
         self.download_dir = Path(download_dir)
         self.keep_tars = keep_tars
 
@@ -77,18 +95,38 @@ class ArxivS3BulkSource(IngestSource):
         s3 = boto3.client("s3")
         self.download_dir.mkdir(parents=True, exist_ok=True)
 
-        tars = self._list_tars(s3)
-        logger.info("arxiv_s3_bulk: %d monthly tar(s) to process", len(tars))
+        entries = self._list_tars_with_size(s3)
+        total_bytes = sum(sz for _, sz in entries)
+        est_cost = total_bytes / 1e9 * 0.09  # AWS egress ≈ $0.09/GB
+        if self.full_archive:
+            scope = "FULL arxiv archive"
+        elif self.months:
+            scope = f"months={sorted(self.months)}"
+        else:
+            scope = "all months (implicit)"
+        logger.warning(
+            "arxiv_s3_bulk: %s — %d tar(s), %.1f GB, est. $%.2f egress",
+            scope, len(entries), total_bytes / 1e9, est_cost,
+        )
+
+        try:
+            from tqdm import tqdm
+            bar = tqdm(entries, desc="arxiv tars", unit="tar", leave=True)
+        except ImportError:
+            bar = entries
 
         count = 0
-        for key in tars:
+        for key, size in bar:
             if limit and count >= limit:
                 return
             local = self.download_dir / os.path.basename(key)
+            if hasattr(bar, "set_postfix_str"):
+                bar.set_postfix_str(f"{os.path.basename(key)} {size/1e6:.0f} MB")
             if not local.exists():
-                logger.info("Downloading %s (may take a few minutes)", key)
-                s3.download_file(_BUCKET, key, str(local),
-                                 ExtraArgs={"RequestPayer": "requester"})
+                s3.download_file(
+                    _BUCKET, key, str(local),
+                    ExtraArgs={"RequestPayer": "requester"},
+                )
             for doc in self._iter_papers(local, limit - count if limit else 0):
                 yield doc
                 count += 1
@@ -100,10 +138,15 @@ class ArxivS3BulkSource(IngestSource):
         logger.info("arxiv_s3_bulk yielded %d papers", count)
 
     def _list_tars(self, s3) -> list[str]:
+        return [k for k, _ in self._list_tars_with_size(s3)]
+
+    def _list_tars_with_size(self, s3) -> list[tuple[str, int]]:
+        """List (key, bytes) for monthly tars, optionally filtered by self.months."""
         paginator = s3.get_paginator("list_objects_v2")
-        keys: list[str] = []
-        for page in paginator.paginate(Bucket=_BUCKET, Prefix=_PREFIX,
-                                       RequestPayer="requester"):
+        out: list[tuple[str, int]] = []
+        for page in paginator.paginate(
+            Bucket=_BUCKET, Prefix=_PREFIX, RequestPayer="requester",
+        ):
             for obj in page.get("Contents") or []:
                 key = obj["Key"]
                 if not key.endswith(".tar"):
@@ -112,9 +155,9 @@ class ArxivS3BulkSource(IngestSource):
                     m = re.search(r"arXiv_src_(\d{4})_\d+\.tar$", key)
                     if m and m.group(1) not in self.months:
                         continue
-                keys.append(key)
-        keys.sort()
-        return keys
+                out.append((key, int(obj.get("Size", 0))))
+        out.sort()
+        return out
 
     def _iter_papers(self, local_tar: Path, remaining: int) -> Iterator[dict]:
         """Yield all papers inside a monthly bulk tar."""
