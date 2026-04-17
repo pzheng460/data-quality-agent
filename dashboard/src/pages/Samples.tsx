@@ -270,6 +270,16 @@ export default function Samples() {
   const [loading, setLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = usePersistedState('samples.sidebarOpen', true)
 
+  // When outputDir changes, blow away the now-stale doc list / selection.
+  // Also re-fetch the stage docs so the new directory's content shows up.
+  useEffect(() => {
+    setDocs([])
+    setCurDoc(null)
+    setCompareDoc(null)
+    if (curStage) void loadDocs(curStage)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outputDir])
+
   const loadDocs = async (s: typeof STAGES[0]) => {
     setCurStage(s); setCurDoc(null); setCompareDoc(null); setLoading(true)
     try {

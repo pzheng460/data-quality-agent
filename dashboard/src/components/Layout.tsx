@@ -4,8 +4,10 @@ import {
   SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton,
   SidebarMenuItem, SidebarProvider, SidebarTrigger, SidebarInset,
 } from '@/components/ui/sidebar'
-import { Separator } from '@/components/ui/separator'
-import { LayoutDashboard, BarChart3, FileSearch, FlaskConical, FileCode } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { LayoutDashboard, BarChart3, FileSearch, FlaskConical, FileCode, RefreshCw } from 'lucide-react'
+import { useApp } from '@/context'
+import { api } from '@/hooks/useApi'
 
 const navItems = [
   { to: '/', label: 'Pipeline', icon: LayoutDashboard },
@@ -14,6 +16,28 @@ const navItems = [
   { to: '/benchmark', label: 'Benchmark', icon: FlaskConical },
   { to: '/config', label: 'Config', icon: FileCode },
 ]
+
+function HeaderActions() {
+  const { refresh, outputDir } = useApp()
+  const forceReload = async () => {
+    // Clear server-side docs cache for this outputDir, then bump client refreshKey
+    // so pages refetch their data.
+    try {
+      await api(`/api/cache/clear?output_dir=${encodeURIComponent(outputDir)}`, { method: 'POST' })
+    } catch {
+      // Best-effort — pages will still refresh via `refresh()` below.
+    }
+    refresh()
+  }
+  return (
+    <Button variant="ghost" size="sm" onClick={forceReload}
+            title="Clear server cache and refetch data">
+      <RefreshCw className="size-4" />
+      <span className="ml-1">Reload</span>
+    </Button>
+  )
+}
+
 
 export default function Layout() {
   return (
@@ -50,6 +74,7 @@ export default function Layout() {
           <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger className="-ml-1" />
             <div className="flex-1" />
+            <HeaderActions />
             <div id="header-actions" />
           </header>
           <main className="flex-1 overflow-auto p-6">
