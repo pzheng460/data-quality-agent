@@ -55,6 +55,20 @@ pipeline:
       rows: 8
       ngram_size: 5
 
+# ── Compute backend (optional) ──
+# backend: "local" (default, single-machine multiprocessing + threading)
+#          "dask"  (distributed; requires `pip install dask[distributed]`)
+#          "ray"   (distributed; requires `pip install ray`)
+compute:
+  backend: local
+  # cpu_workers: 16           # override default (cpu_count / 4, capped at 32)
+  # io_workers: 8             # threads for LLM / HF downloads
+  # For Dask:
+  #   scheduler_address: "tcp://scheduler:8786"   # external cluster, or
+  #   n_workers: 8                                # else LocalCluster size
+  # For Ray:
+  #   address: "ray://head:10001"                 # or null for local cluster
+
 # ── Arxiv-specific config (read by runner, not by PipelineConfig) ──
 arxiv:
   version: v2025-04
@@ -68,13 +82,12 @@ arxiv:
     preview_length: 500
 
   quality_scoring:
-    enabled: true
-    method: llm           # "llm" (API-based) or "classifier" (local model)
-    llm_samples: 50       # how many docs to score with LLM (0 = all, expensive)
-    min_score: 0           # reject docs below this score (0 = no rejection, just tag)
-    # For classifier method (future):
-    # classifier_model: "HuggingFaceFW/fineweb-edu-classifier"
-    # classifier_threshold: 3.0
+    enabled: false        # set true to enable LLM judge after dedup+contamination
+    method: llm           # only "llm" supported today
+    sample_size: 0        # 0 = judge every surviving doc; N = judge N random docs
+    min_quality: high     # "high" rejects LOW-scored docs; "low" keeps all, only tags
+    workers: 8            # concurrent LLM API calls
+    max_chars: 3000       # truncate each doc before sending
 
   phase3:
     version_dedup: true

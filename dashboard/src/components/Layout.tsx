@@ -5,13 +5,14 @@ import {
   SidebarMenuItem, SidebarProvider, SidebarTrigger, SidebarInset,
 } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
-import { LayoutDashboard, BarChart3, FileSearch, FlaskConical } from 'lucide-react'
+import { LayoutDashboard, BarChart3, FileSearch, FlaskConical, FileCode } from 'lucide-react'
 
 const navItems = [
   { to: '/', label: 'Pipeline', icon: LayoutDashboard },
   { to: '/stats', label: 'Stats', icon: BarChart3 },
   { to: '/samples', label: 'Samples', icon: FileSearch },
   { to: '/benchmark', label: 'Benchmark', icon: FlaskConical },
+  { to: '/config', label: 'Config', icon: FileCode },
 ]
 
 export default function Layout() {

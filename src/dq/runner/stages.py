@@ -42,51 +42,74 @@ def stage_ingest(engine: PhaseEngine) -> PhaseStats:
 # ── Stage 2: Extraction ─────────────────────────────────────────────
 
 
+def _extract_one(doc: dict, extractor_name: str) -> tuple[bool, dict]:
+    """Worker: run extraction on a single doc. Returns (kept, doc)."""
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    from dq.stages.extraction import ensure_extractors_registered
+    ensure_extractors_registered()
+    from dq.stages.extraction.registry import (
+        get_extractor_class,
+        get_extractor_for_format,
+    )
+
+    if extractor_name and extractor_name != "auto":
+        extractor = get_extractor_class(extractor_name)()
+    else:
+        fmt = _detect_format(doc)
+        extractor = get_extractor_for_format(fmt)()
+
+    try:
+        result = extractor.extract(doc)
+    except Exception as e:
+        logger.warning("Extraction error on %s: %s", doc.get("id", "?"), e)
+        return False, doc
+
+    if result is None:
+        return False, doc
+    return True, result
+
+
 def stage_extract(engine: PhaseEngine) -> PhaseStats:
-    """Convert raw format to clean text via registered extractors."""
+    """Convert raw format to clean text via registered extractors.
+
+    Parallelized with multiprocessing to overlap LaTeXML subprocess calls.
+    """
     stats = PhaseStats(phase="extraction")
 
     from dq.stages.extraction import ensure_extractors_registered
-    from dq.stages.extraction.registry import get_extractor_for_format
     ensure_extractors_registered()
 
-    # Determine extractor from config or auto-detect from first doc
     extractor_name = engine.extra_config.get("extraction", {}).get("extractor", "auto")
 
     input_dir = engine.stage_dir("stage1_ingested", "kept")
     kept_dir = engine.stage_dir("stage2_extracted", "kept")
     rejected_dir = engine.stage_dir("stage2_extracted", "rejected")
 
-    extractor = None  # lazy init after seeing first doc
+    workers = max(1, engine.workers)
+    logger.info("Extraction: %d worker(s), extractor=%s", workers, extractor_name)
 
-    with PhaseTimer(stats := stats), \
+    with PhaseTimer(stats), \
          ShardWriter(kept_dir, target_bytes=engine.shard_target_bytes) as kept_w, \
          ShardWriter(rejected_dir, target_bytes=engine.shard_target_bytes) as rej_w:
 
-        for doc in read_shards(input_dir):
+        def _record(kept: bool, doc: dict) -> None:
             stats.input_count += 1
-
-            # Auto-detect extractor on first doc
-            if extractor is None:
-                if extractor_name and extractor_name != "auto":
-                    from dq.stages.extraction.registry import get_extractor_class
-                    extractor = get_extractor_class(extractor_name)()
-                else:
-                    # Detect from source output_format or content
-                    fmt = _detect_format(doc)
-                    from dq.stages.extraction.registry import get_extractor_for_format
-                    extractor = get_extractor_for_format(fmt)()
-                logger.info("Using extractor: %s", extractor.name)
-
-            result = extractor.extract(doc)
-            if result is None:
+            if kept:
+                kept_w.write(doc)
+                stats.output_count += 1
+            else:
                 doc["__dq_rejections"] = [{"filter": "extraction", "rule": "extraction_failed"}]
                 rej_w.write(doc)
                 stats.rejected_count += 1
-                stats.reject_reasons["extraction_failed"] = stats.reject_reasons.get("extraction_failed", 0) + 1
-            else:
-                kept_w.write(result)
-                stats.output_count += 1
+                stats.reject_reasons["extraction_failed"] = (
+                    stats.reject_reasons.get("extraction_failed", 0) + 1
+                )
+
+        from tqdm import tqdm
+        fn = partial(_extract_one, extractor_name=extractor_name)
+        results_iter = engine.backend.map(fn, read_shards(input_dir), kind="cpu")
+        for kept, result in tqdm(results_iter, desc="extract", unit="doc"):
+            _record(kept, result)
 
     return stats
 
@@ -134,12 +157,7 @@ def stage_curate(engine: PhaseEngine) -> PhaseStats:
                 key = f"{r.get('filter', '?')}.{r.get('rule', '?')}"
                 stats.reject_reasons[key] = stats.reject_reasons.get(key, 0) + 1
 
-        # 3b. Quality scoring (optional)
-        quality_cfg = engine.extra_config.get("quality_scoring", {})
-        if quality_cfg.get("enabled", False):
-            docs = _substep_quality_score(engine, docs, quality_cfg)
-
-        # 3c. Dedup
+        # 3b. Dedup
         docs, dedup_rejected = _substep_dedup(engine, docs)
         all_rejected.extend(dedup_rejected)
         for doc in dedup_rejected:
@@ -147,11 +165,24 @@ def stage_curate(engine: PhaseEngine) -> PhaseStats:
                 key = f"dedup.{r.get('rule', '?')}"
                 stats.reject_reasons[key] = stats.reject_reasons.get(key, 0) + 1
 
-        # 3d. Contamination
+        # 3c. Contamination
         contam_cfg = engine.extra_config.get("phase4", {})
         if contam_cfg:
             docs, contam_rejected = _substep_contamination(engine, docs, contam_cfg)
             all_rejected.extend(contam_rejected)
+
+        # 3d. LLM quality judge (runs last — on final survivor set to minimize cost)
+        quality_cfg = (
+            engine.extra_config.get("quality_scoring")
+            or engine.extra_config.get("arxiv", {}).get("quality_scoring", {})
+        )
+        if quality_cfg.get("enabled", False):
+            docs, llm_rejected = _substep_quality_score(engine, docs, quality_cfg)
+            for doc in llm_rejected:
+                for r in doc.get("__dq_rejections", []):
+                    key = f"llm_judge.{r.get('rule', '?')}"
+                    stats.reject_reasons[key] = stats.reject_reasons.get(key, 0) + 1
+            all_rejected.extend(llm_rejected)
 
         # Write results
         stats.output_count = len(docs)
@@ -201,59 +232,105 @@ def _filter_chunk(chunk, filter_configs, text_field):
 
 
 def _substep_filter(engine, docs):
-    """Run heuristic filters on docs."""
+    """Run heuristic filters on docs (parallel via engine.backend)."""
     filter_configs = [{"name": fc.name, "params": fc.params}
                       for fc in engine.config.filters if fc.enabled]
     if not filter_configs:
         return docs, []
 
-    if engine.workers > 1 and len(docs) >= engine.workers * 10:
-        return _parallel_filter(docs, filter_configs, engine.config.text_field, engine.workers)
+    workers = engine.workers
+    if workers > 1 and len(docs) >= workers * 10:
+        chunk_size = max(1, (len(docs) + workers - 1) // workers)
+        chunks = [docs[i:i + chunk_size] for i in range(0, len(docs), chunk_size)]
+        fn = partial(_filter_chunk,
+                     filter_configs=filter_configs,
+                     text_field=engine.config.text_field)
+        all_kept, all_rejected = [], []
+        for kept, rejected, _ in engine.backend.map(fn, chunks, kind="cpu"):
+            all_kept.extend(kept)
+            all_rejected.extend(rejected)
+        return all_kept, all_rejected
 
     kept, rejected, _ = _filter_chunk(docs, filter_configs, engine.config.text_field)
     return kept, rejected
 
 
-def _parallel_filter(docs, filter_configs, text_field, num_workers):
-    from multiprocessing import get_context
-    chunk_size = max(1, (len(docs) + num_workers - 1) // num_workers)
-    chunks = [docs[i:i + chunk_size] for i in range(0, len(docs), chunk_size)]
-
-    os.environ.setdefault("OMP_NUM_THREADS", "1")
-    ctx = get_context("spawn")
-    fn = partial(_filter_chunk, filter_configs=filter_configs, text_field=text_field)
-    with ctx.Pool(num_workers) as pool:
-        results = pool.map(fn, chunks)
-
-    all_kept, all_rejected = [], []
-    for kept, rejected, _ in results:
-        all_kept.extend(kept)
-        all_rejected.extend(rejected)
-    return all_kept, all_rejected
-
-
 def _substep_quality_score(engine, docs, quality_cfg):
-    """Optional LLM quality scoring."""
-    method = quality_cfg.get("method", "llm")
-    sample_size = quality_cfg.get("llm_samples", 0)
-    min_score = quality_cfg.get("min_score", 0)
+    """LLM quality judge — scores each doc HIGH/LOW, rejects LOW when min_quality="high".
 
-    if method == "llm" and sample_size > 0:
-        import random
+    Runs LLM calls in parallel via ThreadPoolExecutor (IO-bound).
+
+    Config keys (quality_scoring):
+        enabled: bool
+        method: "llm" (only option currently)
+        sample_size: 0 = judge all docs; N = judge only N random docs (others pass-through)
+        min_quality: "high" | "low" — drop docs judged below this
+        workers: int — parallel API calls (default 8)
+        max_chars: int — truncate each doc to this many chars before sending (default 3000)
+
+    Returns:
+        (kept, rejected): both are lists of doc dicts.
+    """
+    method = quality_cfg.get("method", "llm")
+    sample_size = int(quality_cfg.get("sample_size", quality_cfg.get("llm_samples", 0)))
+    min_quality = quality_cfg.get("min_quality", "high")
+    workers = int(quality_cfg.get("workers", 8))
+    max_chars = int(quality_cfg.get("max_chars", 3000))
+
+    if method != "llm" or not docs:
+        return docs, []
+
+    # Decide which docs to judge. Un-sampled docs pass through un-judged.
+    import random
+    if sample_size > 0 and sample_size < len(docs):
+        to_judge_idx = set(random.sample(range(len(docs)), sample_size))
+    else:
+        to_judge_idx = set(range(len(docs)))
+
+    try:
+        from dq.judge import LLMJudge
+        judge = LLMJudge()
+    except Exception as e:
+        logger.warning("LLM judge unavailable, skipping quality scoring: %s", e)
+        return docs, []
+
+    def _judge_one(i_doc):
+        i, doc = i_doc
+        if i not in to_judge_idx:
+            return i, None  # skipped — keep as-is
         try:
-            from dq.judge import LLMJudge
-            judge = LLMJudge()
-            sample_idx = set(random.sample(range(len(docs)), min(sample_size, len(docs))))
-            for i, doc in enumerate(docs):
-                if i in sample_idx:
-                    result = judge.judge_text(doc.get("text", "")[:3000])
-                    score = 5 if result.get("classification") == "high" else 2
-                    doc.setdefault("quality_scores", {})["llm_judge"] = {
-                        "score": score, "quality": result.get("classification", "unknown"),
-                    }
+            return i, judge.judge_text(doc.get("text", "")[:max_chars])
         except Exception as e:
-            logger.warning("Quality scoring failed: %s", e)
-    return docs
+            logger.warning("judge_text failed for doc %d: %s", i, e)
+            return i, {"quality": "unknown", "error": str(e)}
+
+    from concurrent.futures import ThreadPoolExecutor
+    results: dict[int, dict | None] = {}
+    logger.info("LLM judge: %d/%d docs, %d concurrent workers",
+                len(to_judge_idx), len(docs), max(1, workers))
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        for i, res in pool.map(_judge_one, enumerate(docs)):
+            results[i] = res
+
+    kept, rejected = [], []
+    for i, doc in enumerate(docs):
+        res = results.get(i)
+        if res is None:
+            kept.append(doc)
+            continue
+        doc.setdefault("quality_scores", {})["llm_judge"] = res
+        if min_quality == "high" and res.get("quality") != "high":
+            doc.setdefault("__dq_rejections", []).append({
+                "filter": "llm_judge",
+                "rule": "below_min_quality",
+                "failed_rules": res.get("failed_rules", []),
+            })
+            rejected.append(doc)
+        else:
+            kept.append(doc)
+
+    logger.info("LLM judge: %d kept, %d rejected", len(kept), len(rejected))
+    return kept, rejected
 
 
 def _substep_dedup(engine, docs):

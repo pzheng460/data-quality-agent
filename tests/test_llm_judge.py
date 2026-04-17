@@ -68,7 +68,9 @@ class TestSFTQualityJudge:
         result = judge.judge_one("Explain photosynthesis", "Photosynthesis is the process...")
         assert result["quality"] == "high"
         assert len(result["failed_rules"]) == 0
-        assert result["rules"] == all_pass
+        for name, expected in all_pass.items():
+            assert result["rules"][name]["pass"] is expected["pass"]
+            assert result["rules"][name]["reason"] == expected["reason"]
 
     def test_one_rule_fails_low_quality(self):
         """When any rule fails, should return LOW quality."""
@@ -265,7 +267,9 @@ class TestPretrainingQualityJudge:
         result = judge.judge_one("This is a well-written article about machine learning...")
         assert result["quality"] == "high"
         assert len(result["failed_rules"]) == 0
-        assert result["rules"] == all_pass
+        for name, expected in all_pass.items():
+            assert result["rules"][name]["pass"] is expected["pass"]
+            assert result["rules"][name]["reason"] == expected["reason"]
 
     def test_information_density_fails_low_quality(self):
         """When information_density fails (ads/boilerplate), should return LOW quality."""

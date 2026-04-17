@@ -44,6 +44,10 @@ def _push_event(event: dict) -> None:
 # ── Models ──
 
 class RunRequest(BaseModel):
+    enable_llm_judge: bool | None = None  # override quality_scoring.enabled if provided
+    llm_judge_workers: int | None = None
+    llm_judge_min_quality: str | None = None  # "high" or "low"
+
     input_path: str
     output_dir: str
     config_path: str
@@ -79,6 +83,8 @@ def _run_pipeline(req: RunRequest) -> None:
         _state["output_dir"] = req.output_dir
 
     try:
+        _load_llm_yaml_into_client()
+
         engine = PhaseEngine(
             config_path=req.config_path,
             input_path=req.input_path,
@@ -86,6 +92,17 @@ def _run_pipeline(req: RunRequest) -> None:
             workers=req.workers,
             num_samples=req.num_samples,
         )
+
+        # Dashboard override for LLM quality judge
+        if req.enable_llm_judge is not None or req.llm_judge_workers is not None or req.llm_judge_min_quality is not None:
+            qs = engine.extra_config.setdefault("quality_scoring", {})
+            if req.enable_llm_judge is not None:
+                qs["enabled"] = req.enable_llm_judge
+            if req.llm_judge_workers is not None:
+                qs["workers"] = req.llm_judge_workers
+            if req.llm_judge_min_quality is not None:
+                qs["min_quality"] = req.llm_judge_min_quality
+
         engine.output_dir.mkdir(parents=True, exist_ok=True)
 
         stage_list = [
@@ -269,10 +286,24 @@ async def event_stream():
     return StreamingResponse(generate(), media_type="text/event-stream")
 
 
+_CONFIGS_DIR = Path("configs").resolve()
+
+
+def _safe_config_path(path: str) -> Path:
+    """Only allow access within configs/. Prevents path-traversal attacks."""
+    p = Path(path)
+    if not p.is_absolute():
+        p = _CONFIGS_DIR / p.name
+    p = p.resolve()
+    if not str(p).startswith(str(_CONFIGS_DIR)):
+        raise HTTPException(400, f"Path outside configs/: {path}")
+    return p
+
+
 @app.get("/api/config")
 def get_config(path: str):
-    """Read a YAML config file."""
-    p = Path(path)
+    """Read a YAML config file as parsed dict."""
+    p = _safe_config_path(path)
     if not p.exists():
         raise HTTPException(404, f"Config not found: {path}")
     with open(p) as f:
@@ -281,11 +312,179 @@ def get_config(path: str):
 
 @app.put("/api/config")
 def save_config(path: str, body: dict):
-    """Write updated config to YAML."""
-    p = Path(path)
+    """Save parsed dict as YAML config."""
+    p = _safe_config_path(path)
     with open(p, "w") as f:
         yaml.dump(body, f, default_flow_style=False, allow_unicode=True)
     return {"status": "saved", "path": str(p)}
+
+
+@app.get("/api/config/raw")
+def get_config_raw(path: str):
+    """Read a YAML config as raw text (for textarea editors)."""
+    p = _safe_config_path(path)
+    if not p.exists():
+        raise HTTPException(404, f"Config not found: {path}")
+    return {"path": str(p), "text": p.read_text()}
+
+
+class ConfigWriteRequest(BaseModel):
+    path: str
+    text: str
+
+
+@app.put("/api/config/raw")
+def save_config_raw(req: ConfigWriteRequest):
+    """Save raw YAML text; validates parseability before writing."""
+    p = _safe_config_path(req.path)
+    try:
+        yaml.safe_load(req.text)
+    except yaml.YAMLError as e:
+        raise HTTPException(400, f"Invalid YAML: {e}")
+    p.write_text(req.text)
+    return {"status": "saved", "path": str(p)}
+
+
+_LLM_YAML_PATH = _CONFIGS_DIR / "llm.yaml"
+
+_LLM_FIELDS = ("backend", "api_url", "api_key", "model", "samples")
+
+
+def _load_llm_yaml_into_client() -> None:
+    """Push configs/llm.yaml (API + judge rules) into in-process singletons."""
+    if not _LLM_YAML_PATH.exists():
+        return
+    try:
+        raw = yaml.safe_load(_LLM_YAML_PATH.read_text()) or {}
+        from dq.llm_client import set_config_from_yaml, reset_client
+        class _Cfg:
+            api_url = raw.get("api_url")
+            api_key = raw.get("api_key")
+            model = raw.get("model")
+            backend = raw.get("backend", "anthropic")
+        reset_client()
+        set_config_from_yaml(_Cfg)
+        # Apply rule + template overrides if present
+        rules = raw.get("rules")
+        if rules:
+            from dq.judge import apply_rule_overrides
+            apply_rule_overrides(rules)
+        tpl = raw.get("prompt_template")
+        if tpl:
+            from dq.judge import apply_template_override
+            apply_template_override(tpl)
+    except Exception as e:
+        logger.warning("Failed to load configs/llm.yaml: %s", e)
+
+
+@app.get("/api/llm-config")
+def get_llm_config():
+    """Return current LLM API settings + judge rules from configs/llm.yaml.
+
+    api_key is masked — only the last 4 chars are returned.
+    Rules fall back to code defaults when llm.yaml has none.
+    """
+    if _LLM_YAML_PATH.exists():
+        raw = yaml.safe_load(_LLM_YAML_PATH.read_text()) or {}
+    else:
+        raw = {}
+    key = raw.get("api_key") or ""
+    from dq.judge import get_default_rules, get_default_template
+    yaml_rules = raw.get("rules")
+    rules = yaml_rules if yaml_rules else get_default_rules()
+    default_template = get_default_template()
+    saved_template = raw.get("prompt_template") or {}
+    # merged: saved fields override defaults for any set keys
+    merged_template = {k: (saved_template.get(k) if saved_template.get(k) else v)
+                       for k, v in default_template.items()}
+    return {
+        "backend": raw.get("backend", "anthropic"),
+        "api_url": raw.get("api_url", ""),
+        "api_key_preview": ("…" + key[-4:]) if len(key) >= 4 else "",
+        "api_key_set": bool(key),
+        "model": raw.get("model", ""),
+        "samples": raw.get("samples", 50),
+        "rules": rules,
+        "default_rules": get_default_rules(),
+        "prompt_template": merged_template,
+        "default_prompt_template": default_template,
+    }
+
+
+class JudgeRuleModel(BaseModel):
+    name: str
+    description: str
+    scope: str = "universal"
+    mode: str = "binary"
+    threshold: float = 1.0
+    max_score: int = 1
+
+
+class PromptTemplateModel(BaseModel):
+    system: str | None = None
+    rules_header: str | None = None
+    input_header_text: str | None = None
+    input_header_sft_instruction: str | None = None
+    input_header_sft_response: str | None = None
+    trailer: str | None = None
+
+
+class LLMConfigWrite(BaseModel):
+    backend: str | None = None
+    api_url: str | None = None
+    api_key: str | None = None  # omit or empty keeps existing
+    model: str | None = None
+    samples: int | None = None
+    rules: list[JudgeRuleModel] | None = None
+    prompt_template: PromptTemplateModel | None = None
+
+
+@app.put("/api/llm-config")
+def put_llm_config(body: LLMConfigWrite):
+    """Merge-update configs/llm.yaml. Empty/None api_key preserves existing value."""
+    existing = yaml.safe_load(_LLM_YAML_PATH.read_text()) if _LLM_YAML_PATH.exists() else {}
+    existing = existing or {}
+    for field in ("backend", "api_url", "model", "samples"):
+        val = getattr(body, field)
+        if val is not None and val != "":
+            existing[field] = val
+    if body.api_key:
+        existing["api_key"] = body.api_key
+    if body.rules is not None:
+        existing["rules"] = [r.model_dump() for r in body.rules]
+    if body.prompt_template is not None:
+        incoming = {k: v for k, v in body.prompt_template.model_dump().items() if v is not None}
+        existing["prompt_template"] = {**(existing.get("prompt_template") or {}), **incoming}
+    _LLM_YAML_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _LLM_YAML_PATH.write_text(yaml.safe_dump(existing, default_flow_style=False, allow_unicode=True, sort_keys=False))
+    # Push into in-process singletons so next run picks up changes without restart
+    try:
+        from dq.llm_client import set_config_from_yaml, reset_client
+        class _Tmp:
+            api_url = existing.get("api_url")
+            api_key = existing.get("api_key")
+            model = existing.get("model")
+            backend = existing.get("backend", "anthropic")
+        reset_client()
+        set_config_from_yaml(_Tmp)
+        if body.rules is not None:
+            from dq.judge import apply_rule_overrides
+            apply_rule_overrides(existing.get("rules"))
+        if body.prompt_template is not None:
+            from dq.judge import apply_template_override
+            apply_template_override(existing.get("prompt_template"))
+    except Exception as e:
+        logger.warning("Failed to push LLM config to client: %s", e)
+    return {"status": "saved"}
+
+
+@app.get("/api/configs/list")
+def list_configs():
+    """List YAML files in configs/."""
+    if not _CONFIGS_DIR.exists():
+        return []
+    files = sorted(p.name for p in _CONFIGS_DIR.glob("*.yaml"))
+    return [{"name": f, "path": f"configs/{f}"} for f in files]
 
 
 @app.get("/api/phases")
@@ -490,13 +689,18 @@ _bench_state: dict[str, Any] = {
 
 
 class BenchRequest(BaseModel):
-    input_path: str
+    input_path: str = ""
     config_path: str = ""
     num_samples: int = 100
     data_type: str = "auto"
     workers: int = 4
     with_llm_scoring: bool = False
     llm_samples: int = 50
+    # HuggingFace dataset (alternative to input_path)
+    hf_dataset: str = ""
+    hf_subset: str = ""
+    hf_split: str = "train"
+    hf_text_field: str = "text"
 
 
 @app.post("/api/bench")
@@ -509,11 +713,45 @@ def start_bench(req: BenchRequest):
 
     def _run():
         try:
+            _load_llm_yaml_into_client()
             from dq.benchmark.runner import run_benchmark
             from dq.benchmark_report import benchmark_to_json
             from dq.utils.io import read_docs
+            from dq.shared.shard import read_shards
 
-            docs = list(read_docs(Path(req.input_path)))
+            if req.hf_dataset:
+                import os as _os
+                _os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+                from datasets import load_dataset
+                ds_kwargs = {"split": req.hf_split or "train", "streaming": True}
+                loader = (load_dataset(req.hf_dataset, req.hf_subset, **ds_kwargs)
+                          if req.hf_subset else load_dataset(req.hf_dataset, **ds_kwargs))
+                text_col = req.hf_text_field or "text"
+                cap = req.num_samples if req.num_samples > 0 else 1000
+                docs = []
+                for i, row in enumerate(loader):
+                    if len(docs) >= cap:
+                        break
+                    text = row.get(text_col, "")
+                    if not text:
+                        continue
+                    docs.append({
+                        "id": f"hf_{i}",
+                        "text": text,
+                        "source": req.hf_dataset,
+                        "metadata": {
+                            "hf_dataset": req.hf_dataset,
+                            "hf_subset": req.hf_subset or "",
+                            "hf_split": req.hf_split,
+                        },
+                    })
+                logger.info("Loaded %d docs from HF %s", len(docs), req.hf_dataset)
+            else:
+                input_path = Path(req.input_path)
+                if input_path.is_dir():
+                    docs = list(read_shards(input_path))
+                else:
+                    docs = list(read_docs(input_path))
             if req.num_samples > 0 and len(docs) > req.num_samples:
                 import random
                 docs = random.sample(docs, req.num_samples)
@@ -547,6 +785,20 @@ def bench_status():
     """Poll benchmark status and results."""
     with _lock:
         return dict(_bench_state)
+
+
+@app.post("/api/bench/reset")
+def bench_reset():
+    """Force-reset the bench state (e.g. after a hung run).
+
+    Note: this does not actually kill the background thread — it only clears
+    the "running" lock so the user can start a new bench. Any in-flight run
+    will eventually finish and overwrite the state.
+    """
+    with _lock:
+        prev = dict(_bench_state)
+        _bench_state.update(status="idle", result=None, error=None)
+    return {"status": "reset", "previous": prev.get("status")}
 
 
 # ── Ingestion state ──

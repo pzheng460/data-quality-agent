@@ -10,49 +10,51 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class SFTScores:
-    """SFT quality scores from LLM Binary Judge."""
+class _ScoresBase:
+    """Shared aggregation for LLM judge results (binary + score rules)."""
 
     high_count: int = 0
     low_count: int = 0
     high_rate: float = 0.0
     rule_fail_counts: dict[str, int] = field(default_factory=dict)
+    rule_modes: dict[str, str] = field(default_factory=dict)
+    rule_score_sums: dict[str, float] = field(default_factory=dict)
+    rule_score_counts: dict[str, int] = field(default_factory=dict)
+    rule_thresholds: dict[str, float] = field(default_factory=dict)
+    rule_max_scores: dict[str, float] = field(default_factory=dict)
     num_scored: int = 0
     scoring_errors: int = 0
 
-    def to_dict(self) -> dict[str, Any]:
+    def _common_dict(self) -> dict[str, Any]:
+        rule_score_avg: dict[str, float] = {}
+        for name, total in self.rule_score_sums.items():
+            cnt = self.rule_score_counts.get(name, 0)
+            if cnt:
+                rule_score_avg[name] = round(total / cnt, 3)
         return {
-            "type": "sft",
             "high_count": self.high_count,
             "low_count": self.low_count,
             "high_rate": round(self.high_rate, 3),
             "rule_fail_counts": self.rule_fail_counts,
+            "rule_modes": self.rule_modes,
+            "rule_score_avg": rule_score_avg,
+            "rule_thresholds": self.rule_thresholds,
+            "rule_max_scores": self.rule_max_scores,
             "num_scored": self.num_scored,
             "scoring_errors": self.scoring_errors,
         }
 
 
 @dataclass
-class PretrainScores:
-    """Pre-training text quality scores from LLM Binary Judge."""
-
-    high_count: int = 0
-    low_count: int = 0
-    high_rate: float = 0.0
-    rule_fail_counts: dict[str, int] = field(default_factory=dict)
-    num_scored: int = 0
-    scoring_errors: int = 0
-
+class SFTScores(_ScoresBase):
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "type": "pretrain",
-            "high_count": self.high_count,
-            "low_count": self.low_count,
-            "high_rate": round(self.high_rate, 3),
-            "rule_fail_counts": self.rule_fail_counts,
-            "num_scored": self.num_scored,
-            "scoring_errors": self.scoring_errors,
-        }
+        return {"type": "sft", **self._common_dict()}
+
+
+@dataclass
+class PretrainScores(_ScoresBase):
+    def to_dict(self) -> dict[str, Any]:
+        return {"type": "pretrain", **self._common_dict()}
 
 
 @dataclass

@@ -73,7 +73,8 @@ class HfBulkSource(IngestSource):
         yield from self._fetch_by_shard(target_ids, limit)
 
     def _fetch_by_shard(self, target_ids: set[str], limit: int) -> Iterator[dict]:
-        """Fast ID lookup: group IDs by YYMM prefix, download only those shards."""
+        """Fast ID lookup: group IDs by YYMM prefix, download shards in parallel."""
+        from concurrent.futures import ThreadPoolExecutor
         from huggingface_hub import hf_hub_download
 
         # Group IDs by YYMM shard
@@ -98,23 +99,32 @@ class HfBulkSource(IngestSource):
         count = 0
         remaining = set(target_ids)
 
-        for shard_name, shard_ids in shards.items():
+        # Download shards in parallel (HF CDN handles concurrency fine)
+        shard_names = [n for n in shards if n != "unknown"]
+        if "unknown" in shards:
+            logger.warning("Cannot determine shard for IDs: %s", shards["unknown"])
+
+        def _dl(name: str) -> tuple[str, str | None]:
+            try:
+                p = hf_hub_download(self.dataset_id, f"{name}.jsonl.gz", repo_type="dataset")
+                return name, p
+            except Exception as e:
+                logger.warning("Shard %s.jsonl.gz not found: %s", name, e)
+                return name, None
+
+        shard_paths: dict[str, str] = {}
+        if shard_names:
+            max_workers = min(8, len(shard_names))
+            with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                for name, path in pool.map(_dl, shard_names):
+                    if path:
+                        shard_paths[name] = path
+            logger.info("Downloaded %d/%d shards (concurrency=%d)",
+                        len(shard_paths), len(shard_names), max_workers)
+
+        for shard_name, path in shard_paths.items():
             if not remaining:
                 break
-            if shard_name == "unknown":
-                logger.warning("Cannot determine shard for IDs: %s", shard_ids)
-                continue
-
-            try:
-                path = hf_hub_download(
-                    self.dataset_id,
-                    f"{shard_name}.jsonl.gz",
-                    repo_type="dataset",
-                )
-                logger.info("Downloaded shard %s.jsonl.gz", shard_name)
-            except Exception as e:
-                logger.warning("Shard %s.jsonl.gz not found: %s", shard_name, e)
-                continue
 
             # Scan shard for matching IDs
             import gzip, json

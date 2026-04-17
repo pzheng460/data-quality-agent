@@ -11,3 +11,6 @@ build/
 configs/llm.yaml
 node_modules/
 *.log
+
+# Claude Code internal
+.claude/

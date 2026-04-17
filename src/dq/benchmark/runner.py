@@ -465,6 +465,7 @@ def _score_docs(
     api_key: str | None = None,
     model: str | None = None,
     progress: bool = True,
+    workers: int = 8,
 ) -> dict[str, Any]:
     """Score docs using unified LLM Binary Judge."""
     try:
@@ -484,22 +485,41 @@ def _score_docs(
         scores = PretrainScores()
         desc = "  Pretrain judging"
 
-    for doc in tqdm(docs, desc=desc, disable=not progress):
+    def _judge_one(doc):
         if data_type == "sft":
             instruction, output = _extract_sft_fields(doc)
-            result = judge.judge_sft(instruction, output)
-        else:
-            text = doc.get("text", "")
-            result = judge.judge_text(text)
+            return judge.judge_sft(instruction, output)
+        return judge.judge_text(doc.get("text", ""))
 
-        if "error" in result:
-            scores.scoring_errors += 1
-        elif result["quality"] == "high":
-            scores.high_count += 1
-        else:
-            scores.low_count += 1
-            for rule in result.get("failed_rules", []):
-                scores.rule_fail_counts[rule] = scores.rule_fail_counts.get(rule, 0) + 1
+    from concurrent.futures import ThreadPoolExecutor
+    from dq.judge import RULES_BY_NAME
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
+        results_iter = ex.map(_judge_one, docs)
+        for result in tqdm(results_iter, total=len(docs), desc=desc, disable=not progress):
+            if "error" in result:
+                scores.scoring_errors += 1
+                continue
+            if result.get("quality") == "high":
+                scores.high_count += 1
+            else:
+                scores.low_count += 1
+
+            # Aggregate per-rule pass/fail + per-rule score
+            for name, info in (result.get("rules") or {}).items():
+                if not info.get("pass", True):
+                    scores.rule_fail_counts[name] = scores.rule_fail_counts.get(name, 0) + 1
+                if "score" in info:
+                    scores.rule_score_sums[name] = scores.rule_score_sums.get(name, 0.0) + float(info["score"])
+                    scores.rule_score_counts[name] = scores.rule_score_counts.get(name, 0) + 1
+                # Pull up rule metadata once so the UI can render correctly
+                if name not in scores.rule_modes:
+                    rule = RULES_BY_NAME.get(name)
+                    if rule:
+                        scores.rule_modes[name] = rule.mode
+                        scores.rule_thresholds[name] = rule.threshold
+                        scores.rule_max_scores[name] = float(rule.max_score)
+                    else:
+                        scores.rule_modes[name] = info.get("mode", "binary")
 
     scores.num_scored = len(docs)
     total_judged = scores.high_count + scores.low_count

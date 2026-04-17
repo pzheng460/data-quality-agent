@@ -1,4 +1,4 @@
-"""HTML extractor — converts LaTeXML/ar5iv HTML to text via BeautifulSoup."""
+"""HTML extractor — converts LaTeXML/ar5iv HTML to Markdown via BeautifulSoup."""
 
 from __future__ import annotations
 
@@ -18,16 +18,16 @@ class HtmlExtractor(Extractor):
         raw_html = doc.get("text", "")
         if not raw_html:
             return None
-        text = html_to_text(raw_html)
+        text = html_to_markdown(raw_html)
         if len(text) < 200:
             return None
         doc["text"] = text
         return doc
 
 
-def html_to_text(html: str, raw_tex: str | None = None,
+def html_to_markdown(html: str, raw_tex: str | None = None,
                  macros: dict | None = None) -> str:
-    """Extract text from LaTeXML HTML. Pure format conversion.
+    """Extract Markdown from LaTeXML HTML. Pure format conversion.
 
     Handles LaTeXML-specific elements:
     - Author affiliations (strip superscript numbers)

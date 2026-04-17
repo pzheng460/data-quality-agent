@@ -27,7 +27,7 @@ preprocess.py (before LaTeXML)
    ↓
 cleaned .tex → LaTeXML → HTML
    ↓
-html_to_text (HTML → Markdown, core conversion)
+html_to_markdown (HTML → Markdown, core conversion)
    ├── <math alttext> → $LaTeX$ / $$LaTeX$$
    ├── <table> / <span.ltx_tabular> → GFM tables (rowspan/colspan/multi-row headers)
    ├── ltx_ERROR cleanup (crefname garbage, failed math envs)

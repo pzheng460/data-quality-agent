@@ -2,12 +2,12 @@ r"""LaTeX pre-processor — neutralize environments LaTeXML handles poorly.
 
 Called BEFORE LaTeXML. Extracts problematic environments, replaces them
 with placeholders so LaTeXML only processes what it's good at. After
-LaTeXML + html_to_text, placeholders are restored with properly
+LaTeXML + html_to_markdown, placeholders are restored with properly
 formatted content.
 
 Flow:
   raw .tex → preprocess_tex() → cleaned .tex + PreprocessResult
-  cleaned .tex → LaTeXML → HTML → html_to_text() → text
+  cleaned .tex → LaTeXML → HTML → html_to_markdown() → text
   text → restore_placeholders(text, result) → final text
 """
 

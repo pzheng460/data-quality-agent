@@ -39,6 +39,7 @@ export default function PipelineControl() {
     activeSource, setActiveSource, paramValues, setParamValues,
     pipeInput, setPipeInput, configPath, setConfigPath,
     workers, setWorkers, resume, setResume,
+    enableLLMJudge, setEnableLLMJudge,
     pipeStatus, setPipeStatus, stageResults, setStageResults, pipeError, setPipeError,
   } = useApp()
 
@@ -139,7 +140,7 @@ export default function PipelineControl() {
     setPipeError(null); setStageResults({}); setPipeStatus('running')
     try {
       await api('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input_path: pipeInput, output_dir: outputDir, config_path: configPath, workers, num_samples: 0, resume }) })
+        body: JSON.stringify({ input_path: pipeInput, output_dir: outputDir, config_path: configPath, workers, num_samples: 0, resume, enable_llm_judge: enableLLMJudge }) })
     } catch (e: unknown) { setPipeError((e instanceof Error ? e.message : String(e))); setPipeStatus('error') }
   }
 
@@ -275,6 +276,21 @@ export default function PipelineControl() {
                 <Checkbox id="resume" checked={resume} onCheckedChange={(v) => setResume(!!v)} />
                 <Label htmlFor="resume" className="text-xs">Resume</Label>
               </div>
+            </div>
+          </div>
+
+          {/* LLM Judge (optional layer-2 quality gate) */}
+          <div className="rounded-md border p-3 bg-muted/30">
+            <div className="flex items-center gap-3">
+              <Checkbox id="llm_judge" checked={enableLLMJudge} onCheckedChange={(v) => setEnableLLMJudge(!!v)} />
+              <Label htmlFor="llm_judge" className="text-sm font-medium cursor-pointer">
+                Enable LLM quality judge
+              </Label>
+              <span className="text-xs text-muted-foreground">
+                Runs after dedup/contamination. Rejects docs judged "LOW" quality.
+                Requires <code className="px-1 rounded bg-muted font-mono text-[10px]">DQ_API_KEY</code> /{' '}
+                <code className="px-1 rounded bg-muted font-mono text-[10px]">DQ_API_BASE_URL</code> env vars.
+              </span>
             </div>
           </div>
 

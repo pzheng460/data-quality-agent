@@ -27,7 +27,7 @@ preprocess.py（LaTeXML 之前）
    ↓
 cleaned .tex → LaTeXML → HTML
    ↓
-html_to_text（HTML → Markdown，核心转换）
+html_to_markdown（HTML → Markdown，核心转换）
    ├── <math alttext> → $LaTeX$ / $$LaTeX$$
    ├── <table> / <span.ltx_tabular> → GFM 表格（rowspan/colspan/多行表头）
    ├── ltx_ERROR 清理（crefname 垃圾、失败的 math 环境）

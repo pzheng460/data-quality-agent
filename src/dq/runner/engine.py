@@ -69,6 +69,16 @@ class PhaseEngine:
         else:
             self.workers = max(1, min((os.cpu_count() or 1) // 4, 32))
 
+        # Compute backend — default LocalBackend, can be overridden from config
+        from dq.runner.backend import make_backend
+        compute_cfg = self.extra_config.get("compute") or {}
+        backend_name = compute_cfg.get("backend", "local")
+        backend_kwargs = {k: v for k, v in compute_cfg.items() if k != "backend"}
+        if backend_name == "local" and "cpu_workers" not in backend_kwargs:
+            backend_kwargs["cpu_workers"] = self.workers
+        self.backend = make_backend(backend_name, **backend_kwargs)
+        logger.info("Compute backend: %s (cpu workers=%s)", backend_name, self.workers)
+
         # Shard target
         self.shard_target_bytes = self.extra_config.get("arxiv", {}).get(
             "phase5", {}

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import type { PaperInfo, StageResult } from '@/types/api'
+import { usePersistedState } from '@/hooks/usePersistedState'
 
 interface AppState {
   // Global
@@ -31,6 +32,8 @@ interface AppState {
   setWorkers: (v: number) => void
   resume: boolean
   setResume: (v: boolean) => void
+  enableLLMJudge: boolean
+  setEnableLLMJudge: (v: boolean) => void
   pipeStatus: string
   setPipeStatus: (v: string) => void
   stageResults: Record<string, StageResult>
@@ -42,21 +45,22 @@ interface AppState {
 const AppContext = createContext<AppState>(null!)
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [outputDir, setOutputDir] = useState('/tmp/arxiv_test/real_output')
+  const [outputDir, setOutputDir] = usePersistedState('pipeline.outputDir', '/tmp/arxiv_test/real_output')
   const [refreshKey, setRefreshKey] = useState(0)
   const refresh = () => setRefreshKey(k => k + 1)
 
-  const [ingestOutput, setIngestOutput] = useState('/tmp/dq_data/raw.jsonl')
-  const [ingestStatus, setIngestStatus] = useState('idle')
+  const [ingestOutput, setIngestOutput] = usePersistedState('ingest.outputPath', '/tmp/dq_data/raw.jsonl')
+  const [ingestStatus, setIngestStatus] = useState('')
   const [papers, setPapers] = useState<PaperInfo[]>([])
-  const [activeDomain, setActiveDomain] = useState('')
-  const [activeSource, setActiveSource] = useState('')
-  const [paramValues, setParamValues] = useState<Record<string, string | number>>({})
+  const [activeDomain, setActiveDomain] = usePersistedState('ingest.activeDomain', '')
+  const [activeSource, setActiveSource] = usePersistedState('ingest.activeSource', '')
+  const [paramValues, setParamValues] = usePersistedState<Record<string, string | number>>('ingest.paramValues', {})
 
-  const [pipeInput, setPipeInput] = useState('/tmp/dq_data/raw.jsonl')
-  const [configPath, setConfigPath] = useState('configs/arxiv.yaml')
-  const [workers, setWorkers] = useState(4)
-  const [resume, setResume] = useState(false)
+  const [pipeInput, setPipeInput] = usePersistedState('pipeline.inputPath', '/tmp/dq_data/raw.jsonl')
+  const [configPath, setConfigPath] = usePersistedState('pipeline.configPath', 'configs/arxiv.yaml')
+  const [workers, setWorkers] = usePersistedState('pipeline.workers', 4)
+  const [resume, setResume] = usePersistedState('pipeline.resume', false)
+  const [enableLLMJudge, setEnableLLMJudge] = usePersistedState('pipeline.enableLLMJudge', false)
   const [pipeStatus, setPipeStatus] = useState('idle')
   const [stageResults, setStageResults] = useState<Record<string, StageResult>>({})
   const [pipeError, setPipeError] = useState<string | null>(null)
@@ -74,6 +78,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       configPath, setConfigPath,
       workers, setWorkers,
       resume, setResume,
+      enableLLMJudge, setEnableLLMJudge,
       pipeStatus, setPipeStatus,
       stageResults, setStageResults,
       pipeError, setPipeError,

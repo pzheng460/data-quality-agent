@@ -43,7 +43,7 @@ class LatexExtractor(Extractor):
 
 
 def _latexml_convert(tex: str, title: str) -> str | None:
-    """LaTeXML pipeline: preprocess → LaTeXML → html_to_text → restore."""
+    """LaTeXML pipeline: preprocess → LaTeXML → html_to_markdown → restore."""
     import tempfile
     from dq.stages.extraction.preprocess import preprocess_tex, restore_placeholders
 
@@ -82,8 +82,8 @@ def _latexml_convert(tex: str, title: str) -> str | None:
             with open(html_path, "r", encoding="utf-8") as f:
                 html = f.read()
 
-            from dq.stages.extraction.html import html_to_text
-            text = html_to_text(html, raw_tex=tex, macros=prep._macros)
+            from dq.stages.extraction.html import html_to_markdown
+            text = html_to_markdown(html, raw_tex=tex, macros=prep._macros)
 
             # Restore placeholders (algorithms, math, etc.)
             text = restore_placeholders(text, prep)

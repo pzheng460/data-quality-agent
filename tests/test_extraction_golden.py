@@ -89,27 +89,27 @@ class TestMathCleanup:
 class TestCrefnameGarbage:
     def test_alpha_garbage(self):
         """algorithmAlgorithmAlgorithm lemmaLemmaLemma..."""
-        from dq.stages.extraction.html import html_to_text
+        from dq.stages.extraction.html import html_to_markdown
 
         html = """<html><body>
         <p>Good content.</p>
         <p><span class="ltx_ERROR">x</span>algorithmAlgorithmAlgorithm
         lemmaLemmaLemma tableTableTable</p>
         </body></html>"""
-        result = html_to_text(html)
+        result = html_to_markdown(html)
         assert "algorithmAlgorithm" not in result
         assert "Good content" in result
 
     def test_garbage_with_numbers(self):
         """figureFig. #2#1#3 tableTab. #2#1#3..."""
-        from dq.stages.extraction.html import html_to_text
+        from dq.stages.extraction.html import html_to_markdown
 
         html = """<html><body>
         <p><span class="ltx_ERROR">x</span>figureFig. #2#1#3
         tableTab. #2#1#3 equationEq. (#2#1#3)
         sectionSec. algorithmAlg. hyperrefIgnoring</p>
         </body></html>"""
-        result = html_to_text(html)
+        result = html_to_markdown(html)
         assert "figureFig" not in result
 
 
@@ -552,14 +552,14 @@ $lo \gets 0$; $hi \gets n-1$
 
     def test_algorithm_not_in_code_block_when_no_tex(self):
         """When raw_tex is None, fall back to HTML-based extraction."""
-        from dq.stages.extraction.html import html_to_text
+        from dq.stages.extraction.html import html_to_markdown
 
         html = """<html><body>
         <div class="ltx_listing"><div class="ltx_listingline">
         <span class="ltx_ERROR">\\KwIn</span>Input x
         </div></div>
         </body></html>"""
-        result = html_to_text(html, raw_tex=None)
+        result = html_to_markdown(html, raw_tex=None)
         # Should still have some content (fallback extraction)
         assert "Input" in result or "x" in result
 

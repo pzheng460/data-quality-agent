@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { usePersistedState } from '@/hooks/usePersistedState'
 import { createPortal } from 'react-dom'
 import { useApp } from '@/context'
 import { api } from '@/hooks/useApi'
@@ -213,7 +214,7 @@ export default function Samples() {
   const [curDoc, setCurDoc] = useState<Doc | null>(null)
   const [compareDoc, setCompareDoc] = useState<Doc | null>(null)
   const [loading, setLoading] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = usePersistedState('samples.sidebarOpen', true)
 
   const loadDocs = async (s: typeof STAGES[0]) => {
     setCurStage(s); setCurDoc(null); setCompareDoc(null); setLoading(true)

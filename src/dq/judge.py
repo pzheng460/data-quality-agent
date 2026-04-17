@@ -31,10 +31,24 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class JudgeRule:
-    """A single binary evaluation rule."""
+    """A single evaluation rule.
+
+    mode:
+      - "binary"    : LLM answers pass/fail. Internally score ∈ {0, 1}; passes when score == 1.
+      - "score"     : LLM answers on a 1..max_score scale. Passes when score >= threshold.
+    threshold:
+      - binary mode: ignored (always 1).
+      - score mode:  minimum score to count as pass (default 3.0 on a 1..5 scale).
+    max_score:
+      - binary: 1
+      - score:  5 (default). Change to 10 or other if you want a wider scale.
+    """
     name: str
     description: str
     scope: str  # "universal", "sft", "pretrain"
+    mode: str = "binary"      # "binary" | "score"
+    threshold: float = 1.0    # pass if score >= threshold
+    max_score: int = 1        # binary=1; score mode typically 5 or 10
 
 
 # All rules in one place. To add a rule: append here. Done.
@@ -84,47 +98,161 @@ RULES: list[JudgeRule] = [
     ),
 ]
 
-# Index for fast lookup
-RULES_BY_NAME: dict[str, JudgeRule] = {r.name: r for r in RULES}
-RULE_NAMES_UNIVERSAL = [r.name for r in RULES if r.scope == "universal"]
-RULE_NAMES_SFT = [r.name for r in RULES if r.scope in ("universal", "sft")]
-RULE_NAMES_PRETRAIN = [r.name for r in RULES if r.scope in ("universal", "pretrain")]
+# Preserve built-in defaults so UI can show them and callers can reset.
+_DEFAULT_RULES = list(RULES)
+
+
+def _rebuild_indices() -> None:
+    """Recompute RULES_BY_NAME and scope-filtered lists from RULES."""
+    global RULES_BY_NAME, RULE_NAMES_UNIVERSAL, RULE_NAMES_SFT, RULE_NAMES_PRETRAIN
+    RULES_BY_NAME = {r.name: r for r in RULES}
+    RULE_NAMES_UNIVERSAL = [r.name for r in RULES if r.scope == "universal"]
+    RULE_NAMES_SFT = [r.name for r in RULES if r.scope in ("universal", "sft")]
+    RULE_NAMES_PRETRAIN = [r.name for r in RULES if r.scope in ("universal", "pretrain")]
+
+
+RULES_BY_NAME: dict[str, JudgeRule] = {}
+RULE_NAMES_UNIVERSAL: list[str] = []
+RULE_NAMES_SFT: list[str] = []
+RULE_NAMES_PRETRAIN: list[str] = []
+_rebuild_indices()
+
+
+def _rule_to_dict(r: JudgeRule) -> dict:
+    return {
+        "name": r.name,
+        "description": r.description,
+        "scope": r.scope,
+        "mode": r.mode,
+        "threshold": r.threshold,
+        "max_score": r.max_score,
+    }
+
+
+def get_effective_rules() -> list[dict]:
+    """Return the current rule set as dicts (for serialization / UI)."""
+    return [_rule_to_dict(r) for r in RULES]
+
+
+def get_default_rules() -> list[dict]:
+    """Return the code-defined defaults (frozen). Used to reset the rule set."""
+    return [_rule_to_dict(r) for r in _DEFAULT_RULES]
+
+
+def apply_rule_overrides(rules: list[dict] | None) -> None:
+    """Replace the active rule list. Pass None or [] to reset to defaults.
+
+    Each rule dict must have: name, description, scope ("universal"/"sft"/"pretrain").
+    """
+    global RULES, RULE_NAMES_SFT, RULE_NAMES_PRETRAIN
+    if not rules:
+        RULES[:] = list(_DEFAULT_RULES)
+    else:
+        validated = []
+        for r in rules:
+            if not r.get("name") or not r.get("description"):
+                continue
+            scope = r.get("scope", "universal")
+            if scope not in ("universal", "sft", "pretrain"):
+                scope = "universal"
+            mode = r.get("mode", "binary")
+            if mode not in ("binary", "score"):
+                mode = "binary"
+            max_score = int(r.get("max_score", 5 if mode == "score" else 1))
+            default_threshold = (max_score + 1) / 2.0 if mode == "score" else 1.0
+            threshold = float(r.get("threshold", default_threshold))
+            validated.append(JudgeRule(
+                name=r["name"], description=r["description"], scope=scope,
+                mode=mode, max_score=max_score, threshold=threshold,
+            ))
+        RULES[:] = validated
+    _rebuild_indices()
 
 
 # ---------------------------------------------------------------------------
-# Prompt builder — auto-generates from rule definitions
+# Prompt template — user-editable wrapping around the (locked) JSON schema
 # ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class PromptTemplate:
+    """Editable prompt wrapping. JSON-output schema is not here — it is
+    auto-generated from rules to prevent the user from breaking parsing.
+    """
+    system: str = (
+        "You are a quality judge. Evaluate the content against these rules "
+        "and return structured JSON."
+    )
+    rules_header: str = "Rules:"
+    input_header_text: str = "Text:"
+    input_header_sft_instruction: str = "Instruction:"
+    input_header_sft_response: str = "Response:"
+    trailer: str = "Respond with ONLY valid JSON in this exact format:"
+
+
+_DEFAULT_TEMPLATE = PromptTemplate()
+_ACTIVE_TEMPLATE: PromptTemplate = _DEFAULT_TEMPLATE
+
+
+def get_effective_template() -> dict:
+    return {k: getattr(_ACTIVE_TEMPLATE, k) for k in _ACTIVE_TEMPLATE.__dataclass_fields__}
+
+
+def get_default_template() -> dict:
+    return {k: getattr(_DEFAULT_TEMPLATE, k) for k in _DEFAULT_TEMPLATE.__dataclass_fields__}
+
+
+def apply_template_override(tpl: dict | None) -> None:
+    """Replace the in-process prompt template. None / empty dict resets to defaults.
+    Missing fields keep their default value; extra fields are ignored.
+    """
+    global _ACTIVE_TEMPLATE
+    if not tpl:
+        _ACTIVE_TEMPLATE = _DEFAULT_TEMPLATE
+        return
+    defaults = get_default_template()
+    merged = {k: (tpl.get(k) or defaults[k]) for k in defaults}
+    _ACTIVE_TEMPLATE = PromptTemplate(**merged)
+
 
 def _build_prompt(rules: list[JudgeRule], text: str,
                   instruction: str | None = None, output: str | None = None) -> str:
-    """Build judge prompt from rule definitions and input."""
-    # Rules section
-    rules_text = "\n".join(
-        f"{i+1}. {r.name}: {r.description}"
-        for i, r in enumerate(rules)
-    )
+    """Build judge prompt from the active template + auto-generated JSON schema.
 
-    # Input section
+    The user can edit the template (system message, headers, etc.) but the
+    JSON output contract is locked — that's what keeps parsing reliable.
+    """
+    tpl = _ACTIVE_TEMPLATE
+
+    rule_lines: list[str] = []
+    shape_lines: list[str] = []
+    for i, r in enumerate(rules):
+        if r.mode == "score":
+            rule_lines.append(
+                f"{i+1}. {r.name} [score 1..{int(r.max_score)}, pass ≥ {r.threshold}]: {r.description}"
+            )
+            shape_lines.append(
+                f'  "{r.name}": {{"score": <integer 1..{int(r.max_score)}>, "reason": "brief justification"}}'
+            )
+        else:
+            rule_lines.append(f"{i+1}. {r.name} [PASS/FAIL]: {r.description}")
+            shape_lines.append(
+                f'  "{r.name}": {{"pass": true/false, "reason": "brief explanation if failed"}}'
+            )
+
+    rules_text = "\n".join(rule_lines)
+    json_example = "{\n" + ",\n".join(shape_lines) + "\n}"
+
     if instruction is not None and output is not None:
-        input_text = f"Instruction: {instruction}\n\nResponse: {output}"
+        input_text = f"{tpl.input_header_sft_instruction} {instruction}\n\n{tpl.input_header_sft_response} {output}"
     else:
-        input_text = f"Text: {text}"
+        input_text = f"{tpl.input_header_text} {text}"
 
-    # Expected JSON format
-    json_example = "{\n" + ",\n".join(
-        f'  "{r.name}": {{"pass": true/false, "reason": "brief explanation if failed"}}'
-        for r in rules
-    ) + "\n}"
-
-    return f"""You are a quality judge. Evaluate the content against these rules and return structured JSON.
-
-Rules:
-{rules_text}
-
-{input_text}
-
-Respond with ONLY valid JSON in this exact format:
-{json_example}"""
+    return (
+        f"{tpl.system}\n\n"
+        f"{tpl.rules_header}\n{rules_text}\n\n"
+        f"{input_text}\n\n"
+        f"{tpl.trailer}\n{json_example}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -187,8 +315,10 @@ class LLMJudge:
             return response.choices[0].message.content.strip()
 
     def _parse_response(self, response_text: str, expected_rules: list[str]) -> dict[str, dict[str, Any]]:
-        """Parse rule results from LLM response."""
-        # Try direct JSON
+        """Parse raw LLM output into {rule_name: {pass?, score?, reason}}.
+
+        Applies threshold/mode logic later in _call_llm.
+        """
         try:
             data = json.loads(response_text.strip())
             if isinstance(data, dict) and all(r in data for r in expected_rules):
@@ -196,20 +326,24 @@ class LLMJudge:
         except (json.JSONDecodeError, KeyError):
             pass
 
-        # Fallback: regex extraction
         logger.warning("JSON parse failed, using regex fallback: %r", response_text[:200])
-        rules = {}
+        rules: dict[str, dict[str, Any]] = {}
         for rule in expected_rules:
-            pattern = rf'"{rule}":\s*{{\s*"pass":\s*(true|false)'
-            match = re.search(pattern, response_text, re.IGNORECASE)
-            if match:
-                rules[rule] = {"pass": match.group(1).lower() == "true", "reason": ""}
-            else:
-                rules[rule] = {"pass": False, "reason": "Parse error — defaulted to fail"}
+            pass_m = re.search(rf'"{rule}":\s*{{[^}}]*"pass":\s*(true|false)', response_text, re.IGNORECASE | re.DOTALL)
+            score_m = re.search(rf'"{rule}":\s*{{[^}}]*"score":\s*(\d+(?:\.\d+)?)', response_text, re.IGNORECASE | re.DOTALL)
+            entry: dict[str, Any] = {"reason": ""}
+            if score_m:
+                entry["score"] = float(score_m.group(1))
+            if pass_m:
+                entry["pass"] = pass_m.group(1).lower() == "true"
+            if not score_m and not pass_m:
+                entry = {"pass": False, "reason": "Parse error — defaulted to fail"}
+            rules[rule] = entry
         return rules
 
-    def _call_llm(self, prompt: str, expected_rules: list[str]) -> dict[str, Any]:
-        """Call LLM and parse response. Handles retries."""
+    def _call_llm(self, prompt: str, rule_objs: list[JudgeRule]) -> dict[str, Any]:
+        """Call LLM, parse response, and apply per-rule pass/fail based on rule mode+threshold."""
+        expected = [r.name for r in rule_objs]
         client = self._get_client()
         if client is None:
             return {
@@ -219,16 +353,35 @@ class LLMJudge:
             }
 
         backend = get_backend()
+        rule_by_name = {r.name: r for r in rule_objs}
 
         for attempt in range(self.max_retries):
             try:
                 text = self._call_api(client, prompt, backend)
-                rules = self._parse_response(text, expected_rules)
+                raw = self._parse_response(text, expected)
 
-                failed = [r for r, v in rules.items() if not v.get("pass", False)]
+                rules_out: dict[str, dict[str, Any]] = {}
+                for name in expected:
+                    r = rule_by_name[name]
+                    entry = dict(raw.get(name, {}))
+                    if r.mode == "score":
+                        try:
+                            score = float(entry.get("score", 0))
+                        except (TypeError, ValueError):
+                            score = 0.0
+                        entry["score"] = score
+                        entry["mode"] = "score"
+                        entry["pass"] = score >= r.threshold
+                    else:
+                        entry["mode"] = "binary"
+                        entry.setdefault("pass", False)
+                        entry["score"] = 1.0 if entry["pass"] else 0.0
+                    rules_out[name] = entry
+
+                failed = [n for n, v in rules_out.items() if not v.get("pass", False)]
                 return {
                     "quality": "high" if not failed else "low",
-                    "rules": rules,
+                    "rules": rules_out,
                     "failed_rules": failed,
                 }
 
@@ -278,7 +431,7 @@ class LLMJudge:
             output = output[:4000]
 
         prompt = _build_prompt(rule_objs, text, instruction, output)
-        return self._call_llm(prompt, [r.name for r in rule_objs])
+        return self._call_llm(prompt, rule_objs)
 
     def judge_sft(self, instruction: str, output: str) -> dict[str, Any]:
         """Judge an SFT instruction-response pair (universal + sft rules)."""
