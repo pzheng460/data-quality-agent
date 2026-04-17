@@ -226,23 +226,17 @@ def preprocess_tex(tex: str, figure_paths: dict[str, str] | None = None) -> Prep
     # ── 0a. Figure blocks → Markdown image references (before anything else) ──
     # We do this BEFORE other passes so tikz-removal, algorithm extraction etc.
     # don't eat our \includegraphics or \caption{}.
+    # Emit relative refs — the dashboard resolves them via doc.metadata.figures
     figures = extract_figures(r.tex, figure_paths=figure_paths)
-    # Process in reverse so slicing the string doesn't invalidate later offsets.
     for fig in reversed(figures):
         caption = fig["caption"]
-        # Pick the first resolved image path; fall back to literal graphics name.
-        if fig["resolved_paths"]:
-            ref = fig["resolved_paths"][0]
-        elif fig["graphics"]:
-            ref = fig["graphics"][0]
-        else:
-            ref = ""
+        ref = fig["graphics"][0] if fig["graphics"] else ""
         if not ref:
             continue
-        md = f"\n\n![{caption_escape(caption)}]({ref})\n\n"
+        ref_basename = ref.rsplit("/", 1)[-1]
+        md = f"\n\n![{caption_escape(caption)}]({ref_basename})\n\n"
         tag = r.add(md)
         r.tex = r.tex[: fig["start"]] + tag + r.tex[fig["end"] :]
-    # Stash figure metadata on the result so the extractor can attach it to doc.
     r._figures = figures
 
     # ── 1. Algorithm blocks → parsed pseudocode ──

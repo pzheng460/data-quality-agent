@@ -27,18 +27,38 @@ const STAGES = [
   { stage: 'stage4_final', sub: '', label: 'S4 Final', color: 'blue' },
 ]
 
-// Rewrites backend-absolute image paths to the /api/image proxy so the browser can fetch them.
-// Extension-less stems (from \includegraphics{fig}) are left alone — the user sees the missing
-// image placeholder, which is actually useful feedback.
-function Md({ children }: { children: string }) {
+type FigureMeta = { name?: string; path?: string }
+
+/** Match a relative Markdown img src to an entry in doc.metadata.figures.
+ *
+ * Tries filename match, then filename-stem match (extension-insensitive,
+ * since LaTeXML often drops `.png` / `.pdf` suffixes from the ref).
+ */
+function resolveFigure(src: string, figures: FigureMeta[]): string | undefined {
+  if (!src || !figures?.length) return undefined
+  const basename = src.split('/').pop() || src
+  const stem = basename.replace(/\.[^.]+$/, '').toLowerCase()
+  for (const f of figures) {
+    if (!f.name || !f.path) continue
+    if (f.name === basename) return f.path
+    const fstem = f.name.replace(/\.[^.]+$/, '').toLowerCase()
+    if (fstem === stem) return f.path
+  }
+  return undefined
+}
+
+function Md({ children, figures = [] }: { children: string; figures?: FigureMeta[] }) {
   const imgComponent = ({ src, alt, ...rest }: any) => {
     let url: string | undefined
-    if (typeof src === 'string' && src.startsWith('/')) {
-      url = apiUrl(`/api/image?path=${encodeURIComponent(src)}`)
+    if (typeof src === 'string') {
+      if (src.startsWith('/')) {
+        url = apiUrl(`/api/image?path=${encodeURIComponent(src)}`)
+      } else {
+        const abs = resolveFigure(src, figures)
+        if (abs) url = apiUrl(`/api/image?path=${encodeURIComponent(abs)}`)
+      }
     }
     if (!url) {
-      // Relative / unknown ref (common for data ingested before save_figures existed).
-      // Render an inline placeholder so the doc doesn't look broken.
       const label = alt || src || 'figure'
       return (
         <span className="inline-block my-2 px-3 py-2 text-xs font-mono
@@ -89,7 +109,7 @@ function DocDetail({ doc, compareDoc, isRawInput = false }: { doc: Doc; compareD
 
   const CleanedPanel = ({ className = '' }: { className?: string }) => (
     <ScrollArea className={`rounded-lg border p-4 ${className}`}>
-      <Md>{doc.text}</Md>
+      <Md figures={(doc.metadata as any)?.figures || []}>{doc.text}</Md>
     </ScrollArea>
   )
 
@@ -199,7 +219,7 @@ function DocDetail({ doc, compareDoc, isRawInput = false }: { doc: Doc; compareD
                 <div className="flex flex-col min-h-0">
                   <p className="text-xs font-medium text-muted-foreground mb-1 shrink-0">Cleaned</p>
                   <div className="flex-1 overflow-auto rounded-lg border p-4">
-                    <Md>{doc.text}</Md>
+                    <Md figures={(doc.metadata as any)?.figures || []}>{doc.text}</Md>
                   </div>
                 </div>
               </div>
@@ -210,7 +230,7 @@ function DocDetail({ doc, compareDoc, isRawInput = false }: { doc: Doc; compareD
         </TabsContent>
 
         <TabsContent value="rendered">
-          <div className="max-w-3xl"><Md>{doc.text}</Md></div>
+          <div className="max-w-3xl"><Md figures={(doc.metadata as any)?.figures || []}>{doc.text}</Md></div>
         </TabsContent>
         <TabsContent value="raw">
           <ScrollArea className="h-[70vh] rounded-lg border bg-muted/50 p-4">
