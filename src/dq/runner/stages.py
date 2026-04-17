@@ -599,12 +599,18 @@ def _substep_contamination(engine, docs, contam_cfg):
 
 
 def stage_package(engine: PhaseEngine) -> PhaseStats:
-    """Sort, shard, and write manifest."""
+    """Sort, shard, and write manifest.
+
+    Output format is controlled by `packaging.format` in the yaml config:
+        - "jsonl_zst" (default): classic zstd-JSONL shards + manifest.json
+        - "webdataset":         tar shards with text/json/figures per sample
+    """
     from dq.shared.shard import ShardWriter, write_manifest
 
     stats = PhaseStats(phase="packaging")
     pkg_cfg = engine.extra_config.get("phase5", {})
     sort_field = pkg_cfg.get("sort_by", "id")
+    fmt = engine.extra_config.get("packaging", {}).get("format", "jsonl_zst")
 
     input_dir = engine.stage_dir("stage3_curated", "kept")
     final_dir = engine.stage_dir("stage4_final")
@@ -614,13 +620,22 @@ def stage_package(engine: PhaseEngine) -> PhaseStats:
         stats.input_count = len(docs)
         docs.sort(key=lambda d: d.get(sort_field, ""))
 
-        with ShardWriter(final_dir, target_bytes=engine.shard_target_bytes) as w:
-            for doc in docs:
-                w.write(doc)
-                stats.output_count += 1
-
-        version = engine.extra_config.get("version", engine.version)
-        write_manifest(final_dir, w.shard_info, version=version)
+        if fmt == "webdataset":
+            from dq.shared.webdataset import WebDatasetWriter
+            samples_per_shard = int(engine.extra_config.get("packaging", {}).get(
+                "samples_per_shard", 1000))
+            with WebDatasetWriter(final_dir, samples_per_shard=samples_per_shard) as w:
+                for doc in docs:
+                    w.write(doc)
+                    stats.output_count += 1
+            logger.info("Packaging: wrote WebDataset shards to %s", final_dir)
+        else:
+            with ShardWriter(final_dir, target_bytes=engine.shard_target_bytes) as w:
+                for doc in docs:
+                    w.write(doc)
+                    stats.output_count += 1
+            version = engine.extra_config.get("version", engine.version)
+            write_manifest(final_dir, w.shard_info, version=version)
 
     stats.rejected_count = 0
     return stats

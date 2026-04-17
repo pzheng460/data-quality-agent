@@ -55,6 +55,11 @@ pipeline:
       rows: 8
       ngram_size: 5
 
+# ── Packaging output format ──
+packaging:
+  format: jsonl_zst       # "jsonl_zst" (default) or "webdataset" (text+images tar)
+  samples_per_shard: 1000 # WebDataset only: docs per tar shard
+
 # ── Compute backend (optional) ──
 # backend: "local" (default, single-machine multiprocessing + threading)
 #          "dask"  (distributed; requires `pip install dask[distributed]`)

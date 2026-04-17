@@ -652,6 +652,28 @@ def get_full_doc(output_dir: str, stage: str, doc_id: str, sub: str = ""):
     raise HTTPException(404, f"Doc not found: {doc_id}")
 
 
+@app.get("/api/image")
+def get_image(path: str):
+    """Serve a figure image from disk. Used by the Samples page for Markdown
+    `![alt](path)` resolution. Only paths inside a recognized images/ dir
+    are served — everything else is rejected.
+    """
+    from fastapi.responses import FileResponse
+    p = Path(path).resolve()
+    # Safety: only allow paths under a directory named "images" (any depth)
+    if "images" not in p.parts:
+        raise HTTPException(403, "path not under images/")
+    if not p.exists() or not p.is_file():
+        raise HTTPException(404, f"image not found: {path}")
+    # Content-type guess
+    suffix = p.suffix.lower()
+    media = {
+        ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+        ".gif": "image/gif", ".pdf": "application/pdf", ".svg": "image/svg+xml",
+    }.get(suffix, "application/octet-stream")
+    return FileResponse(str(p), media_type=media)
+
+
 @app.get("/api/overview")
 def get_overview(output_dir: str):
     """Get pipeline overview stats."""

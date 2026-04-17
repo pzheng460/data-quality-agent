@@ -34,7 +34,18 @@ class LatexExtractor(Extractor):
                 title = tex_title
                 meta["title"] = title
 
-        text = _latexml_convert(raw, title)
+        # Map ingestion-side figure paths by name + stem for the preprocessor.
+        figure_paths: dict[str, str] = {}
+        for fig in meta.get("figures") or []:
+            p = fig.get("path")
+            name = fig.get("name")
+            if not p or not name:
+                continue
+            figure_paths[name] = p
+            stem = name.rsplit(".", 1)[0] if "." in name else name
+            figure_paths[stem] = p
+
+        text = _latexml_convert(raw, title, figure_paths=figure_paths)
         if text is None or len(text) < 200:
             return None
 
@@ -42,13 +53,14 @@ class LatexExtractor(Extractor):
         return doc
 
 
-def _latexml_convert(tex: str, title: str) -> str | None:
+def _latexml_convert(tex: str, title: str, figure_paths: dict[str, str] | None = None) -> str | None:
     """LaTeXML pipeline: preprocess → LaTeXML → html_to_markdown → restore."""
     import tempfile
     from dq.stages.extraction.preprocess import preprocess_tex, restore_placeholders
 
-    # Pre-process: extract environments LaTeXML can't handle
-    prep = preprocess_tex(tex)
+    # Pre-process: extract environments LaTeXML can't handle. Figure paths are
+    # plumbed through so \includegraphics{fname} resolves to on-disk images.
+    prep = preprocess_tex(tex, figure_paths=figure_paths)
     cleaned_tex = prep.tex
 
     try:

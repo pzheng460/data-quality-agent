@@ -27,8 +27,27 @@ const STAGES = [
   { stage: 'stage4_final', sub: '', label: 'S4 Final', color: 'blue' },
 ]
 
+// Rewrites backend-absolute image paths to the /api/image proxy so the browser can fetch them.
+// Extension-less stems (from \includegraphics{fig}) are left alone — the user sees the missing
+// image placeholder, which is actually useful feedback.
 function Md({ children }: { children: string }) {
-  return <article className="prose-article"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{children}</ReactMarkdown></article>
+  const imgComponent = ({ src, alt, ...rest }: any) => {
+    if (typeof src === 'string' && src.startsWith('/')) {
+      src = `/api/image?path=${encodeURIComponent(src)}`
+    }
+    return <img src={src} alt={alt} style={{ maxWidth: '100%', height: 'auto' }} {...rest} />
+  }
+  return (
+    <article className="prose-article">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        components={{ img: imgComponent }}
+      >
+        {children}
+      </ReactMarkdown>
+    </article>
+  )
 }
 
 /* ── DocDetail ── */

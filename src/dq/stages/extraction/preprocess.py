@@ -26,6 +26,7 @@ class PreprocessResult:
     placeholders: dict[str, str] = field(default_factory=dict)
     _counter: int = field(default=0, repr=False)
     _macros: dict = field(default_factory=dict, repr=False)
+    _figures: list = field(default_factory=list, repr=False)
 
     def add(self, content: str) -> str:
         """Register content, return placeholder tag."""
@@ -151,12 +152,98 @@ def _match_brace(text: str, pos: int) -> tuple[str | None, int]:
     return None, pos
 
 
-def preprocess_tex(tex: str) -> PreprocessResult:
+def extract_figures(tex: str, figure_paths: dict[str, str] | None = None) -> list[dict]:
+    r"""Find \begin{figure}...\end{figure} blocks and extract their components.
+
+    For each figure block, returns a dict with:
+      - graphics: list of \includegraphics filenames (stripped of path/ext)
+      - caption:  merged \caption{...} text (may be empty)
+      - label:    first \label{fig:...} inside the block (may be None)
+      - start:    char offset in input tex (for in-place replacement)
+      - end:      end offset
+      - resolved: best guess at on-disk path (if figure_paths maps stem->path)
+    """
+    figures: list[dict] = []
+    for m in re.finditer(
+        r"\\begin\{figure\*?\}(.*?)\\end\{figure\*?\}",
+        tex, re.DOTALL,
+    ):
+        body = m.group(1)
+        graphics = []
+        for g in re.finditer(r"\\includegraphics(?:\s*\[[^\]]*\])?\s*\{([^}]+)\}", body):
+            graphics.append(g.group(1).strip())
+        cap_m = re.search(r"\\caption\s*(?:\[[^\]]*\])?\s*\{(.*?)\}\s*(?:%|\n|$)", body, re.DOTALL)
+        caption = _clean_latex(cap_m.group(1)) if cap_m else ""
+        lab_m = re.search(r"\\label\s*\{(fig:[^}]+)\}", body)
+        label = lab_m.group(1) if lab_m else None
+
+        resolved: list[str] = []
+        fmap = figure_paths or {}
+        for g in graphics:
+            stem = _strip_ext(g)
+            hit = fmap.get(g) or fmap.get(stem)
+            if hit:
+                resolved.append(hit)
+
+        figures.append({
+            "start": m.start(), "end": m.end(),
+            "graphics": graphics, "caption": caption, "label": label,
+            "resolved_paths": resolved,
+        })
+    return figures
+
+
+def caption_escape(s: str) -> str:
+    """Escape characters that would break Markdown image alt text."""
+    return s.replace("]", "\\]").replace("[", "\\[").replace("\n", " ")
+
+
+def _strip_ext(name: str) -> str:
+    for ext in (".pdf", ".png", ".jpg", ".jpeg", ".eps", ".svg"):
+        if name.lower().endswith(ext):
+            return name[: -len(ext)]
+    return name
+
+
+def _clean_latex(s: str) -> str:
+    r"""Strip common LaTeX commands from short text like captions."""
+    s = re.sub(r"\\label\{[^}]*\}", "", s)
+    s = re.sub(r"\\ref\{[^}]*\}", "", s)
+    s = re.sub(r"\\cite\w*\{[^}]*\}", "", s)
+    s = re.sub(r"\\textbf\{([^}]*)\}", r"\1", s)
+    s = re.sub(r"\\textit\{([^}]*)\}", r"\1", s)
+    s = re.sub(r"\\emph\{([^}]*)\}", r"\1", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def preprocess_tex(tex: str, figure_paths: dict[str, str] | None = None) -> PreprocessResult:
     """Pre-process LaTeX to neutralize environments LaTeXML can't handle."""
     r = PreprocessResult(tex=tex)
 
     # ── 0. Extract user-defined macros for later expansion ──
     r._macros = _extract_macros(tex)
+
+    # ── 0a. Figure blocks → Markdown image references (before anything else) ──
+    # We do this BEFORE other passes so tikz-removal, algorithm extraction etc.
+    # don't eat our \includegraphics or \caption{}.
+    figures = extract_figures(r.tex, figure_paths=figure_paths)
+    # Process in reverse so slicing the string doesn't invalidate later offsets.
+    for fig in reversed(figures):
+        caption = fig["caption"]
+        # Pick the first resolved image path; fall back to literal graphics name.
+        if fig["resolved_paths"]:
+            ref = fig["resolved_paths"][0]
+        elif fig["graphics"]:
+            ref = fig["graphics"][0]
+        else:
+            ref = ""
+        if not ref:
+            continue
+        md = f"\n\n![{caption_escape(caption)}]({ref})\n\n"
+        tag = r.add(md)
+        r.tex = r.tex[: fig["start"]] + tag + r.tex[fig["end"] :]
+    # Stash figure metadata on the result so the extractor can attach it to doc.
+    r._figures = figures
 
     # ── 1. Algorithm blocks → parsed pseudocode ──
     from dq.stages.extraction.algorithm import extract_algorithms_from_tex
