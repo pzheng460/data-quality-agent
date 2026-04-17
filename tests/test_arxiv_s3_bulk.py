@@ -90,3 +90,62 @@ def test_source_requires_boto3(monkeypatch):
         next(gen)
 
 
+def test_figures_extracted_to_disk(tmp_path):
+    """save_figures=True writes image files + doc.metadata.figures has paths."""
+    from dq.stages.ingestion.arxiv_s3_bulk import _extract_tex_and_figures
+    from pathlib import Path
+
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+        for name, data in [
+            ("paper.tex", rb"\begin{document} body \end{document}"),
+            ("fig1.png", b"\x89PNG\r\n\x00" + b"x" * 50),
+            ("chart.pdf", b"%PDF-1.4\n" + b"y" * 50),
+            ("notes.bib", b"@article{foo,...}"),  # non-figure file, should be ignored
+        ]:
+            info = tarfile.TarInfo(name=name)
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+
+    out_dir = tmp_path / "arxiv_2310.12345"
+    tex, figs = _extract_tex_and_figures(buf.getvalue(), save_figures=True, out_dir=out_dir)
+    assert tex and r"\begin{document}" in tex
+    names = sorted(f["name"] for f in figs)
+    assert names == ["chart.pdf", "fig1.png"]
+    for f in figs:
+        assert Path(f["path"]).exists()
+        assert "bytes" not in f
+
+
+def test_figures_bytes_mode_no_disk_writes(tmp_path):
+    """save_figures=False → figures returned with 'bytes', nothing on disk."""
+    import io, tarfile
+    from dq.stages.ingestion.arxiv_s3_bulk import _extract_tex_and_figures
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+        for name, data in [
+            ("paper.tex", rb"\begin{document} body \end{document}"),
+            ("pic.jpg", b"\xff\xd8\xff img"),
+        ]:
+            info = tarfile.TarInfo(name=name); info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+    tex, figs = _extract_tex_and_figures(buf.getvalue(), save_figures=False)
+    assert tex
+    assert len(figs) == 1
+    assert figs[0]["name"] == "pic.jpg"
+    assert figs[0]["bytes"] == b"\xff\xd8\xff img"
+    assert not any(tmp_path.iterdir())  # nothing written
+
+
+def test_extract_tex_blob_still_works_without_figures():
+    """Back-compat: _extract_tex_blob returns just the LaTeX text."""
+    import io
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+        data = rb"\begin{document} hi \end{document}"
+        info = tarfile.TarInfo(name="main.tex"); info.size = len(data)
+        tf.addfile(info, io.BytesIO(data))
+    tex = _extract_tex_blob(buf.getvalue())
+    assert tex and "hi" in tex
+
+

@@ -68,14 +68,26 @@ class ArxivS3BulkSource(IngestSource):
                 "label": "Keep monthly tars after processing",
                 "default": False,
             },
+            "save_figures": {
+                "type": "bool",
+                "label": "Extract figures (png/jpg/pdf/eps) from paper tarballs",
+                "default": False,
+            },
+            "image_dir": {
+                "type": "string",
+                "label": "Where to save figures (default: <download_dir>/../images)",
+                "default": "",
+            },
         }
 
     def __init__(
         self,
-        full_archive: bool = False,
         months: list[str] | None = None,
+        full_archive: bool = False,
         download_dir: str = "/tmp/arxiv_s3_bulk",
         keep_tars: bool = False,
+        save_figures: bool = False,
+        image_dir: str | None = None,
         **_kwargs,
     ) -> None:
         self.full_archive = bool(full_archive)
@@ -83,6 +95,8 @@ class ArxivS3BulkSource(IngestSource):
         self.months = None if self.full_archive else (set(months) if months else None)
         self.download_dir = Path(download_dir)
         self.keep_tars = keep_tars
+        self.save_figures = bool(save_figures)
+        self.image_dir = Path(image_dir) if image_dir else self.download_dir.parent / "images"
 
     def fetch(self, limit: int = 0) -> Iterator[dict]:
         try:
@@ -160,8 +174,12 @@ class ArxivS3BulkSource(IngestSource):
         return out
 
     def _iter_papers(self, local_tar: Path, remaining: int) -> Iterator[dict]:
-        """Yield all papers inside a monthly bulk tar."""
-        local_tar_name = str(local_tar.name)
+        """Yield all papers inside a monthly bulk tar.
+
+        If self.save_figures is True, also extract image files (.png/.jpg/.pdf/.eps)
+        to {self.image_dir}/{arxiv_id}/ and attach their relative paths to the doc.
+        """
+        local_tar_name = local_tar.name
         with tarfile.open(local_tar, "r") as outer:
             seen = 0
             for member in outer:
@@ -175,17 +193,27 @@ class ArxivS3BulkSource(IngestSource):
                 fobj = outer.extractfile(member)
                 if fobj is None:
                     continue
-                tex = _extract_tex_blob(fobj.read())
+                raw = fobj.read()
+
+                tex, figures = _extract_tex_and_figures(
+                    raw,
+                    save_figures=self.save_figures,
+                    out_dir=(self.image_dir / arxiv_id.replace("/", "_")) if self.save_figures else None,
+                )
                 if not tex or len(tex) < 200:
                     continue
+
+                meta = {
+                    "arxiv_id": arxiv_id,
+                    "bulk_tar": local_tar_name,
+                }
+                if figures:
+                    meta["figures"] = figures
                 yield {
                     "id": f"arxiv_{arxiv_id}",
                     "text": tex,
                     "source": "arxiv_s3_bulk",
-                    "metadata": {
-                        "arxiv_id": arxiv_id,
-                        "bulk_tar": local_tar_name,
-                    },
+                    "metadata": meta,
                 }
                 seen += 1
 
@@ -226,33 +254,73 @@ def _parse_arxiv_id(member_name: str) -> str | None:
     return None
 
 
-def _extract_tex_blob(data: bytes) -> str | None:
-    """Single-paper blob → merged LaTeX string."""
-    # Try gzipped tarball (typical for multi-file submissions)
+# File extensions treated as figure assets inside an arxiv paper tarball.
+_FIGURE_EXTS = (".png", ".jpg", ".jpeg", ".pdf", ".eps", ".svg", ".gif")
+
+
+def _extract_tex_and_figures(
+    data: bytes,
+    *,
+    save_figures: bool = False,
+    out_dir: Path | None = None,
+) -> tuple[str | None, list[dict]]:
+    """Parse a single-paper blob → (merged LaTeX, list of figure metadata).
+
+    Figure metadata entries: {"name", "path", "bytes"}, with bytes only retained
+    in-memory; when save_figures=True, bytes are written to disk under out_dir
+    and the dict has {"name", "path"}.
+    """
+    figures: list[dict] = []
+
+    # Paper is typically a gzipped tarball containing .tex + figures.
     try:
         with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
             tex_files: dict[str, str] = {}
             for m in tar.getmembers():
-                if m.isfile() and m.name.endswith(".tex"):
+                if not m.isfile():
+                    continue
+                if m.name.endswith(".tex"):
                     f = tar.extractfile(m)
                     if f:
                         tex_files[m.name] = f.read().decode("utf-8", errors="replace")
+                elif m.name.lower().endswith(_FIGURE_EXTS):
+                    f = tar.extractfile(m)
+                    if not f:
+                        continue
+                    img_bytes = f.read()
+                    if not img_bytes:
+                        continue
+                    fig_name = os.path.basename(m.name)
+                    if save_figures and out_dir is not None:
+                        out_dir.mkdir(parents=True, exist_ok=True)
+                        dest = out_dir / fig_name
+                        with open(dest, "wb") as fp:
+                            fp.write(img_bytes)
+                        figures.append({"name": fig_name, "path": str(dest)})
+                    else:
+                        figures.append({"name": fig_name, "bytes": img_bytes, "size": len(img_bytes)})
             if tex_files:
-                return _merge_tex_files(tex_files)
+                return _merge_tex_files(tex_files), figures
     except (tarfile.TarError, OSError, gzip.BadGzipFile):
         pass
 
-    # Try single-file gzip (single .tex submission)
+    # Single-file gzip fallback (no figures possible).
     try:
-        return gzip.decompress(data).decode("utf-8", errors="replace")
+        return gzip.decompress(data).decode("utf-8", errors="replace"), []
     except OSError:
         pass
 
-    # Raw data (rare)
+    # Raw text fallback
     try:
-        return data.decode("utf-8", errors="replace")
+        return data.decode("utf-8", errors="replace"), []
     except Exception:
-        return None
+        return None, []
+
+
+def _extract_tex_blob(data: bytes) -> str | None:
+    """Back-compat shim: returns only the LaTeX text (drop figures)."""
+    tex, _ = _extract_tex_and_figures(data)
+    return tex
 
 
 def _merge_tex_files(tex_files: dict[str, str]) -> str:
