@@ -12,7 +12,15 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from dq.shared.shard import ShardWriter, read_shards
+from dq.shared.shard import (
+    ShardWriter,
+    SingleShardWriter,
+    read_shards,
+    read_shard,
+    list_shards,
+    is_shard_done,
+    mark_shard_done,
+)
 from dq.shared.stats import PhaseStats, PhaseTimer
 
 if TYPE_CHECKING:
@@ -70,9 +78,11 @@ def _extract_one(doc: dict, extractor_name: str) -> tuple[bool, dict]:
 
 
 def stage_extract(engine: PhaseEngine) -> PhaseStats:
-    """Convert raw format to clean text via registered extractors.
+    """Convert raw format to clean text. Shard-level resumable.
 
-    Parallelized with multiprocessing to overlap LaTeXML subprocess calls.
+    Processes one input shard at a time: reads docs → extracts in parallel →
+    writes matching output shards → drops `.done/<shard>` marker. A re-run
+    skips any input shard whose marker already exists.
     """
     stats = PhaseStats(phase="extraction")
 
@@ -82,34 +92,76 @@ def stage_extract(engine: PhaseEngine) -> PhaseStats:
     extractor_name = engine.extra_config.get("extraction", {}).get("extractor", "auto")
 
     input_dir = engine.stage_dir("stage1_ingested", "kept")
-    kept_dir = engine.stage_dir("stage2_extracted", "kept")
-    rejected_dir = engine.stage_dir("stage2_extracted", "rejected")
+    stage_output = engine.stage_dir("stage2_extracted")
+    kept_dir = stage_output / "kept"
+    rej_dir = stage_output / "rejected"
+    kept_dir.mkdir(parents=True, exist_ok=True)
+    rej_dir.mkdir(parents=True, exist_ok=True)
 
     workers = max(1, engine.workers)
-    logger.info("Extraction: %d worker(s), extractor=%s", workers, extractor_name)
+    shard_files = list_shards(input_dir)
+    logger.info("Extraction: %d worker(s), %d input shards, extractor=%s",
+                workers, len(shard_files), extractor_name)
 
-    with PhaseTimer(stats), \
-         ShardWriter(kept_dir, target_bytes=engine.shard_target_bytes) as kept_w, \
-         ShardWriter(rejected_dir, target_bytes=engine.shard_target_bytes) as rej_w:
-
-        def _record(kept: bool, doc: dict) -> None:
-            stats.input_count += 1
-            if kept:
-                kept_w.write(doc)
-                stats.output_count += 1
-            else:
-                doc["__dq_rejections"] = [{"filter": "extraction", "rule": "extraction_failed"}]
-                rej_w.write(doc)
-                stats.rejected_count += 1
-                stats.reject_reasons["extraction_failed"] = (
-                    stats.reject_reasons.get("extraction_failed", 0) + 1
-                )
-
+    with PhaseTimer(stats):
         from tqdm import tqdm
         fn = partial(_extract_one, extractor_name=extractor_name)
-        results_iter = engine.backend.map(fn, read_shards(input_dir), kind="cpu")
-        for kept, result in tqdm(results_iter, desc="extract", unit="doc"):
-            _record(kept, result)
+
+        # Partition input shards into done vs pending for clear progress reporting.
+        pending = [p for p in shard_files if not is_shard_done(stage_output, p.name)]
+        skipped = len(shard_files) - len(pending)
+        if skipped:
+            logger.info("extract: resuming — %d/%d shards already done, %d to go",
+                        skipped, len(shard_files), len(pending))
+
+        shard_bar = tqdm(pending, desc="extract (shards)", unit="shard",
+                         disable=not pending)
+        for shard_path in shard_bar:
+            name = shard_path.name
+            shard_bar.set_postfix_str(name)
+
+            kept_tmp = kept_dir / (name + ".part")
+            rej_tmp = rej_dir / (name + ".part")
+            local_in = local_kept = local_rej = 0
+
+            try:
+                with SingleShardWriter(kept_tmp) as kept_w, SingleShardWriter(rej_tmp) as rej_w:
+                    results_iter = engine.backend.map(fn, read_shard(shard_path), kind="cpu")
+                    # Nested per-doc bar; `leave=False` keeps the display tidy on completion.
+                    for kept, result in tqdm(results_iter, desc=f"  {name}",
+                                             unit="doc", leave=False):
+                        local_in += 1
+                        if kept:
+                            kept_w.write(result)
+                            local_kept += 1
+                        else:
+                            result["__dq_rejections"] = [{"filter": "extraction", "rule": "extraction_failed"}]
+                            rej_w.write(result)
+                            local_rej += 1
+            except BaseException:
+                for p in (kept_tmp, rej_tmp):
+                    if p.exists():
+                        try: p.unlink()
+                        except OSError: pass
+                raise
+
+            # Atomic rename → final shard
+            (kept_dir / name).unlink(missing_ok=True)
+            (rej_dir / name).unlink(missing_ok=True)
+            kept_tmp.rename(kept_dir / name)
+            rej_tmp.rename(rej_dir / name)
+
+            mark_shard_done(stage_output, name, {
+                "input": local_in, "kept": local_kept, "rejected": local_rej,
+            })
+
+            stats.input_count += local_in
+            stats.output_count += local_kept
+            stats.rejected_count += local_rej
+            if local_rej:
+                stats.reject_reasons["extraction_failed"] = (
+                    stats.reject_reasons.get("extraction_failed", 0) + local_rej
+                )
 
     return stats
 
@@ -139,23 +191,22 @@ def stage_curate(engine: PhaseEngine) -> PhaseStats:
     stats = PhaseStats(phase="curation")
 
     input_dir = engine.stage_dir("stage2_extracted", "kept")
-    kept_dir = engine.stage_dir("stage3_curated", "kept")
-    rejected_dir = engine.stage_dir("stage3_curated", "rejected")
+    stage_output = engine.stage_dir("stage3_curated")
+    kept_dir = stage_output / "kept"
+    rejected_dir = stage_output / "rejected"
+    filtered_dir = stage_output / "_filtered"  # intermediate after per-shard filter pass
+    filtered_dir.mkdir(parents=True, exist_ok=True)
 
     with PhaseTimer(stats):
-        docs = list(read_shards(input_dir))
-        stats.input_count = len(docs)
-        logger.info("Curation: %d docs from extraction", len(docs))
+        # 3a. Heuristic filters — shard-by-shard with resume markers
+        _run_filter_per_shard(engine, input_dir, filtered_dir, stats)
+
+        # Collect survivors for cross-shard phases (dedup, contamination, quality)
+        docs = list(read_shards(filtered_dir))
+        stats.input_count = max(stats.input_count, len(docs) + stats.rejected_count)
+        logger.info("Curation: %d docs after filter pass", len(docs))
 
         all_rejected: list[dict] = []
-
-        # 3a. Heuristic filters
-        docs, rejected = _substep_filter(engine, docs)
-        all_rejected.extend(rejected)
-        for doc in rejected:
-            for r in doc.get("__dq_rejections", []):
-                key = f"{r.get('filter', '?')}.{r.get('rule', '?')}"
-                stats.reject_reasons[key] = stats.reject_reasons.get(key, 0) + 1
 
         # 3b. Dedup
         docs, dedup_rejected = _substep_dedup(engine, docs)
@@ -199,6 +250,68 @@ def stage_curate(engine: PhaseEngine) -> PhaseStats:
 
 
 # ── Curation sub-steps ──
+
+
+def _run_filter_per_shard(engine, input_dir, filtered_dir, stats):
+    """Run heuristic filters per-shard with resume markers.
+
+    Writes surviving docs to `filtered_dir/shard-NNNNN.jsonl.zst` (no
+    kept/rejected split — rejected are stored under `_rejected/` for audit).
+    Drops markers in `filtered_dir/.done/`. Re-running skips completed shards.
+    """
+    from tqdm import tqdm
+
+    filter_configs = [{"name": fc.name, "params": fc.params}
+                      for fc in engine.config.filters if fc.enabled]
+    shard_files = list_shards(input_dir)
+    pending = [p for p in shard_files if not is_shard_done(filtered_dir, p.name)]
+    skipped = len(shard_files) - len(pending)
+    if skipped:
+        logger.info("curate.filter: resuming — %d/%d shards done", skipped, len(shard_files))
+    logger.info("curate.filter: %d input shards, %d to process", len(shard_files), len(pending))
+
+    # Per-shard rejected files live alongside _filtered/
+    rejected_dir = filtered_dir.parent / "_filter_rejected"
+    rejected_dir.mkdir(parents=True, exist_ok=True)
+
+    shard_bar = tqdm(total=len(pending), desc="curate filters", unit="shard",
+                    leave=True, disable=not pending)
+    for shard_path in pending:
+        name = shard_path.name
+        shard_bar.set_postfix_str(name)
+        chunk = list(read_shard(shard_path))
+        kept, rejected, _ = _filter_chunk(chunk, filter_configs, engine.config.text_field)
+
+        kept_tmp = filtered_dir / (name + ".part")
+        rej_tmp = rejected_dir / (name + ".part")
+        try:
+            with SingleShardWriter(kept_tmp) as w:
+                for d in kept:
+                    w.write(d)
+            with SingleShardWriter(rej_tmp) as w:
+                for d in rejected:
+                    w.write(d)
+        except BaseException:
+            for p in (kept_tmp, rej_tmp):
+                if p.exists():
+                    try: p.unlink()
+                    except OSError: pass
+            raise
+        (filtered_dir / name).unlink(missing_ok=True)
+        (rejected_dir / name).unlink(missing_ok=True)
+        kept_tmp.rename(filtered_dir / name)
+        rej_tmp.rename(rejected_dir / name)
+        mark_shard_done(filtered_dir, name, {
+            "input": len(chunk), "kept": len(kept), "rejected": len(rejected),
+        })
+        # stats accumulator
+        for doc in rejected:
+            for r in doc.get("__dq_rejections", []):
+                key = f"{r.get('filter', '?')}.{r.get('rule', '?')}"
+                stats.reject_reasons[key] = stats.reject_reasons.get(key, 0) + 1
+        stats.rejected_count += len(rejected)
+        shard_bar.update(1)
+    shard_bar.close()
 
 
 def _filter_chunk(chunk, filter_configs, text_field):
@@ -256,17 +369,23 @@ def _substep_filter(engine, docs):
 
 
 def _substep_quality_score(engine, docs, quality_cfg):
-    """LLM quality judge — scores each doc HIGH/LOW, rejects LOW when min_quality="high".
+    """Quality scoring substep.
 
-    Runs LLM calls in parallel via ThreadPoolExecutor (IO-bound).
+    Supports two methods:
+      method: "llm"        — LLMJudge (slow, accurate, expensive)
+      method: "classifier" — local FineWeb-Edu classifier (fast, cheap, good-enough for scale)
 
     Config keys (quality_scoring):
-        enabled: bool
-        method: "llm" (only option currently)
-        sample_size: 0 = judge all docs; N = judge only N random docs (others pass-through)
-        min_quality: "high" | "low" — drop docs judged below this
-        workers: int — parallel API calls (default 8)
-        max_chars: int — truncate each doc to this many chars before sending (default 3000)
+        enabled:        bool
+        method:         "llm" | "classifier"
+        sample_size:    0 = score all docs; N = score N random docs, others pass through
+        min_quality:    "high" | "low" — drops docs judged "low"   (LLM mode)
+        min_score:      float  — drops docs with score < min_score (classifier mode, 0..5)
+        workers:        int    — parallel LLM API calls (LLM mode only, default 8)
+        max_chars:      int    — truncate before scoring (default 3000)
+        model:          str    — HF model name for classifier (classifier mode, default fineweb-edu)
+        device:         "auto" | "cpu" | "cuda" (classifier mode)
+        batch_size:     int    — classifier batch size (default 32)
 
     Returns:
         (kept, rejected): both are lists of doc dicts.
@@ -277,7 +396,13 @@ def _substep_quality_score(engine, docs, quality_cfg):
     workers = int(quality_cfg.get("workers", 8))
     max_chars = int(quality_cfg.get("max_chars", 3000))
 
-    if method != "llm" or not docs:
+    if not docs:
+        return docs, []
+
+    if method == "classifier":
+        return _classifier_score(docs, quality_cfg, max_chars, sample_size=int(quality_cfg.get("sample_size", 0)))
+
+    if method != "llm":
         return docs, []
 
     # Decide which docs to judge. Un-sampled docs pass through un-judged.
@@ -330,6 +455,66 @@ def _substep_quality_score(engine, docs, quality_cfg):
             kept.append(doc)
 
     logger.info("LLM judge: %d kept, %d rejected", len(kept), len(rejected))
+    return kept, rejected
+
+
+def _classifier_score(docs, quality_cfg, max_chars, sample_size):
+    """Classifier-based quality scoring (FineWeb-Edu by default)."""
+    model_name = quality_cfg.get("model") or "HuggingFaceFW/fineweb-edu-classifier"
+    device = quality_cfg.get("device", "auto")
+    batch_size = int(quality_cfg.get("batch_size", 32))
+    min_score = float(quality_cfg.get("min_score", 3.0))
+
+    try:
+        from dq.model_filters.fineweb_edu_classifier import get_classifier
+        clf = get_classifier(model_name=model_name, device=device, batch_size=batch_size)
+    except Exception as e:
+        logger.warning("Classifier unavailable, skipping quality scoring: %s", e)
+        return docs, []
+
+    # Subsample if configured
+    import random
+    if sample_size := int(sample_size or 0):
+        if sample_size < len(docs):
+            to_score = set(random.sample(range(len(docs)), sample_size))
+        else:
+            to_score = set(range(len(docs)))
+    else:
+        to_score = set(range(len(docs)))
+
+    # Score in order so text indices match back
+    ordered_texts: list[str] = []
+    ordered_idx: list[int] = []
+    for i, doc in enumerate(docs):
+        if i in to_score:
+            ordered_idx.append(i)
+            ordered_texts.append((doc.get("text") or "")[: int(quality_cfg.get("max_chars", max_chars))])
+
+    logger.info("Classifier %s: scoring %d/%d docs (batch=%d)", model_name, len(ordered_texts), len(docs), batch_size)
+    scores = clf.score_batch(ordered_texts) if ordered_texts else []
+
+    score_by_idx: dict[int, float] = {idx: s for idx, s in zip(ordered_idx, scores)}
+
+    kept, rejected = [], []
+    for i, doc in enumerate(docs):
+        if i not in score_by_idx:
+            kept.append(doc)
+            continue
+        s = score_by_idx[i]
+        doc.setdefault("quality_scores", {})[model_name] = round(s, 3)
+        if s < min_score:
+            doc["__dq_rejections"] = doc.get("__dq_rejections", []) + [{
+                "filter": "classifier",
+                "rule": f"below_{min_score}",
+                "value": round(s, 3),
+                "threshold": min_score,
+            }]
+            rejected.append(doc)
+        else:
+            kept.append(doc)
+
+    logger.info("Classifier: kept %d rejected %d (min_score=%.2f)",
+                len(kept), len(rejected), min_score)
     return kept, rejected
 
 

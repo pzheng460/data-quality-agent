@@ -82,12 +82,18 @@ arxiv:
     preview_length: 500
 
   quality_scoring:
-    enabled: false        # set true to enable LLM judge after dedup+contamination
-    method: llm           # only "llm" supported today
-    sample_size: 0        # 0 = judge every surviving doc; N = judge N random docs
-    min_quality: high     # "high" rejects LOW-scored docs; "low" keeps all, only tags
+    enabled: false        # opt-in; runs after dedup/contamination
+    method: llm           # "llm" (LLM judge) or "classifier" (local BERT)
+    # LLM judge knobs (when method=llm)
+    sample_size: 0        # 0 = score every surviving doc; N = score N random docs
+    min_quality: high     # "high" rejects LOW-scored docs; "low" keeps all (tag only)
     workers: 8            # concurrent LLM API calls
     max_chars: 3000       # truncate each doc before sending
+    # Classifier knobs (when method=classifier, fineweb-edu by default)
+    model: HuggingFaceFW/fineweb-edu-classifier
+    min_score: 3.0        # keep docs with score >= this (0..5 scale)
+    device: auto          # "auto" | "cpu" | "cuda"
+    batch_size: 32
 
   phase3:
     version_dedup: true

@@ -107,17 +107,123 @@ def read_shards(directory: Path) -> Iterator[dict]:
     if not directory.exists():
         return
 
-    shard_files = sorted(directory.glob("*.jsonl.zst"))
-    if not shard_files:
-        shard_files = sorted(directory.glob("*.jsonl"))
+    for path in list_shards(directory):
+        yield from read_shard(path)
 
-    for path in shard_files:
-        if path.name.endswith(".jsonl.zst"):
-            from dq.utils.io import read_jsonl_zst
-            yield from read_jsonl_zst(path)
-        else:
-            from dq.utils.io import read_jsonl
-            yield from read_jsonl(path)
+
+def list_shards(directory: Path) -> list[Path]:
+    """Return sorted list of shard files in a directory (jsonl.zst preferred)."""
+    directory = Path(directory)
+    if not directory.exists():
+        return []
+    shards = sorted(directory.glob("*.jsonl.zst"))
+    if not shards:
+        shards = sorted(directory.glob("*.jsonl"))
+    return shards
+
+
+def read_shard(path: Path) -> Iterator[dict]:
+    """Read a single shard file (jsonl or jsonl.zst)."""
+    path = Path(path)
+    if path.name.endswith(".jsonl.zst"):
+        from dq.utils.io import read_jsonl_zst
+        yield from read_jsonl_zst(path)
+    else:
+        from dq.utils.io import read_jsonl
+        yield from read_jsonl(path)
+
+
+# ── Shard-level resume markers ──────────────────────────────────────────
+#
+# A "done" marker is written when a worker has finished processing an input
+# shard and its corresponding output shard(s) have been flushed to disk. On
+# restart, inputs with a done marker are skipped.
+
+def _marker_dir(stage_output_dir: Path) -> Path:
+    return Path(stage_output_dir) / ".done"
+
+
+def shard_marker_path(stage_output_dir: Path, input_shard_name: str) -> Path:
+    """Path of the done marker for a given input shard inside a stage's output."""
+    return _marker_dir(stage_output_dir) / input_shard_name
+
+
+def is_shard_done(stage_output_dir: Path, input_shard_name: str) -> bool:
+    return shard_marker_path(stage_output_dir, input_shard_name).exists()
+
+
+def mark_shard_done(stage_output_dir: Path, input_shard_name: str,
+                    meta: dict | None = None) -> None:
+    """Write a done marker. Optionally record per-shard stats."""
+    marker = shard_marker_path(stage_output_dir, input_shard_name)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(json.dumps(meta or {}, ensure_ascii=False))
+
+
+def clear_shard_markers(stage_output_dir: Path) -> None:
+    """Remove all done markers (used on --no-resume / --force)."""
+    d = Path(stage_output_dir) / ".done"
+    if d.exists():
+        for f in d.iterdir():
+            f.unlink()
+
+
+class SingleShardWriter:
+    """Write every doc to one named shard, no auto-rotation.
+
+    Use this for shard-level pipelines: 1 input shard → 1 output shard.
+    Unlike ShardWriter, this never rotates — the output path is fixed.
+    Crashes leave a partial file that the resume logic treats as "not done"
+    (the .done marker is only written after successful close).
+    """
+
+    def __init__(self, output_path: Path, zstd_level: int = 3):
+        self.output_path = Path(output_path)
+        self.output_path.parent.mkdir(parents=True, exist_ok=True)
+        self.zstd_level = zstd_level
+        self._fh = None
+        self._writer = None
+        self._bytes = 0
+        self._docs = 0
+        self._hash = hashlib.sha256()
+
+    def __enter__(self):
+        self._fh = open(self.output_path, "wb")
+        self._writer = zstd.ZstdCompressor(level=self.zstd_level).stream_writer(self._fh)
+        return self
+
+    def write(self, doc: dict) -> None:
+        line = json.dumps(doc, ensure_ascii=False) + "\n"
+        encoded = line.encode("utf-8")
+        self._writer.write(encoded)
+        self._hash.update(encoded)
+        self._bytes += len(encoded)
+        self._docs += 1
+
+    def close(self) -> None:
+        if self._writer is not None:
+            self._writer.close()
+            self._writer = None
+        if self._fh is not None:
+            self._fh.close()
+            self._fh = None
+
+    def __exit__(self, exc_type, *_):
+        self.close()
+        # If the caller raised, drop the partial file so resume re-processes it.
+        if exc_type is not None and self.output_path.exists():
+            try:
+                self.output_path.unlink()
+            except OSError:
+                pass
+
+    @property
+    def num_docs(self) -> int:
+        return self._docs
+
+    @property
+    def sha256(self) -> str:
+        return self._hash.hexdigest()
 
 
 def write_manifest(output_dir: Path, shard_info: list[dict], version: str = "") -> None:
